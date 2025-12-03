@@ -41,7 +41,10 @@ const isPasswordVisible = ref(false)
             class="d-flex"
             v-html="logo"
           />
-          <h2 class="font-weight-medium text-2xl text-uppercase" style='font-family: Gyrochrome, sans-serif;'>
+          <h2
+            class="font-weight-medium text-2xl text-uppercase"
+            style="font-family: Gyrochrome, sans-serif;"
+          >
             Kronos Admin
           </h2>
         </RouterLink>
@@ -49,7 +52,7 @@ const isPasswordVisible = ref(false)
 
       <VCardText class="pt-2">
         <p class="mb-0">
-            Por favor, inicia sesión en tu cuenta.
+          Por favor, inicia sesión en tu cuenta.
         </p>
       </VCardText>
 
@@ -88,7 +91,7 @@ const isPasswordVisible = ref(false)
                   class="text-primary"
                   href="javascript:void(0)"
                 >
-                    ¿Olvidaste tu contraseña?
+                  ¿Olvidaste tu contraseña?
                 </a>
               </div>
 
@@ -107,7 +110,7 @@ const isPasswordVisible = ref(false)
               cols="12"
               class="text-center text-base"
             >
-                <span>¿Nuevo en nuestra plataforma?</span>
+              <span>¿Nuevo en nuestra plataforma?</span>
               <RouterLink
                 class="text-primary ms-2"
                 to="/register"
@@ -117,21 +120,21 @@ const isPasswordVisible = ref(false)
             </VCol>
 
             <!--
-            <VCol
+              <VCol
               cols="12"
               class="d-flex align-center"
-            >
+              >
               <VDivider />
               <span class="mx-4">or</span>
               <VDivider />
-            </VCol>
+              </VCol>
 
-            <VCol
+              <VCol
               cols="12"
               class="text-center"
-            >
+              >
               <AuthProvider />
-            </VCol>
+              </VCol>
             -->
           </VRow>
         </VForm>

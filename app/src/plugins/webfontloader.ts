@@ -12,7 +12,7 @@ export async function loadFonts() {
       api: 'https://fonts.googleapis.com/css2?family=Momo+Trust+Display&display=swap',
       families: [
         'Inter:wght@300;400;500;600;700;900&display=swap',
-        'Momo Trust Display":wght@400;500;600;700&display=swap'
+        'Momo Trust Display":wght@400;500;600;700&display=swap',
       ],
     },
   })

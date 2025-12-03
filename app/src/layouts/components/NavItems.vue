@@ -1,10 +1,9 @@
 <script lang="ts" setup>
-import VerticalNavLink from '@layouts/components/VerticalNavLink.vue';
-import VerticalNavSectionTitle from '@layouts/components/VerticalNavSectionTitle.vue';
+import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
+import VerticalNavSectionTitle from '@layouts/components/VerticalNavSectionTitle.vue'
 </script>
 
 <template>
-
   <VerticalNavSectionTitle
     :item="{
       heading: 'Miembros',

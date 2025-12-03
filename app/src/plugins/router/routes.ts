@@ -32,6 +32,22 @@ export const routes = [
         path: 'form-layouts',
         component: () => import('@/pages/form-layouts.vue'),
       },
+      {
+        path: 'clases-muestra/registro',
+        component: () => import('@/pages/trial-class-registration.vue'),
+      },
+      {
+        path: 'miembros/registro',
+        component: () => import('@/pages/member-registration.vue'),
+      },
+      {
+        path: 'miembros/:id',
+        component: () => import('@/pages/member-registration.vue'),
+      },
+      {
+        path: 'miembros',
+        component: () => import('@/pages/members.vue'),
+      },
     ],
   },
   {

@@ -2,10 +2,12 @@
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import MetricCard from '@/components/kronos/MetricCard.vue'
 import EmptyState from '@/components/kronos/EmptyState.vue'
+import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
 import { useCommerceStore } from '@/stores/commerce'
 import { useAthletesStore } from '@/stores/athletes'
 import { useNotificationsStore } from '@/stores/notifications'
-import type { PaymentMethod, Product, Sale, SaleItem } from '@/types/domain'
+import type { PaymentMethod, Product, Sale, SaleItem, SalePayment } from '@/types/domain'
+import { buildSalePaymentReceipt, buildSaleReceipt, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 
 const commerce = useCommerceStore()
@@ -17,6 +19,8 @@ const saving = ref(false)
 const productDialog = ref(false)
 const stockDialog = ref(false)
 const paymentDialog = ref(false)
+const receiptDialog = ref(false)
+const activeReceipt = ref<ReceiptData | null>(null)
 const editingProduct = ref<Product | null>(null)
 const selectedProductId = ref('')
 const selectedQuantity = ref(1)
@@ -33,6 +37,18 @@ const inventoryValue = computed(() => commerce.products.reduce((sum, item) => su
 const outstanding = computed(() => commerce.openCredit.reduce((sum, sale) => sum + saleBalance(sale), 0))
 const recentSales = computed(() => [...commerce.sales].sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt)).slice(0, 20))
 const customerName = (sale: Sale) => athletes.items.find(item => item.id === sale.athleteId)?.profile.name ?? sale.customerName
+const athleteForSale = (sale: Sale) => athletes.items.find(item => item.id === sale.athleteId)
+const salePayments = (sale: Sale) => Object.values(sale.payments ?? {}).sort((a, b) => timestampValue(b.appliedAt) - timestampValue(a.appliedAt))
+
+function showSaleReceipt(sale: Sale) {
+  activeReceipt.value = buildSaleReceipt(sale, athleteForSale(sale))
+  receiptDialog.value = true
+}
+
+function showPaymentReceipt(sale: Sale, payment: SalePayment) {
+  activeReceipt.value = buildSalePaymentReceipt(sale, payment, athleteForSale(sale))
+  receiptDialog.value = true
+}
 
 watch(() => route.query.tab, requestedTab => {
   if (requestedTab === 'credit' || requestedTab === 'inventory' || requestedTab === 'sales' || requestedTab === 'pos')
@@ -76,16 +92,21 @@ async function completeSale() {
   }
   saving.value = true
   try {
-    const paymentId = `initial-${Date.now()}`
-    await commerce.createSale({
+    const createdAt = Date.now()
+    const paymentId = `initial-${createdAt}`
+    const payments = initialPayment > 0 ? { [paymentId]: { id: paymentId, amountApplied: initialPayment, method: saleForm.method, receivedAmount: initialPayment, changeGiven: 0, appliedAt: createdAt } } : {}
+    const salePayload = {
       athleteId: saleForm.athleteId || null,
       customerName: saleForm.customerName.trim(),
       items: cart.value,
       total,
       status: initialPayment >= total ? 'paid' : 'credit',
-      payments: initialPayment > 0 ? { [paymentId]: { id: paymentId, amountApplied: initialPayment, method: saleForm.method, receivedAmount: initialPayment, changeGiven: 0, appliedAt: Date.now() } } : {},
-    })
+      payments,
+    } as const
+    const saleId = await commerce.createSale(salePayload)
+    const createdSale: Sale = { ...salePayload, id: saleId, createdAt, updatedAt: createdAt }
     notifications.show(initialPayment >= total ? 'Venta cobrada y existencias actualizadas.' : 'Venta a crédito registrada.')
+    showSaleReceipt(createdSale)
     cart.value = {}
     Object.assign(saleForm, { athleteId: '', customerName: '', method: 'cash', initialPayment: 0 })
   }
@@ -138,9 +159,10 @@ async function applyPayment() {
     return notifications.show('El abono excede el saldo o no es válido.', 'warning')
   saving.value = true
   try {
-    await commerce.addPayment(sale.id, amount, paymentForm.method, Number(paymentForm.received || amount), Math.max(0, Number(paymentForm.received || amount) - amount))
+    const result = await commerce.addPayment(sale.id, amount, paymentForm.method, Number(paymentForm.received || amount), Math.max(0, Number(paymentForm.received || amount) - amount))
     notifications.show('Abono aplicado al saldo correcto.')
     paymentDialog.value = false
+    showPaymentReceipt(result.sale, result.payment)
   }
   catch (error) { notifications.show(error instanceof Error ? error.message : 'No se pudo aplicar el abono.', 'error') }
   finally { saving.value = false }
@@ -170,12 +192,13 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose() })
 
     <VWindowItem value="inventory"><VCard class="kronos-card" rounded="xl"><VTable v-if="commerce.products.length" class="text-no-wrap"><thead><tr><th>PRODUCTO</th><th>CATEGORÍA</th><th>STOCK</th><th>COSTO</th><th>PRECIO</th><th></th></tr></thead><tbody><tr v-for="product in commerce.products" :key="product.id"><td><strong>{{ product.name }}</strong><div class="text-caption text-medium-emphasis">{{ product.size || 'Sin talla' }}</div></td><td>{{ product.category }}</td><td><VChip size="small" :color="product.stock <= product.alertLevel ? 'warning' : 'success'">{{ product.stock }}</VChip></td><td>{{ formatCurrency(product.unitCost) }}</td><td>{{ formatCurrency(product.salePrice) }}</td><td class="text-end"><VBtn icon="ri-add-box-line" variant="text" @click="openStock(product)" /><VBtn icon="ri-edit-line" variant="text" @click="openProduct(product)" /></td></tr></tbody></VTable><EmptyState v-else icon="ri-archive-line" title="Sin inventario" description="Crea el primer producto de la tienda." /></VCard></VWindowItem>
 
-    <VWindowItem value="credit"><VCard class="kronos-card" rounded="xl"><VTable v-if="commerce.openCredit.length" class="text-no-wrap"><thead><tr><th>CLIENTE</th><th>FECHA</th><th>TOTAL</th><th>ABONADO</th><th>SALDO</th><th></th></tr></thead><tbody><tr v-for="sale in commerce.openCredit" :key="sale.id"><td>{{ customerName(sale) }}</td><td>{{ formatDate(sale.createdAt) }}</td><td>{{ formatCurrency(sale.total) }}</td><td>{{ formatCurrency(saleAppliedAmount(sale)) }}</td><td><strong class="text-error">{{ formatCurrency(saleBalance(sale)) }}</strong></td><td><VBtn size="small" @click="openPayment(sale)">Aplicar abono</VBtn></td></tr></tbody></VTable><EmptyState v-else icon="ri-checkbox-circle-line" title="Sin saldos pendientes" description="Todas las ventas registradas están liquidadas." /></VCard></VWindowItem>
+    <VWindowItem value="credit"><VCard class="kronos-card" rounded="xl"><VTable v-if="commerce.openCredit.length" class="text-no-wrap"><thead><tr><th>CLIENTE</th><th>FECHA</th><th>TOTAL</th><th>ABONADO</th><th>SALDO</th><th></th></tr></thead><tbody><tr v-for="sale in commerce.openCredit" :key="sale.id"><td>{{ customerName(sale) }}</td><td>{{ formatDate(sale.createdAt) }}</td><td>{{ formatCurrency(sale.total) }}</td><td>{{ formatCurrency(saleAppliedAmount(sale)) }}</td><td><strong class="text-error">{{ formatCurrency(saleBalance(sale)) }}</strong></td><td class="d-flex ga-1"><VMenu><template #activator="{ props }"><VBtn v-bind="props" size="small" variant="tonal" prepend-icon="ri-receipt-line">Recibos</VBtn></template><VList><VListItem title="Recibo de venta" prepend-icon="ri-shopping-bag-3-line" @click="showSaleReceipt(sale)" /><VListItem v-for="payment in salePayments(sale)" :key="payment.id" :title="`Abono ${formatCurrency(payment.amountApplied)}`" :subtitle="formatDate(payment.appliedAt)" prepend-icon="ri-hand-coin-line" @click="showPaymentReceipt(sale, payment)" /></VList></VMenu><VBtn size="small" @click="openPayment(sale)">Aplicar abono</VBtn></td></tr></tbody></VTable><EmptyState v-else icon="ri-checkbox-circle-line" title="Sin saldos pendientes" description="Todas las ventas registradas están liquidadas." /></VCard></VWindowItem>
 
-    <VWindowItem value="sales"><VCard class="kronos-card" rounded="xl"><VTable v-if="recentSales.length" class="text-no-wrap"><thead><tr><th>FECHA</th><th>CLIENTE</th><th>TOTAL</th><th>ESTADO</th><th></th></tr></thead><tbody><tr v-for="sale in recentSales" :key="sale.id"><td>{{ formatDate(sale.createdAt) }}</td><td>{{ customerName(sale) }}</td><td>{{ formatCurrency(sale.total) }}</td><td><VChip size="small" :color="sale.status === 'paid' ? 'success' : sale.status === 'credit' ? 'warning' : 'error'">{{ sale.status === 'paid' ? 'Pagada' : sale.status === 'credit' ? 'Crédito' : 'Cancelada' }}</VChip></td><td><VBtn v-if="sale.status !== 'cancelled'" icon="ri-close-circle-line" color="error" variant="text" @click="cancelSale(sale)" /></td></tr></tbody></VTable><EmptyState v-else icon="ri-receipt-line" title="Sin ventas" description="Las ventas completadas aparecerán aquí." /></VCard></VWindowItem>
+    <VWindowItem value="sales"><VCard class="kronos-card" rounded="xl"><VTable v-if="recentSales.length" class="text-no-wrap"><thead><tr><th>FECHA</th><th>CLIENTE</th><th>TOTAL</th><th>ESTADO</th><th></th></tr></thead><tbody><tr v-for="sale in recentSales" :key="sale.id"><td>{{ formatDate(sale.createdAt) }}</td><td>{{ customerName(sale) }}</td><td>{{ formatCurrency(sale.total) }}</td><td><VChip size="small" :color="sale.status === 'paid' ? 'success' : sale.status === 'credit' ? 'warning' : 'error'">{{ sale.status === 'paid' ? 'Pagada' : sale.status === 'credit' ? 'Crédito' : 'Cancelada' }}</VChip></td><td><VMenu><template #activator="{ props }"><VBtn v-bind="props" icon="ri-receipt-line" variant="text" title="Recibos" /></template><VList><VListItem title="Recibo de venta" prepend-icon="ri-shopping-bag-3-line" @click="showSaleReceipt(sale)" /><VListItem v-for="payment in salePayments(sale)" :key="payment.id" :title="`Abono ${formatCurrency(payment.amountApplied)}`" :subtitle="formatDate(payment.appliedAt)" prepend-icon="ri-hand-coin-line" @click="showPaymentReceipt(sale, payment)" /></VList></VMenu><VBtn v-if="sale.status !== 'cancelled'" icon="ri-close-circle-line" color="error" variant="text" @click="cancelSale(sale)" /></td></tr></tbody></VTable><EmptyState v-else icon="ri-receipt-line" title="Sin ventas" description="Las ventas completadas aparecerán aquí." /></VCard></VWindowItem>
   </VWindow>
 
   <VDialog v-model="productDialog" max-width="650"><VCard rounded="xl"><VCardTitle class="pa-6">{{ editingProduct ? 'Editar producto' : 'Nuevo producto' }}</VCardTitle><VCardText><VRow><VCol cols="12" md="7"><VTextField v-model="productForm.name" label="Nombre" /></VCol><VCol cols="12" md="5"><VTextField v-model="productForm.category" label="Categoría" /></VCol><VCol cols="12" md="4"><VTextField v-model="productForm.size" label="Talla / variante" /></VCol><VCol cols="12" md="4"><VTextField v-model.number="productForm.stock" type="number" min="0" label="Stock" /></VCol><VCol cols="12" md="4"><VTextField v-model.number="productForm.alertLevel" type="number" min="0" label="Alerta" /></VCol><VCol cols="12" md="6"><VTextField v-model.number="productForm.unitCost" type="number" min="0" label="Costo" prefix="$" /></VCol><VCol cols="12" md="6"><VTextField v-model.number="productForm.salePrice" type="number" min="0" label="Precio" prefix="$" /></VCol></VRow></VCardText><VCardActions class="pa-6 pt-0"><VSpacer /><VBtn variant="text" @click="productDialog=false">Cancelar</VBtn><VBtn :loading="saving" @click="saveProduct">Guardar</VBtn></VCardActions></VCard></VDialog>
   <VDialog v-model="stockDialog" max-width="430"><VCard rounded="xl"><VCardTitle class="pa-6">Entrada de inventario</VCardTitle><VCardText><p class="mb-4">{{ stockForm.product?.name }}</p><VTextField v-model.number="stockForm.quantity" type="number" min="1" label="Unidades a agregar" /></VCardText><VCardActions class="pa-6 pt-0"><VSpacer /><VBtn variant="text" @click="stockDialog=false">Cancelar</VBtn><VBtn :loading="saving" @click="saveStock">Aplicar</VBtn></VCardActions></VCard></VDialog>
   <VDialog v-model="paymentDialog" max-width="480"><VCard rounded="xl"><VCardTitle class="pa-6">Aplicar abono</VCardTitle><VCardText><VAlert type="info" variant="tonal" class="mb-5">Saldo actual: {{ formatCurrency(paymentForm.sale ? saleBalance(paymentForm.sale) : 0) }}</VAlert><VTextField v-model.number="paymentForm.amount" type="number" min="0" label="Monto aplicado" prefix="$" /><VSelect v-model="paymentForm.method" :items="[{title:'Efectivo',value:'cash'},{title:'Transferencia',value:'transfer'},{title:'Tarjeta',value:'card'},{title:'Otro',value:'other'}]" label="Método" /><VTextField v-if="paymentForm.method === 'cash'" v-model.number="paymentForm.received" type="number" min="0" label="Efectivo recibido" prefix="$" /></VCardText><VCardActions class="pa-6 pt-0"><VSpacer /><VBtn variant="text" @click="paymentDialog=false">Cancelar</VBtn><VBtn :loading="saving" @click="applyPayment">Aplicar</VBtn></VCardActions></VCard></VDialog>
+  <ReceiptDialog v-model="receiptDialog" :receipt="activeReceipt" />
 </template>

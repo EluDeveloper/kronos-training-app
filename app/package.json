@@ -23,7 +23,7 @@
     "@vueuse/math": "^10.11.1",
     "apexcharts": "^3.54.1",
     "firebase": "^12.1.0",
-    "jspdf": "^3.0.3",
+    "jspdf": "^4.2.1",
     "pinia": "^2.3.0",
     "prismjs": "^1.29.0",
     "roboto-fontface": "^0.10.0",

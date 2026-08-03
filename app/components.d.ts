@@ -20,6 +20,7 @@ declare module 'vue' {
     ModulePlaceholder: typeof import('./src/components/kronos/ModulePlaceholder.vue')['default']
     MoreBtn: typeof import('./src/@core/components/MoreBtn.vue')['default']
     PageHeader: typeof import('./src/components/kronos/PageHeader.vue')['default']
+    ReceiptDialog: typeof import('./src/components/kronos/ReceiptDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ThemeSwitcher: typeof import('./src/@core/components/ThemeSwitcher.vue')['default']

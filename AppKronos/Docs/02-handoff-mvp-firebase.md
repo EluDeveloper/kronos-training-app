@@ -370,7 +370,7 @@ Verificación completada:
 - La versión publicada se recargó después de activar enforcement: mostró el dashboard sincronizado y no produjo errores ni advertencias de consola.
 - La prueba responsiva se ejecutó en 390×844, 1024×768 y 1440×900 sin desbordamiento horizontal.
 
-### Fase 7 — Dashboard accionable y recibos — EN PROGRESO
+### Fase 7 — Dashboard accionable y recibos — LIBERADA 2026-08-03
 
 #### Fase 7A — Reporte anual y acciones del mes — LIBERADA 2026-08-03
 
@@ -390,26 +390,41 @@ Verificación de liberación:
 - Se verificó en producción una mensualidad vencida: la acción Cobrar navegó a `/pagos` y abrió el formulario con el periodo preparado.
 - La consola de producción no registró errores ni advertencias durante la prueba.
 
-#### Fase 7B — Recibos operativos — PENDIENTE
+#### Fase 7B — Recibos operativos — LIBERADA 2026-08-03
 
-- [ ] Generar recibos de mensualidades.
-- [ ] Generar recibos de ventas.
-- [ ] Generar recibos de abonos.
-- [ ] Regenerar recibos desde los historiales.
-- [ ] Conservar folio, fecha, concepto, método, monto y saldo en la representación del recibo.
+- [x] Generar recibos de mensualidades.
+- [x] Generar recibos de ventas.
+- [x] Generar recibos de abonos.
+- [x] Regenerar recibos desde los historiales.
+- [x] Conservar folio, fecha, concepto, método, monto y saldo en la representación del recibo.
 
-#### Fase 7C — PDF, impresión y WhatsApp — PENDIENTE
+Verificación de liberación:
 
-- [ ] Crear diseño de recibo con identidad Kronos.
-- [ ] Descargar el recibo como PDF.
-- [ ] Imprimir el recibo.
-- [ ] Compartir el PDF mediante Web Share API cuando el dispositivo lo permita.
-- [ ] Abrir WhatsApp con destinatario y mensaje preparados como alternativa.
-- [ ] Validar el PDF renderizado y probar la liberación en producción.
+- Al aplicar una mensualidad, completar una venta o registrar un abono se prepara el recibo correspondiente sin duplicar movimientos financieros.
+- Los historiales de mensualidades y ventas permiten regenerar recibos; cada pago de una venta tiene su propio recibo de abono.
+- Los folios usan prefijos `MEM`, `VEN` y `ABO` para distinguir el origen.
+- Se validaron en producción recibos históricos de mensualidad, venta y abono.
+
+#### Fase 7C — PDF, impresión y WhatsApp — LIBERADA 2026-08-03
+
+- [x] Crear diseño de recibo con identidad Kronos.
+- [x] Descargar el recibo como PDF.
+- [x] Imprimir el recibo.
+- [x] Compartir el PDF mediante Web Share API cuando el dispositivo lo permita.
+- [x] Abrir WhatsApp con destinatario y mensaje preparados como alternativa.
+- [x] Validar el PDF renderizado y probar la liberación en producción.
+
+Verificación de liberación:
+
+- El PDF A5 utiliza la paleta Kronos, muestra detalle, total, pago y saldo, y fue renderizado visualmente sin cortes, solapamientos ni texto ilegible.
+- En dispositivos compatibles, Compartir abre el menú nativo con el archivo PDF. Como alternativa, el PDF se descarga y WhatsApp abre el chat con teléfono y mensaje preparados.
+- La vista de recibo se verificó a 390×844 sin desbordamiento horizontal.
+- `jspdf` se actualizó a 4.2.1 después de detectar una vulnerabilidad crítica en versiones anteriores; la auditoría de producción ya no reporta vulnerabilidades críticas.
+- Typecheck, build y despliegue final de Firebase Hosting completados correctamente.
 
 Riesgo de dependencias pendiente:
 
-- `npm audit --omit=dev` reporta 9 avisos (2 moderados y 7 altos) en la cadena de herramientas heredada de la plantilla: Vite/esbuild/Rollup, PostCSS, Sass/Immutable y Stylelint.
+- `npm audit --omit=dev` reporta 9 avisos (2 moderados y 7 altos) en la cadena de herramientas heredada de la plantilla: Vite/esbuild/Rollup, PostCSS, Immutable y utilidades de lint/build.
 - El artefacto publicado es estático y esos paquetes no ejecutan un servidor Node en Firebase Hosting, pero deben actualizarse en una fase de mantenimiento.
 - No ejecutar `npm audit fix --force` sin una rama y pruebas completas porque propone una actualización mayor de Vite.
 
@@ -486,9 +501,10 @@ El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de 
 ## Estado actual del handoff
 
 - Análisis y estrategia Firebase terminados.
-- Fases 1 a 6 implementadas y liberadas.
+- Fases 1 a 7 implementadas y liberadas.
 - Respaldo migrado una sola vez a Realtime Database y conteos remotos verificados.
 - Anonymous Authentication, autorización por dispositivo, reglas y App Check activos.
 - Build, typecheck, Emulator Suite y pruebas responsivas completados.
 - Aplicación oficial disponible en `https://kronos-training-fd5e5.web.app`.
-- Siguiente paso recomendado: probar la autorización de un segundo dispositivo real y priorizar el mantenimiento de dependencias señalado en este documento.
+- Dashboard anual, acciones de cobranza y recibos PDF/WhatsApp disponibles en producción.
+- Siguiente paso recomendado: priorizar el mantenimiento de dependencias señalado en este documento y definir el siguiente módulo operativo.

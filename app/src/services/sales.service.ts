@@ -67,6 +67,14 @@ export const salesService = {
 
     if (!result.committed)
       throw new Error('El abono no pudo aplicarse. Verifica el saldo actual.')
+
+    const updatedSale = result.snapshot.val() as Sale
+    const payment = updatedSale.payments?.[paymentId]
+
+    if (!payment)
+      throw new Error('El abono se aplicó, pero no fue posible recuperar su recibo.')
+
+    return { sale: updatedSale, payment }
   },
   async cancel(saleId: string) {
     const database = requireDatabase()

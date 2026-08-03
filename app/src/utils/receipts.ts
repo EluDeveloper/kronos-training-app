@@ -64,7 +64,7 @@ export function buildSaleReceipt(sale: Sale, athlete?: Athlete): ReceiptData {
     issuedAt: sale.createdAt,
     customerName: athlete?.profile.name ?? sale.customerName,
     phone: athlete?.profile.phone,
-    concept: 'Venta de tienda',
+    concept: sale.status === 'cancelled' ? 'Venta cancelada' : 'Venta de tienda',
     lines: Object.values(sale.items ?? {}).map(item => ({
       description: item.name,
       quantity: item.quantity,
@@ -225,11 +225,12 @@ export async function downloadReceipt(receipt: ReceiptData) {
 export async function printReceipt(receipt: ReceiptData) {
   const pdf = await createReceiptPdf(receipt)
   const url = URL.createObjectURL(pdf.output('blob'))
-  const printWindow = window.open(url, '_blank', 'noopener,noreferrer')
+  const printWindow = window.open(url, '_blank')
 
   if (!printWindow)
     throw new Error('El navegador bloqueó la ventana de impresión.')
 
+  printWindow.opener = null
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 

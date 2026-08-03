@@ -1,24 +1,43 @@
 <script setup lang="ts">
 import EmptyState from '@/components/kronos/EmptyState.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
+import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
 import { usePaymentsStore } from '@/stores/payments'
-import { currentPeriod, type PaymentMethod } from '@/types/domain'
+import { usePlansStore } from '@/stores/plans'
+import { currentPeriod, type Payment, type PaymentMethod } from '@/types/domain'
+import { buildMembershipReceipt, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, timestampValue } from '@/utils/kronos'
 
 const athletes = useAthletesStore()
 const payments = usePaymentsStore()
+const plans = usePlansStore()
 const { success, failure } = useNotifications()
 const route = useRoute()
 const router = useRouter()
 const dialog = ref(false)
+const receiptDialog = ref(false)
+const activeReceipt = ref<ReceiptData | null>(null)
 const saving = ref(false)
 const form = reactive({ athleteId: '', period: currentPeriod(), amount: 0, method: 'cash' as PaymentMethod })
 
 const athleteItems = computed(() => athletes.active.map(item => ({ title: item.profile.name, value: item.id })))
 const recent = computed(() => [...payments.paid].sort((a, b) => timestampValue(b.appliedAt) - timestampValue(a.appliedAt)).slice(0, 30))
 const athleteName = (id: string) => athletes.items.find(item => item.id === id)?.profile.name ?? 'Atleta'
+
+function showReceipt(payment: Payment) {
+  const athlete = athletes.items.find(item => item.id === payment.athleteId)
+
+  if (!athlete) {
+    failure('No fue posible relacionar el recibo con el atleta.')
+    return
+  }
+
+  const planName = plans.items.find(plan => plan.id === athlete.membership.planId)?.name
+  activeReceipt.value = buildMembershipReceipt(payment, athlete, planName)
+  receiptDialog.value = true
+}
 
 watch(() => form.athleteId, id => {
   const athlete = athletes.items.find(item => item.id === id)
@@ -59,16 +78,19 @@ async function save() {
   }
   saving.value = true
   try {
-    await payments.save({ athleteId: form.athleteId, period: form.period, amount: Number(form.amount), method: form.method, status: 'paid', appliedAt: Date.now() })
+    const appliedAt = Date.now()
+    const payment: Payment = { athleteId: form.athleteId, period: form.period, amount: Number(form.amount), method: form.method, status: 'paid', appliedAt, createdAt: appliedAt, updatedAt: appliedAt }
+    await payments.save(payment)
     success(`Pago ${form.period} aplicado.`)
     dialog.value = false
+    showReceipt(payment)
   }
   catch (error) { failure(error instanceof Error ? error.message : 'No fue posible aplicar el pago.') }
   finally { saving.value = false }
 }
 
-onMounted(() => { athletes.subscribe(); payments.subscribe() })
-onBeforeUnmount(() => { athletes.dispose(); payments.dispose() })
+onMounted(() => { athletes.subscribe(); payments.subscribe(); plans.subscribe() })
+onBeforeUnmount(() => { athletes.dispose(); payments.dispose(); plans.dispose() })
 </script>
 
 <template>
@@ -81,8 +103,8 @@ onBeforeUnmount(() => { athletes.dispose(); payments.dispose() })
     <VCardText>
       <EmptyState v-if="!recent.length" title="Sin pagos aplicados" description="Registra la primera mensualidad." icon="ri-wallet-line" />
       <VTable v-else>
-        <thead><tr><th>Atleta</th><th>Periodo</th><th>Método</th><th>Aplicado</th><th class="text-right">Monto</th></tr></thead>
-        <tbody><tr v-for="payment in recent" :key="`${payment.athleteId}-${payment.period}`"><td class="font-weight-bold">{{ athleteName(payment.athleteId) }}</td><td>{{ payment.period }}</td><td class="text-capitalize">{{ payment.method }}</td><td>{{ formatDate(payment.appliedAt) }}</td><td class="text-right text-success font-weight-bold">{{ formatCurrency(payment.amount ?? 0) }}</td></tr></tbody>
+        <thead><tr><th>Atleta</th><th>Periodo</th><th>Método</th><th>Aplicado</th><th class="text-right">Monto</th><th></th></tr></thead>
+        <tbody><tr v-for="payment in recent" :key="`${payment.athleteId}-${payment.period}`"><td class="font-weight-bold">{{ athleteName(payment.athleteId) }}</td><td>{{ payment.period }}</td><td class="text-capitalize">{{ payment.method }}</td><td>{{ formatDate(payment.appliedAt) }}</td><td class="text-right text-success font-weight-bold">{{ formatCurrency(payment.amount ?? 0) }}</td><td class="text-right"><VBtn icon="ri-receipt-line" variant="text" title="Generar recibo" @click="showReceipt(payment)" /></td></tr></tbody>
       </VTable>
     </VCardText>
   </VCard>
@@ -98,4 +120,6 @@ onBeforeUnmount(() => { athletes.dispose(); payments.dispose() })
       <VCardActions><VSpacer /><VBtn variant="text" @click="dialog = false">Cancelar</VBtn><VBtn :loading="saving" @click="save">Aplicar</VBtn></VCardActions>
     </VCard>
   </VDialog>
+
+  <ReceiptDialog v-model="receiptDialog" :receipt="activeReceipt" />
 </template>

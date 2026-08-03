@@ -258,25 +258,42 @@ Verificación de liberación:
 - Firebase queda desacoplado de las credenciales reales: si faltan variables, la interfaz muestra la configuración pendiente en lugar de fallar.
 - Anonymous Auth, autorización por UID y App Check quedan preparados para activarse al proporcionar la configuración web.
 
-### Fase 2 — Tipos, servicios y stores
+### Fase 2 — Tipos, servicios y stores — LIBERADA 2026-08-03
 
-- [ ] Crear interfaces TypeScript.
-- [ ] Crear servicios Firebase por dominio.
-- [ ] Crear stores Pinia.
-- [ ] Añadir estado de conexión.
-- [ ] Crear sistema de errores y notificaciones.
-- [ ] Evitar listeners globales y fugas.
+- [x] Crear interfaces TypeScript.
+- [x] Crear servicios Firebase por dominio.
+- [x] Crear stores Pinia.
+- [x] Añadir estado de conexión.
+- [x] Crear sistema de errores y notificaciones.
+- [x] Evitar listeners globales y fugas.
 
-### Fase 3 — Núcleo operativo
+Verificación de liberación:
 
-- [ ] Dashboard.
-- [ ] Atletas.
-- [ ] Planes.
-- [ ] Pagos.
-- [ ] Rendimiento.
-- [ ] Tienda e inventario.
-- [ ] Deudas y abonos.
-- [ ] Egresos.
+- Servicios independientes para atletas, planes, pagos, rendimiento, skills, productos, ventas, egresos y programación.
+- Stores Pinia con estados de carga/error y cierre explícito de suscripciones.
+- Listener de conectividad limitado a `.info/connected`; los datos de negocio se escuchan por nodo de dominio, nunca desde `/v1` completo.
+- Snackbar global y composable de notificaciones disponibles para todas las pantallas.
+- Typecheck completado sin errores después de integrar la capa de datos.
+
+### Fase 3 — Núcleo operativo — LIBERADA 2026-08-03
+
+- [x] Dashboard.
+- [x] Atletas.
+- [x] Planes.
+- [x] Pagos.
+- [x] Rendimiento.
+- [x] Tienda e inventario.
+- [x] Deudas y abonos.
+- [x] Egresos.
+
+Verificación de liberación:
+
+- Dashboard con KPIs en tiempo real de atletas, membresías, tienda, caja, deuda y stock bajo.
+- CRUD operativo de atletas y planes; pagos guardados por periodo real `yyyy-mm`.
+- Registro y eliminación de marcas deportivas con conversión lb/kg y filtros.
+- Punto de venta con decremento atómico de inventario, ventas de contado/crédito, abonos transaccionales y cancelación idempotente con restitución de existencias.
+- Egresos pagados, pendientes o programados incluidos en el resumen mensual.
+- Typecheck completado sin errores después de integrar todas las pantallas de la fase.
 
 ### Fase 4 — Módulos secundarios
 
@@ -373,11 +390,10 @@ Conteos esperados:
 
 > Continúa la implementación del MVP Firebase de Kronos dentro de `app/`. Lee primero `AppKronos/Docs/01-contexto-aplicacion-actual.md` y `AppKronos/Docs/02-handoff-mvp-firebase.md`. Retoma desde la primera casilla pendiente, conserva Vue/Vuetify y no uses reglas públicas de Firebase.
 
-## Estado al generar el handoff
+## Estado actual del handoff
 
-- Análisis terminado.
-- Estrategia Firebase definida.
-- Sin cambios funcionales aplicados todavía en `app/`.
-- Firebase no instalado.
-- Sin migración ni despliegue.
-- Siguiente paso: Fase 1 — tema, navegación, configuración Firebase y tipos base.
+- Análisis y estrategia Firebase terminados.
+- Fases 1, 2 y 3 implementadas y verificadas mediante typecheck.
+- Firebase instalado; la conexión real continúa pendiente de las variables de la aplicación web.
+- Sin migración real ni despliegue todavía.
+- Siguiente paso: Fase 4 — programación, comunidad, cumpleaños y PRs recientes.

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ConfigurationMissing from '@/components/kronos/ConfigurationMissing.vue'
 import DevicePending from '@/components/kronos/DevicePending.vue'
+import GlobalSnackbar from '@/components/kronos/GlobalSnackbar.vue'
 import { useSessionStore } from '@/stores/session'
 
 const session = useSessionStore()
@@ -30,6 +31,7 @@ onBeforeUnmount(() => session.dispose())
     />
 
     <RouterView v-else />
+    <GlobalSnackbar />
   </VApp>
 </template>
 

@@ -1601,6 +1601,37 @@
 
             const Modules = {
                 Dashboard: {
+                    _getTiendaIngresoVenta: function (venta, inicioMes, incluirAnioActual = false) {
+                        if (!venta || venta.estatus === 'Cancelado' || !venta.fecha_transaccion) return 0;
+
+                        const fechaVenta = new Date(venta.fecha_transaccion);
+                        if (Number.isNaN(fechaVenta.getTime())) return 0;
+
+                        if (incluirAnioActual && fechaVenta.getFullYear().toString() !== new Date().getFullYear().toString()) {
+                            return 0;
+                        }
+
+                        if (fechaVenta.getTime() < inicioMes) return 0;
+
+                        if (Array.isArray(venta.abonos) && venta.abonos.length > 0) {
+                            const totalAbonosMes = venta.abonos.reduce((sum, abono) => {
+                                if (!abono || !abono.fecha) return sum;
+                                const fechaAbono = new Date(abono.fecha);
+                                if (Number.isNaN(fechaAbono.getTime())) return sum;
+                                if (fechaAbono.getTime() >= inicioMes) {
+                                    return sum + (parseFloat(abono.monto) || 0);
+                                }
+                                return sum;
+                            }, 0);
+
+                            if (totalAbonosMes > 0) return totalAbonosMes;
+                        }
+
+                        if (venta.estatus === 'Liquidado') return parseFloat(venta.total_pagar) || 0;
+                        if (venta.estatus === 'Lo debe') return parseFloat(venta.monto_recibido) || 0;
+
+                        return 0;
+                    },
                     render: function () {
                         let totalActivos = 0; let planesCount = {}; let cajaChica = 0; let cuentaBancaria = 0;
                         let alertasPagos = []; let ultimasMarcas = [];
@@ -1649,21 +1680,10 @@
                                     tiendaDeudas += (v.total_pagar - (parseFloat(v.monto_recibido) || 0));
                                 }
 
-                                // Ingresos de TIENDA exactos en este mes
-                                if (v.abonos && v.abonos.length > 0) {
-                                    v.abonos.forEach(abono => {
-                                        if (new Date(abono.fecha).getTime() >= inicioMes) {
-                                            tiendaIngresos += parseFloat(abono.monto);
-                                        }
-                                    });
-                                } else {
-                                    // Ventas antiguas sin array de abonos
-                                    const vTime = new Date(v.fecha_transaccion).getTime();
-                                    if (vTime >= inicioMes) {
-                                        if (v.estatus === 'Liquidado') tiendaIngresos += v.total_pagar;
-                                        else if (v.estatus === 'Lo debe') tiendaIngresos += (parseFloat(v.monto_recibido) || 0);
-                                    }
-                                }
+                                // Ingresos de TIENDA exactos en este mes.
+                                // Se suma una sola vez por venta para evitar duplicar el total cuando una venta
+                                // tiene más de un abono o cuando además se registra el monto total en otra propiedad.
+                                tiendaIngresos += this._getTiendaIngresoVenta(v, inicioMes);
                             }
                         });
 
@@ -1868,24 +1888,11 @@
                         State.storeVentas.forEach(v => {
                             if (v.estatus !== 'Cancelado') {
                                 // 1. Cálculo de Ingresos de Tienda (Flujo de Caja)
-                                if (v.abonos && v.abonos.length > 0) {
-                                    v.abonos.forEach(abono => {
-                                        const fAbono = new Date(abono.fecha);
-                                        if (fAbono.getFullYear().toString() === yearStr) {
-                                            const mIdx = fAbono.getMonth();
-                                            const monto = parseFloat(abono.monto) || 0;
-                                            ingresoAnualTienda += monto;
-                                            ingresoPorMes[mIdx] += monto;
-                                        }
-                                    });
-                                } else if (v.fecha_transaccion) {
-                                    const fVenta = new Date(v.fecha_transaccion);
-                                    if (fVenta.getFullYear().toString() === yearStr) {
-                                        const mIdx = fVenta.getMonth();
-                                        let montoIngreso = 0;
-                                        if (v.estatus === 'Liquidado') montoIngreso = parseFloat(v.total_pagar) || 0;
-                                        else if (v.estatus === 'Lo debe') montoIngreso = parseFloat(v.monto_recibido) || 0;
-
+                                const fechaVenta = v.fecha_transaccion ? new Date(v.fecha_transaccion) : null;
+                                if (fechaVenta && !Number.isNaN(fechaVenta.getTime()) && fechaVenta.getFullYear().toString() === yearStr) {
+                                    const mIdx = fechaVenta.getMonth();
+                                    const montoIngreso = this._getTiendaIngresoVenta(v, new Date(yearStr, mIdx, 1).getTime(), true);
+                                    if (montoIngreso > 0) {
                                         ingresoAnualTienda += montoIngreso;
                                         ingresoPorMes[mIdx] += montoIngreso;
                                     }

@@ -13,6 +13,7 @@
     "postinstall": "npm run build:icons"
   },
   "dependencies": {
+    "firebase": "^12.1.0",
     "@floating-ui/dom": "1.6.8",
     "@iconify-json/bxl": "^1.1.10",
     "@stylistic/stylelint-config": "^1.0.1",

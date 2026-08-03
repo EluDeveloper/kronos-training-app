@@ -1,1 +1,65 @@
-// Write your overrides
+@use "sass:color";
+
+:root {
+  --kronos-orange: #ff401b;
+  --kronos-teal: #44797f;
+  --kronos-cyan: #97d5de;
+  --kronos-dark: #1b1d1a;
+  --kronos-surface: #232622;
+  --kronos-surface-alt: #262925;
+  --kronos-light: #ebebeb;
+}
+
+html,
+body {
+  background: var(--kronos-dark);
+  font-family: "Mulish", sans-serif;
+}
+
+.v-application {
+  font-family: "Mulish", sans-serif !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.v-btn,
+.v-chip,
+.v-list-subheader {
+  font-family: "Montserrat", sans-serif;
+}
+
+.kronos-display {
+  font-family: "Syncopate", sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.kronos-card {
+  border: 1px solid rgba(151, 213, 222, 0.14);
+  background: linear-gradient(145deg, rgba(35, 38, 34, 0.98), rgba(27, 29, 26, 0.98));
+}
+
+.kronos-accent-line {
+  border-inline-start: 4px solid var(--kronos-orange);
+}
+
+.text-kronos-cyan {
+  color: var(--kronos-cyan) !important;
+}
+
+.text-kronos-orange {
+  color: var(--kronos-orange) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

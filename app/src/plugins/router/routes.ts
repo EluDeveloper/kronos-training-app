@@ -9,28 +9,36 @@ export const routes = [
         component: () => import('@/pages/dashboard.vue'),
       },
       {
-        path: 'account-settings',
-        component: () => import('@/pages/account-settings.vue'),
+        path: 'atletas',
+        component: () => import('@/pages/atletas.vue'),
       },
       {
-        path: 'typography',
-        component: () => import('@/pages/typography.vue'),
+        path: 'pagos',
+        component: () => import('@/pages/pagos.vue'),
       },
       {
-        path: 'icons',
-        component: () => import('@/pages/icons.vue'),
+        path: 'rendimiento',
+        component: () => import('@/pages/rendimiento.vue'),
       },
       {
-        path: 'cards',
-        component: () => import('@/pages/cards.vue'),
+        path: 'tienda',
+        component: () => import('@/pages/tienda.vue'),
       },
       {
-        path: 'tables',
-        component: () => import('@/pages/tables.vue'),
+        path: 'egresos',
+        component: () => import('@/pages/egresos.vue'),
       },
       {
-        path: 'form-layouts',
-        component: () => import('@/pages/form-layouts.vue'),
+        path: 'programacion',
+        component: () => import('@/pages/programacion.vue'),
+      },
+      {
+        path: 'comunidad',
+        component: () => import('@/pages/comunidad.vue'),
+      },
+      {
+        path: 'planes',
+        component: () => import('@/pages/planes.vue'),
       },
     ],
   },
@@ -38,14 +46,6 @@ export const routes = [
     path: '/',
     component: () => import('@/layouts/blank.vue'),
     children: [
-      {
-        path: 'login',
-        component: () => import('@/pages/login.vue'),
-      },
-      {
-        path: 'register',
-        component: () => import('@/pages/register.vue'),
-      },
       {
         path: '/:pathMatch(.*)*',
         component: () => import('@/pages/[...error].vue'),

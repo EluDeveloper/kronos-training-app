@@ -1,93 +1,22 @@
 <script lang="ts" setup>
-import VerticalNavLink from '@layouts/components/VerticalNavLink.vue';
-import VerticalNavSectionTitle from '@layouts/components/VerticalNavSectionTitle.vue';
+import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
+import VerticalNavSectionTitle from '@layouts/components/VerticalNavSectionTitle.vue'
 </script>
 
 <template>
 
-  <VerticalNavSectionTitle
-    :item="{
-      heading: 'Miembros',
-    }"
-  />
+  <VerticalNavSectionTitle :item="{ heading: 'Operación' }" />
+  <VerticalNavLink :item="{ title: 'Dashboard', icon: 'ri-dashboard-3-line', to: '/dashboard' }" />
+  <VerticalNavLink :item="{ title: 'Atletas', icon: 'ri-team-line', to: '/atletas' }" />
+  <VerticalNavLink :item="{ title: 'Mensualidades', icon: 'ri-wallet-3-line', to: '/pagos' }" />
+  <VerticalNavLink :item="{ title: 'Rendimiento', icon: 'ri-line-chart-line', to: '/rendimiento' }" />
 
-  <VerticalNavLink
-    :item="{
-      title: 'Nuevo Miembro',
-      icon: 'ri-user-add-line',
-      to: '/account-settings',
-    }"
-  />
+  <VerticalNavSectionTitle :item="{ heading: 'Administración' }" />
+  <VerticalNavLink :item="{ title: 'Tienda', icon: 'ri-shopping-bag-3-line', to: '/tienda' }" />
+  <VerticalNavLink :item="{ title: 'Egresos', icon: 'ri-money-dollar-circle-line', to: '/egresos' }" />
+  <VerticalNavLink :item="{ title: 'Planes', icon: 'ri-price-tag-3-line', to: '/planes' }" />
 
-  <VerticalNavLink
-    :item="{
-      title: 'Login',
-      icon: 'ri-login-box-line',
-      to: '/login',
-    }"
-  />
-
-  <!-- 👉 User Interface -->
-  <VerticalNavSectionTitle
-    :item="{
-      heading: 'User Interface',
-    }"
-  />
-  <VerticalNavLink
-    :item="{
-      title: 'Typography',
-      icon: 'ri-text',
-      to: '/typography',
-    }"
-  />
-  <VerticalNavLink
-    :item="{
-      title: 'Icons',
-      icon: 'ri-remixicon-line',
-      to: '/icons',
-    }"
-  />
-  <VerticalNavLink
-    :item="{
-      title: 'Cards',
-      icon: 'ri-bar-chart-box-line',
-      to: '/cards',
-    }"
-  />
-
-  <!-- 👉 Forms & Tables -->
-  <VerticalNavSectionTitle
-    :item="{
-      heading: 'Forms & Tables',
-    }"
-  />
-  <VerticalNavLink
-    :item="{
-      title: 'Form Layouts',
-      icon: 'ri-layout-4-line',
-      to: '/form-layouts',
-    }"
-  />
-  <VerticalNavLink
-    :item="{
-      title: 'Tables',
-      icon: 'ri-table-alt-line',
-      to: '/tables',
-    }"
-  />
-
-  <!-- 👉 Others -->
-  <VerticalNavSectionTitle
-    :item="{
-      heading: 'Others',
-    }"
-  />
-  <VerticalNavLink
-    :item="{
-      title: 'Documentation',
-      icon: 'ri-article-line',
-      href: 'https://demos.themeselection.com/materio-vuetify-vuejs-admin-template/documentation/',
-      target: '_blank',
-    }"
-  />
+  <VerticalNavSectionTitle :item="{ heading: 'Box' }" />
+  <VerticalNavLink :item="{ title: 'Programación', icon: 'ri-calendar-schedule-line', to: '/programacion' }" />
+  <VerticalNavLink :item="{ title: 'Comunidad', icon: 'ri-group-2-line', to: '/comunidad' }" />
 </template>

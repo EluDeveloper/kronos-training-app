@@ -1,12 +1,11 @@
 <script lang="ts" setup>
+import ConnectionBadge from '@/components/kronos/ConnectionBadge.vue'
 import NavItems from '@/layouts/components/NavItems.vue'
-import logo from '@images/logo.svg?raw'
 import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
 
 // Components
 import Footer from '@/layouts/components/Footer.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
-import UserProfile from '@/layouts/components/UserProfile.vue'
 </script>
 
 <template>
@@ -22,39 +21,15 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
           <VIcon icon="ri-menu-line" />
         </IconBtn>
 
-        <!-- 👉 Search -->
-        <div
-          class="d-flex align-center cursor-pointer"
-          style="user-select: none;"
-        >
-          <!-- 👉 Search Trigger button -->
-          <IconBtn>
-            <VIcon icon="ri-search-line" />
-          </IconBtn>
-
-          <span class="d-none d-md-flex align-center text-disabled">
-            <span class="me-3">Search</span>
-            <span class="meta-key">&#8984;K</span>
-          </span>
+        <div class="d-none d-sm-block">
+          <p class="text-caption text-medium-emphasis mb-0">Centro de control</p>
+          <p class="font-weight-bold mb-0">Kronos Training</p>
         </div>
 
         <VSpacer />
 
-        <IconBtn
-          href="https://github.com/themeselection/materio-vuetify-vuejs-admin-template-free"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <VIcon icon="ri-github-fill" />
-        </IconBtn>
-
-        <IconBtn>
-          <VIcon icon="ri-notification-line" />
-        </IconBtn>
-
+        <ConnectionBadge class="me-2" />
         <NavbarThemeSwitcher class="me-2" />
-
-        <UserProfile />
       </div>
     </template>
 
@@ -63,14 +38,9 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
         to="/"
         class="app-logo app-title-wrapper"
       >
-        <!-- eslint-disable vue/no-v-html -->
-        <div
-          class="d-flex"
-          v-html="logo"
-        />
-        <!-- eslint-enable -->
+        <div class="app-logo-mark">K</div>
 
-        <h1 class="font-weight-medium leading-normal text-xl text-uppercase">
+        <h1 class="kronos-display font-weight-medium leading-normal text-base">
           Kronos
         </h1>
       </RouterLink>
@@ -98,15 +68,6 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
 </template>
 
 <style lang="scss" scoped>
-.meta-key {
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 6px;
-  block-size: 1.5625rem;
-  line-height: 1.3125rem;
-  padding-block: 0.125rem;
-  padding-inline: 0.25rem;
-}
-
 .app-logo {
   display: flex;
   align-items: center;
@@ -118,5 +79,16 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
     line-height: 1.75rem;
     text-transform: uppercase;
   }
+}
+
+.app-logo-mark {
+  display: grid;
+  border-radius: 10px;
+  background: #ff401b;
+  block-size: 38px;
+  color: #fff;
+  font: 700 0.9rem/1 "Syncopate", sans-serif;
+  inline-size: 38px;
+  place-items: center;
 }
 </style>

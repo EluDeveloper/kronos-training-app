@@ -9,10 +9,11 @@ export async function loadFonts() {
 
   webFontLoader.load({
     google: {
-      api: 'https://fonts.googleapis.com/css2?family=Momo+Trust+Display&display=swap',
+      api: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Mulish:wght@400;500;600;700&family=Syncopate:wght@700&display=swap',
       families: [
-        'Inter:wght@300;400;500;600;700;900&display=swap',
-        'Momo Trust Display":wght@400;500;600;700&display=swap'
+        'Montserrat:600,700',
+        'Mulish:400,500,600,700',
+        'Syncopate:700',
       ],
     },
   })

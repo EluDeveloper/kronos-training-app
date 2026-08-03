@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kronos Programming - Semana 6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            /* slate-900 */
+            color: #f8fafc;
+            /* slate-50 */
+        }
+
+        h1,
+        h2,
+        h3,
+        .font-heading {
+            font-family: 'Bebas Neue', cursive;
+            letter-spacing: 0.05em;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);
+            /* amber shadow */
+        }
+
+        .pulse-red {
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-4 md:p-8">
+
+    <header
+        class="max-w-7xl mx-auto mb-10 text-center md:text-left flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-2xl border-l-4 border-red-600 shadow-xl relative overflow-hidden">
+        <div class="absolute right-0 top-0 opacity-10 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
+            <svg class="w-64 h-64 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+        </div>
+        <div class="relative z-10">
+            <h1 class="text-5xl md:text-6xl text-white mb-2 tracking-wide">KRONOS <span
+                    class="text-red-500">PROGRAMMING</span></h1>
+            <h2 class="text-2xl text-slate-400 font-heading">Semana 6: Peak Week & Testeo Final</h2>
+        </div>
+        <div class="mt-6 md:mt-0 grid grid-cols-2 md:grid-cols-3 gap-4 text-center relative z-10">
+            <div class="bg-slate-900 p-3 rounded-lg border border-red-900/50">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Volumen</span>
+                <span class="text-xl font-heading text-white">Bajo</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-red-900/50">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Intensidad</span>
+                <span class="text-xl font-heading text-red-500">95-100% RM</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-red-900/50 col-span-2 md:col-span-1">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Foco</span>
+                <span class="text-xl font-heading text-white">Expresión de Fuerza</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- LUNES -->
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-red-600 text-white px-5 py-3">
+                <h3 class="text-3xl">LUNES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase text-red-100">Test: Tren Inferior (Empuje Máximo)
+                </p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
+                            </path>
+                        </svg>
+                        Warmup Neural (15 Min)
+                    </h4>
+                    <p class="text-xs text-slate-400 mb-1">Encendiendo el Sistema Nervioso Central (SNC).</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>5 Box Jumps al máximo de altura.</li>
+                        <li>10 Air Squats rápidos.</li>
+                        <li>Activación isométrica (Pausas de 5s abajo con barra).</li>
+                        <li>Series de aproximación progresiva (50%, 60%, 70%, 80%).</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3">
+                            </path>
+                        </svg>
+                        Test de Fuerza (30 Min)
+                    </h4>
+                    <div class="bg-slate-900 p-3 rounded border border-red-900/50 pulse-red">
+                        <p class="font-bold text-white text-lg">1RM BACK SQUAT</p>
+                        <p class="text-sm text-slate-300">Construir hasta encontrar la Repetición Máxima de Sentadilla
+                            Trasera.</p>
+                        <p class="text-xs text-slate-400 mt-2 border-t border-slate-700 pt-2"><span
+                                class="text-red-500">Regla:</span> Descansos obligatorios de 3 a 4 minutos entre
+                            intentos pesados (más del 85%). Usar spotters (cuidadores) es obligatorio.</p>
+                    </div>
+                </section>
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        WOD: "Cash Out"
+                    </h4>
+                    <p class="font-bold text-white text-sm mb-1">7 MIN AMRAP (Corto y al grano)</p>
+                    <p class="text-xs text-slate-400 mb-2">Solo para generar flush de ácido láctico tras el max.</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>10 Kettlebell Swings (Pesados)</li>
+                        <li>10 Box Jumps Overs (Bajos y rápidos)</li>
+                    </ul>
+                </section>
+            </div>
+        </article>
+
+        <!-- MARTES -->
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-red-600 text-white px-5 py-3">
+                <h3 class="text-3xl">MARTES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase text-red-100">Test: Tren Superior (Empuje Máximo)
+                </p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
+                            </path>
+                        </svg>
+                        Warmup Neural (15 Min)
+                    </h4>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>15 Band Pull-aparts.</li>
+                        <li>10 Push-ups explosivos (dejando el piso).</li>
+                        <li>Calentamiento de rotadores.</li>
+                        <li>Aproximaciones al press con barra.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3">
+                            </path>
+                        </svg>
+                        Test de Fuerza (30 Min)
+                    </h4>
+                    <div class="bg-slate-900 p-3 rounded border border-red-900/50 pulse-red">
+                        <p class="font-bold text-white text-lg">1RM PUSH PRESS o STRICT PRESS</p>
+                        <p class="text-sm text-slate-300">Atletas avanzados: Strict. Atletas base: Push Press.</p>
+                        <p class="text-xs text-slate-400 mt-2 border-t border-slate-700 pt-2"><span
+                                class="text-red-500">Regla:</span> Bloqueo firme de codos arriba en cada repetición
+                            válida.</p>
+                    </div>
+                </section>
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        WOD: "Sprint Gimnástico"
+                    </h4>
+                    <p class="font-bold text-white text-sm mb-1">8 MIN AMRAP</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>8 Toes to Bar (o V-Ups)</li>
+                        <li>8 Handstand Push-ups (o Push-ups estrictos)</li>
+                        <li>30 Double Unders</li>
+                    </ul>
+                </section>
+            </div>
+        </article>
+
+        <!-- MIÉRCOLES -->
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-blue-600 text-white px-5 py-3 border-b-4 border-blue-400">
+                <h3 class="text-3xl">MIÉRCOLES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase">Partner Day - Tapering Aeróbico</p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <div class="bg-blue-900/30 p-3 rounded-lg border border-blue-800 text-sm text-blue-200">
+                    <strong>Fase de Tapering (Puesta a punto):</strong> Hoy reducimos volumen e intensidad. El objetivo
+                    es sudar, mover el cuerpo en equipo, y eliminar fatiga para los tests que restan.
+                </div>
+                <section>
+                    <h4 class="text-blue-400 font-semibold mb-2">Warmup en Parejas (10 Min)</h4>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>400m Run trote ligero.</li>
+                        <li>Estiramientos dinámicos sincronizados (Lunges, Squats, Rotaciones).</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-blue-400 font-semibold mb-2">WOD: "Flujo Gemelo"</h4>
+                    <p class="font-bold text-white text-sm mb-1">25 MIN AMRAP (Ritmo Constante / Z3)</p>
+                    <p class="text-xs text-slate-400 mb-2">Trabajo de "I Go, You Go" pero relajado. Sin sprints letales.
+                    </p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>20 Cal SkiErg o Row</li>
+                        <li>20 Sync Wall Balls (Ligeros, 14/10 lb)</li>
+                        <li>20 Sync Alternating Lunges (Sin peso)</li>
+                    </ul>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span class="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-blue-300">Puntaje: No se
+                            anota. Día de calidad.</span>
+                    </div>
+                </section>
+            </div>
+        </article>
+
+        <!-- JUEVES -->
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-emerald-600 text-white px-5 py-3 border-b-4 border-emerald-400">
+                <h3 class="text-3xl">JUEVES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase">Recuperación Total (0% Fatiga)</p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <div class="bg-emerald-900/30 p-3 rounded-lg border border-emerald-800 text-sm text-emerald-200">
+                    Mañana testeamos Deadlift y el sábado es el simulacro de competencia. Hoy el entrenamiento es
+                    invisible: sistema parasimpático, oxigenación y elongación.
+                </div>
+                <section>
+                    <h4 class="text-emerald-400 font-semibold mb-2">Flujo Regenerativo (45 Minutos)</h4>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-3">
+                        <li>
+                            <strong class="text-white">Fase 1 (Metabólica Suave):</strong>
+                            <br>15 Min de BikeErg o Remo muy lento. Respiración estricta por la nariz. Si tienes que
+                            abrir la boca, vas muy rápido.
+                        </li>
+                        <li>
+                            <strong class="text-white">Fase 2 (Descompresión Espinal):</strong>
+                            <br>Colgarse de la barra (Dead hang) acumulando 3 minutos. Trabajo de movilidad de cadera
+                            (Pigeon Pose, 2 min por lado).
+                        </li>
+                        <li>
+                            <strong class="text-white">Fase 3 (Fascia & Mente):</strong>
+                            <br>Liberación con Foam Roller. Box Breathing (Respiración en caja: Inhala 4s, Sostén 4s,
+                            Exhala 4s, Sostén 4s). Preparación mental para el evento del sábado.
+                        </li>
+                    </ul>
+                </section>
+            </div>
+        </article>
+
+        <!-- VIERNES -->
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-red-600 text-white px-5 py-3">
+                <h3 class="text-3xl">VIERNES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase text-red-100">Test: Tren Inferior (Tracción Máxima)
+                </p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
+                            </path>
+                        </svg>
+                        Warmup Neural (15 Min)
+                    </h4>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>15 Banded Good Mornings.</li>
+                        <li>10 Broad Jumps (Saltos largos).</li>
+                        <li>10 KB Deadlifts.</li>
+                        <li>Series progresivas de calentamiento estricto.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3">
+                            </path>
+                        </svg>
+                        Test de Fuerza (30 Min)
+                    </h4>
+                    <div class="bg-slate-900 p-3 rounded border border-red-900/50 pulse-red">
+                        <p class="font-bold text-white text-lg">1RM DEADLIFT</p>
+                        <p class="text-sm text-slate-300">Convencional o Sumo. Búsqueda de Repetición Máxima Absoluta.
+                        </p>
+                        <p class="text-xs text-slate-400 mt-2 border-t border-slate-700 pt-2"><span
+                                class="text-red-500">Regla:</span> Si la columna lumbar pierde neutralidad (se encorva
+                            como un gato), el levantamiento es nulo y el coach lo detendrá inmediatamente por seguridad.
+                        </p>
+                    </div>
+                </section>
+                <section>
+                    <h4 class="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        WOD: "El Toque Final"
+                    </h4>
+                    <p class="font-bold text-white text-sm mb-1">5 MIN AMRAP (Extremadamente Corto)</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>5 Burpees</li>
+                        <li>10 Dual DB Push Presses (Ligeros)</li>
+                    </ul>
+                </section>
+            </div>
+        </article>
+
+        <!-- SÁBADO (EVENTO FINAL) -->
+        <article
+            class="bg-slate-800 rounded-xl overflow-hidden border-2 border-red-500 flex flex-col lg:col-span-3 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+            <div
+                class="bg-black text-white px-5 py-4 flex justify-between items-center flex-wrap gap-2 relative overflow-hidden">
+                <!-- Diagonal stripes background -->
+                <div class="absolute inset-0 opacity-20"
+                    style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #ef4444 10px, #ef4444 20px);">
+                </div>
+                <div class="relative z-10">
+                    <h3 class="text-4xl text-red-500 font-heading">SÁBADO: KRONOS GAMEDAY</h3>
+                    <p class="text-sm font-bold tracking-tight uppercase text-slate-300">Simulacro Oficial Fitness
+                        Racing | Evento de Graduación</p>
+                </div>
+                <span
+                    class="px-4 py-2 bg-red-600 rounded text-sm font-bold uppercase tracking-wider text-white relative z-10">Clase
+                    de 2 Horas</span>
+            </div>
+
+            <div class="p-6 md:p-10 flex flex-col">
+
+                <div
+                    class="mb-8 bg-slate-900 p-6 rounded-xl border border-slate-700 text-center max-w-3xl mx-auto w-full">
+                    <h4 class="text-2xl text-white mb-2 font-heading tracking-widest text-red-400">Briefing del Evento
+                    </h4>
+                    <p class="text-slate-300 text-sm">Hoy no hay WOD 1 ni WOD 2. Hoy ponemos a prueba las 6 semanas de
+                        acumulación, hipertrofia y potencia en un solo evento de larga duración continuo. Es una prueba
+                        física y mental. Ritmo, control de respiración y corazón frío.</p>
+                </div>
+
+                <div
+                    class="bg-gradient-to-b from-slate-900 to-black p-6 md:p-10 rounded-2xl border border-red-900/50 shadow-2xl relative">
+                    <div class="text-center mb-8">
+                        <h4
+                            class="text-4xl md:text-5xl text-white font-heading tracking-widest uppercase shadow-red-500">
+                            "EL ABISMO"</h4>
+                        <p class="text-xl font-bold text-red-500 mt-2">60 MINUTOS TIME CAP</p>
+                    </div>
+
+                    <div class="space-y-4 max-w-2xl mx-auto relative z-10 text-lg md:text-xl text-slate-200">
+                        <div class="flex items-center gap-4 border-b border-slate-800 pb-3">
+                            <span class="text-red-500 font-heading text-3xl w-8">1.</span>
+                            <span class="font-bold">1000m Run</span>
+                        </div>
+                        <div class="flex items-center gap-4 border-b border-slate-800 pb-3">
+                            <span class="text-red-500 font-heading text-3xl w-8">2.</span>
+                            <span class="font-bold">1000m SkiErg o Row</span>
+                        </div>
+                        <div class="flex items-center gap-4 border-b border-slate-800 pb-3">
+                            <span class="text-red-500 font-heading text-3xl w-8">3.</span>
+                            <span class="font-bold">50m Heavy Sled Push <span
+                                    class="text-sm text-slate-400 font-normal ml-2">(Empuje Pesado)</span></span>
+                        </div>
+                        <div class="flex items-center gap-4 border-b border-slate-800 pb-3">
+                            <span class="text-red-500 font-heading text-3xl w-8">4.</span>
+                            <span class="font-bold">1000m Run</span>
+                        </div>
+                        <div class="flex items-center gap-4 border-b border-slate-800 pb-3">
+                            <span class="text-red-500 font-heading text-3xl w-8">5.</span>
+                            <span class="font-bold">50m Heavy Sled Pull <span
+                                    class="text-sm text-slate-400 font-normal ml-2">(Jalón Pesado)</span></span>
+                        </div>
+                        <div class="flex items-center gap-4 border-b border-slate-800 pb-3">
+                            <span class="text-red-500 font-heading text-3xl w-8">6.</span>
+                            <span class="font-bold">1000m Row o BikeErg</span>
+                        </div>
+                        <div class="flex items-center gap-4 border-b border-slate-800 pb-3">
+                            <span class="text-red-500 font-heading text-3xl w-8">7.</span>
+                            <span class="font-bold">100m Sandbag Walking Lunges <span
+                                    class="text-sm text-slate-400 font-normal ml-2">(Abrazo de oso
+                                    frontal)</span></span>
+                        </div>
+                        <div class="flex items-center gap-4 pt-2">
+                            <span class="text-red-500 font-heading text-3xl w-8">8.</span>
+                            <span class="font-bold text-amber-500">100 Wall Balls <span
+                                    class="text-sm text-slate-400 font-normal ml-2">para cruzar la meta.</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-10 text-center">
+                    <p class="text-slate-400 text-sm">Post-Evento: Celebración, fotos, estiramiento en equipo y
+                        rehidratación masiva.</p>
+                </div>
+
+            </div>
+        </article>
+
+    </main>
+
+    <footer class="max-w-7xl mx-auto mt-10 text-center text-slate-500 text-sm pb-10 border-t border-slate-800 pt-6">
+        <p>Kronos Training &copy; Programación basada en principios de Neuro-biomecánica y Acondicionamiento Físico
+            General.</p>
+    </footer>
+
+</body>
+
+</html>

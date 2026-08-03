@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kronos Programming - Semana 4</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            /* slate-900 */
+            color: #f8fafc;
+            /* slate-50 */
+        }
+
+        h1,
+        h2,
+        h3,
+        .font-heading {
+            font-family: 'Bebas Neue', cursive;
+            letter-spacing: 0.05em;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);
+            /* amber shadow */
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-4 md:p-8">
+
+    <header
+        class="max-w-7xl mx-auto mb-10 text-center md:text-left flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-2xl border-l-4 border-amber-500 shadow-xl">
+        <div>
+            <h1 class="text-5xl md:text-6xl text-white mb-2 tracking-wide">KRONOS <span
+                    class="text-amber-500">PROGRAMMING</span></h1>
+            <h2 class="text-2xl text-slate-400 font-heading">Semana 4: Fuerza Máxima & Transición</h2>
+        </div>
+        <div class="mt-6 md:mt-0 grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Volumen</span>
+                <span class="text-xl font-heading text-white">Medio-Bajo</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Intensidad</span>
+                <span class="text-xl font-heading text-red-500">80-85% RM</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 col-span-2 md:col-span-1">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Foco</span>
+                <span class="text-xl font-heading text-white">Tensión Mecánica</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-amber-500 text-slate-900 px-5 py-3">
+                <h3 class="text-3xl">LUNES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase">Tren Inferior (Empuje Absoluto)</p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
+                            </path>
+                        </svg>
+                        Warmup (12 Min)
+                    </h4>
+                    <p class="text-xs text-slate-400 mb-1">3 Rondas - Activación Neuromuscular de Alto Umbral.</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>5 Box Jumps Altos (Foco en caída silenciosa).</li>
+                        <li>10 Cossack Squats.</li>
+                        <li>15s L-Sit Hold en piso o paraletas.</li>
+                        <li>10 Aproximaciones ligeras con barra vacía.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3">
+                            </path>
+                        </svg>
+                        Strength (22 Min)
+                    </h4>
+                    <div class="bg-slate-900 p-3 rounded border border-slate-700">
+                        <p class="font-bold text-white">Back Squat (Pesado)</p>
+                        <p class="text-sm text-slate-300">5 series x 3 reps (80-85% RM). Descanso estricto de 2.5 a 3
+                            minutos entre series.</p>
+                        <p class="text-xs text-slate-400 mt-2 border-t border-slate-700 pt-2"><span
+                                class="text-amber-500">Foco:</span> Velocidad concéntrica. Si la barra sube lento en la
+                            primera repetición, el peso es excesivo.</p>
+                    </div>
+                </section>
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        WOD: "Piernas de Titán"
+                    </h4>
+                    <p class="font-bold text-white text-sm mb-1">3 Rondas For Time (10 Min Cap)</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>7 Front Squats Pesados (No debe ser fácil)</li>
+                        <li>15 Pull-ups (Kipping o Strict)</li>
+                        <li>400m Run</li>
+                    </ul>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span class="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-amber-300">Rx: 155/105
+                            lb</span>
+                    </div>
+                </section>
+            </div>
+        </article>
+
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-amber-500 text-slate-900 px-5 py-3">
+                <h3 class="text-3xl">MARTES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase">Potencia de Empuje + Densidad Gimnástica</p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
+                            </path>
+                        </svg>
+                        Warmup (10 Min)
+                    </h4>
+                    <p class="text-xs text-slate-400 mb-1">3 Rondas - Activación Estricta.</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>10 Scapular Pull-ups.</li>
+                        <li>10 Push-ups a ritmo (3s excéntrico).</li>
+                        <li>15 Band Pull-aparts.</li>
+                        <li>5 Wall Walks lentos.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3">
+                            </path>
+                        </svg>
+                        Strength / Skill (20 Min)
+                    </h4>
+                    <div class="bg-slate-900 p-3 rounded border border-slate-700">
+                        <p class="font-bold text-white">Split Jerk (Desde Rack)</p>
+                        <p class="text-sm text-slate-300">5 series x 2 reps (80-85% RM). Foco: Estabilidad en la tijera
+                            y recepción sólida.</p>
+                        <p class="text-xs text-slate-400 mt-2 border-t border-slate-700 pt-2"><span
+                                class="text-amber-500">Skill (Si hay tiempo):</span> 5 min de transiciones de Kip de
+                            HSPU.</p>
+                    </div>
+                </section>
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        WOD: "Shoulder Density"
+                    </h4>
+                    <p class="font-bold text-white text-sm mb-1">12 MIN EMOM</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Min 1: 4-8 Strict HSPU (Al fallo técnico, máximo 8).</li>
+                        <li>Min 2: 12 Heavy KB Swings (Americanos).</li>
+                        <li>Min 3: 15 Cal SkiErg o Row (Rápido).</li>
+                    </ul>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span class="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-amber-300">Rx: KB 32/24
+                            kg</span>
+                    </div>
+                </section>
+            </div>
+        </article>
+
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-blue-600 text-white px-5 py-3 border-b-4 border-blue-400">
+                <h3 class="text-3xl">MIÉRCOLES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase">Partner Day - Intervalos de Muerte (1:1)</p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <div class="bg-blue-900/30 p-3 rounded-lg border border-blue-800 text-sm text-blue-200">
+                    Cambio de sistema: Hoy no hay flujo continuo. Es trabajo de intervalos (I Go, You Go). El Atleta 1
+                    debe ir a ritmo de Sprint (95% HR) mientras el Atleta 2 recupera por completo.
+                </div>
+                <section>
+                    <h4 class="text-blue-400 font-semibold mb-2">Warmup en Parejas (10 Min)</h4>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>400m Run progresivo juntos.</li>
+                        <li>3 Rondas de Pases de balón (Medball Toss) laterales y frontales.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-blue-400 font-semibold mb-2">WOD: "El Duelo"</h4>
+                    <p class="font-bold text-white text-sm mb-1">Cada 4 Minutos x 10 Rondas (40 Min Total)</p>
+                    <p class="text-xs text-slate-400 mb-2">Atleta 1 hace el bloque (Aprox 2 min). Descansa el tiempo
+                        restante + los 4 min del Atleta 2.</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>15 Cal Echo Bike / Assault (Sprint)</li>
+                        <li>10 Dual DB Snatches o Alternados pesados</li>
+                        <li>50 Double Unders (Desafío de coordinación bajo fatiga)</li>
+                    </ul>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span class="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-blue-300">Rx: DB 50/35
+                            lb</span>
+                    </div>
+                </section>
+            </div>
+        </article>
+
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-emerald-600 text-white px-5 py-3 border-b-4 border-emerald-400">
+                <h3 class="text-3xl">JUEVES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase">Pliometría Blanda & Flush Metabólico</p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <div class="bg-emerald-900/30 p-3 rounded-lg border border-emerald-800 text-sm text-emerald-200">
+                    Semana de cargas máximas requiere un jueves de relajación profunda de fascias. Carga del SNC: CERO.
+                </div>
+                <section>
+                    <h4 class="text-emerald-400 font-semibold mb-2">Skill / Técnica (20 Min)</h4>
+                    <p class="text-xs text-slate-400 mb-1">Mecánica de Pliometría Blanda</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Técnica de Double y Triple Unders (Ritmo de muñeca vs. hombro).</li>
+                        <li>Saltos al cajón estrictos (Foco en absorción del impacto, sin rebote).</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-emerald-400 font-semibold mb-2">Recovery Flush (30 Min)</h4>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>20 Min: Trabajo constante y monótono en BikeErg (65% HR, respiración nasal).</li>
+                        <li>10 Min: Trabajo de compresión y estiramiento profundo de pantorrillas y tendón de Aquiles
+                            usando discos.</li>
+                    </ul>
+                </section>
+            </div>
+        </article>
+
+        <article class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 flex flex-col card-hover">
+            <div class="bg-amber-500 text-slate-900 px-5 py-3">
+                <h3 class="text-3xl">VIERNES</h3>
+                <p class="text-sm font-bold tracking-tight uppercase">Tren Inferior + Halterofilia de Peak</p>
+            </div>
+            <div class="p-5 space-y-6 flex-grow">
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z">
+                            </path>
+                        </svg>
+                        Warmup (12 Min)
+                    </h4>
+                    <p class="text-xs text-slate-400 mb-1">3 Rondas - Bisagra pesada.</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>10 Banded Good Mornings.</li>
+                        <li>10 Kang Squats con barra vacía.</li>
+                        <li>10 GHD Hip Extensions (o Supermans).</li>
+                        <li>5 Tall Cleans.</li>
+                    </ul>
+                </section>
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3">
+                            </path>
+                        </svg>
+                        Strength (22 Min)
+                    </h4>
+                    <div class="bg-slate-900 p-3 rounded border border-slate-700">
+                        <p class="font-bold text-white">Squat Clean (Cargada Profunda)</p>
+                        <p class="text-sm text-slate-300">5 series x 2 reps (80-85% RM). Repeticiones individuales (Drop
+                            and reset).</p>
+                        <p class="text-xs text-slate-400 mt-2 border-t border-slate-700 pt-2"><span
+                                class="text-amber-500">Regla:</span> Tracción perfecta desde el piso, codos altos en la
+                            recepción.</p>
+                    </div>
+                </section>
+                <section>
+                    <h4 class="text-amber-400 font-semibold mb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        WOD: "Grip & Rip 2.0"
+                    </h4>
+                    <p class="font-bold text-white text-sm mb-1">10 MIN AMRAP (Corto y Letal)</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>3 Squat Cleans Pesados</li>
+                        <li>6 Bar Muscle-ups (o Chest-to-Bar Pull-ups)</li>
+                        <li>9 Bar-Facing Burpees</li>
+                    </ul>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span class="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-amber-300">Rx: 185/125 lb
+                            (Músculo/C2B)</span>
+                    </div>
+                </section>
+            </div>
+        </article>
+
+        <article
+            class="bg-slate-800 rounded-xl overflow-hidden border border-amber-500 flex flex-col card-hover lg:col-span-3">
+            <div
+                class="bg-gradient-to-r from-red-600 to-amber-600 text-white px-5 py-3 flex justify-between items-center flex-wrap gap-2">
+                <div>
+                    <h3 class="text-3xl">SÁBADO</h3>
+                    <p class="text-sm font-bold tracking-tight uppercase">Double Trouble | Clase 2 Horas</p>
+                </div>
+                <span
+                    class="px-3 py-1 bg-black/30 rounded-full text-xs font-bold uppercase tracking-wider border border-white/20">Semana
+                    4 Fuerza Máxima</span>
+            </div>
+
+            <div class="p-5 flex flex-col md:flex-row gap-8">
+
+                <!-- Columna 1: Warmup & WOD 1 -->
+                <div class="flex-1 space-y-6">
+                    <section>
+                        <h4 class="text-amber-400 font-semibold mb-2">Warmup Global (15 Min)</h4>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li>1000m Row a ritmo cooperativo.</li>
+                            <li>15 Wall Balls progresivos.</li>
+                            <li>10 Inchworms.</li>
+                            <li>Aproximación de peso para WOD 1 (Deadlift).</li>
+                        </ul>
+                    </section>
+
+                    <section class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                        <h4 class="text-white font-heading tracking-wider text-xl mb-1 text-amber-500">WOD 1: Heavy
+                            Barbell Grinder</h4>
+                        <p class="font-bold text-white text-sm mb-3">15 MIN AMRAP (Gestión de fatiga y postura)</p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-2 mb-4">
+                            <li>10 Deadlifts (Pesados, postura estricta)</li>
+                            <li>20 Wall Balls (Pesados/Altos)</li>
+                            <li>30 Double Unders</li>
+                        </ul>
+                        <div class="mb-3">
+                            <span class="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-amber-300">Rx: DL 225/155
+                                lb, WB 20/14 a 10ft</span>
+                        </div>
+                        <p class="text-xs text-red-400 italic flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            * 15 min de descanso total. Masaje miofascial en lumbares.
+                        </p>
+                    </section>
+                </div>
+
+                <!-- Columna 2: WOD 2 -->
+                <div class="flex-1">
+                    <section
+                        class="bg-slate-900 h-full p-4 rounded-xl border border-slate-700 relative overflow-hidden">
+                        <!-- Decorative watermark -->
+                        <div
+                            class="absolute right-0 top-0 opacity-5 pointer-events-none transform translate-x-1/4 -translate-y-1/4">
+                            <svg class="w-64 h-64" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                            </svg>
+                        </div>
+
+                        <h4 class="text-white font-heading tracking-wider text-xl mb-1 text-red-500">WOD 2: Máquinas &
+                            Lastre Fuerte</h4>
+                        <p class="font-bold text-white text-sm mb-3">40 MIN TIME CAP (Resistencia de Fuerza)</p>
+
+                        <div class="space-y-3 relative z-10 text-sm text-slate-300">
+                            <div class="flex items-center gap-3 bg-slate-800/50 p-2 rounded">
+                                <span
+                                    class="bg-red-900/50 text-red-400 px-2 py-1 rounded text-xs font-bold w-12 text-center">1</span>
+                                <span>2000m Row (Paso Z3).</span>
+                            </div>
+                            <div class="flex items-center gap-3 bg-slate-800/50 p-2 rounded">
+                                <span
+                                    class="bg-red-900/50 text-red-400 px-2 py-1 rounded text-xs font-bold w-12 text-center">2</span>
+                                <span>50m Sled Push (Heavy - Romper inercia pesada).</span>
+                            </div>
+                            <div class="flex items-center gap-3 bg-slate-800/50 p-2 rounded">
+                                <span
+                                    class="bg-red-900/50 text-red-400 px-2 py-1 rounded text-xs font-bold w-12 text-center">3</span>
+                                <span>2000m BikeErg o Ciclismo (Paso Z3).</span>
+                            </div>
+                            <div class="flex items-center gap-3 bg-slate-800/50 p-2 rounded">
+                                <span
+                                    class="bg-red-900/50 text-red-400 px-2 py-1 rounded text-xs font-bold w-12 text-center">4</span>
+                                <span>50m Sled Pull (Heavy - Jalón de espaldas).</span>
+                            </div>
+                            <div class="flex items-center gap-3 bg-slate-800/50 p-2 rounded">
+                                <span
+                                    class="bg-red-900/50 text-red-400 px-2 py-1 rounded text-xs font-bold w-12 text-center">5</span>
+                                <span>100m Heavy Sandbag Carry (Rx: 150/100 lb). Lucha final por el agarre.</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-slate-700">
+                            <p class="text-xs text-slate-400">
+                                <strong class="text-white">Objetivo del Sábado:</strong> Tolerar cargas altas bajo
+                                fatiga cardiovascular moderada. El sistema nervioso estará al límite tras la semana; la
+                                técnica de carrera y empuje debe ser impecable para no cargar las articulaciones.
+                            </p>
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+        </article>
+
+    </main>
+
+    <footer class="max-w-7xl mx-auto mt-10 text-center text-slate-500 text-sm pb-10 border-t border-slate-800 pt-6">
+        <p>Kronos Training &copy; Programación basada en principios de Neuro-biomecánica y Acondicionamiento Físico
+            General.</p>
+    </footer>
+
+</body>
+
+</html>

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kronos Programming - Comp Prep (Sept 5-6)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        h1,
+        h2,
+        h3,
+        .font-heading {
+            font-family: 'Bebas Neue', cursive;
+            letter-spacing: 0.05em;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);
+        }
+
+        .btn-active {
+            background-color: #f59e0b !important;
+            color: #0f172a !important;
+            border-color: #f59e0b !important;
+        }
+
+        .pulse-red {
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen p-4 md:p-8">
+
+    <!-- Header Section -->
+    <header
+        class="max-w-7xl mx-auto mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-2xl border-l-4 border-amber-500 shadow-xl transition-all duration-300"
+        id="main-header">
+        <div>
+            <h1 class="text-5xl md:text-6xl text-white mb-2 tracking-wide">KRONOS <span class="text-amber-500">COMP
+                    PREP</span></h1>
+            <h2 class="text-2xl text-slate-400 font-heading" id="week-title">Semana 1: Adaptación Intermedia</h2>
+            <p class="text-sm text-amber-400 mt-2 font-bold">ATLETAS M/F - OBJETIVO: SEPTIEMBRE 5 Y 6</p>
+        </div>
+        <div class="mt-6 md:mt-0 grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Volumen</span>
+                <span class="text-xl font-heading text-white" id="vol-badge">Medio</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Cargas</span>
+                <span class="text-xl font-heading text-amber-500" id="int-badge">Intermedias</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 col-span-2 md:col-span-1">
+                <span class="block text-xs text-slate-400 uppercase tracking-wider font-bold">Foco</span>
+                <span class="text-xl font-heading text-white" id="foc-badge">Skills + Sync</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Controls Section -->
+    <section class="max-w-7xl mx-auto mb-8 bg-slate-900 p-4 rounded-xl border border-slate-700">
+        <div class="mb-4">
+            <h3 class="text-sm font-bold text-slate-400 uppercase mb-2">Selecciona la Semana:</h3>
+            <div class="flex flex-wrap gap-2" id="week-filters">
+                <button
+                    class="filter-btn btn-active px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="week" data-target="1">Semana 1</button>
+                <button
+                    class="filter-btn px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="week" data-target="2">Semana 2</button>
+                <button
+                    class="filter-btn px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="week" data-target="3">Semana 3</button>
+                <button
+                    class="filter-btn px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="week" data-target="4">Semana 4</button>
+                <button
+                    class="filter-btn px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="week" data-target="5">Semana 5</button>
+                <button
+                    class="filter-btn px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="week" data-target="6">Semana 6 (Competencia)</button>
+            </div>
+        </div>
+        <div>
+            <h3 class="text-sm font-bold text-slate-400 uppercase mb-2">Selecciona el Día:</h3>
+            <div class="flex flex-wrap gap-2" id="day-filters">
+                <button
+                    class="filter-btn btn-active px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="day" data-target="all">Todos</button>
+                <button
+                    class="filter-btn px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="day" data-target="Lunes">Lunes</button>
+                <button
+                    class="filter-btn px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="day" data-target="Miercoles">Miércoles (Sync)</button>
+                <button
+                    class="filter-btn px-4 py-2 bg-slate-800 border border-slate-600 rounded font-bold text-sm text-slate-300 hover:bg-slate-700 transition"
+                    data-filter-type="day" data-target="Viernes">Viernes</button>
+                <button
+                    class="filter-btn hidden px-4 py-2 bg-red-900 border border-red-500 rounded font-bold text-sm text-white hover:bg-red-800 transition"
+                    id="comp-btn" data-filter-type="day" data-target="Competicion">Fin de Semana (COMP)</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Timeline Grid Container -->
+    <main class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="cards-container">
+        <!-- Contenido inyectado por JS -->
+    </main>
+
+    <footer class="max-w-7xl mx-auto mt-10 text-center text-slate-500 text-sm pb-10 border-t border-slate-800 pt-6">
+        <p>Kronos Training &copy; Comp Prep Pathway. Ascenso Integral M/F.</p>
+    </footer>
+
+    <script>
+        // ESTILOS DE LA LÍNEA DE TIEMPO (Colores del manual L2 + Accesorios)
+        const C = {
+            PIZ: { c: "bg-blue-900", t: "text-blue-400" },      // Pizarra
+            CG: { c: "bg-rose-900", t: "text-rose-400" },      // Calentamiento General
+            CE: { c: "bg-orange-600", t: "text-orange-400" },  // Calentamiento Específico / Fuerza / Skill
+            ACC: { c: "bg-fuchsia-900", t: "text-fuchsia-400" },// Accesorios (Fuerza complementaria)
+            LOG: { c: "bg-amber-500", t: "text-amber-400" },    // Logística / Penalizaciones
+            WOD: { c: "bg-teal-600", t: "text-teal-400" },      // Entrenamiento
+            ENF: { c: "bg-indigo-900", t: "text-indigo-400" },  // Enfriamiento Profiláctico
+            COMP: { c: "bg-red-600", t: "text-red-200" }         // Competencia (Eventos Reales)
+        };
+
+        const metaData = {
+            1: { title: "Semana 1: Foundations & Skills Intermedios", vol: "Medio", int: "135/95 C&J | 95/65 SN", foc: "Técnica + Tolerancia", color: "border-amber-500", text: "text-amber-500" },
+            2: { title: "Semana 2: Volume & Sync Awareness", vol: "Alto", int: "Cargas de Competición", foc: "Comunicación M/F", color: "border-amber-500", text: "text-amber-500" },
+            3: { title: "Semana 3: The Frustration Phase", vol: "Medio", int: "Pesado bajo fatiga", foc: "Resiliencia Mental", color: "border-red-500", text: "text-red-500" },
+            4: { title: "Semana 4: Peak Gymnastics & Heavy Loads", vol: "Medio", int: "Max Lifts + DUs", foc: "Densidad de Skills", color: "border-red-500", text: "text-red-500" },
+            5: { title: "Semana 5: Simulation & Confidence", vol: "Bajo", int: "Intensidad 100%", foc: "Estrategia de Heats", color: "border-amber-500", text: "text-amber-500" },
+            6: { title: "Semana 6: THE PEAK (Sept 5 & 6)", vol: "Taper", int: "100%", foc: "COMPETICIÓN OFICIAL", color: "border-red-600", text: "text-red-500" }
+        };
+
+        const workouts = [
+            // ================== SEMANA 1 ==================
+            {
+                week: 1, day: "Lunes", header: "C&J Pesado + Tolerancia a Frustración", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Manejo de Clean & Jerk a pesos de intermedios (135/95). WOD con penalizaciones.", style: C.PIZ },
+                    { time: ":03-:15", title: "SKILL HALTEROFILIA", desc: "Clean & Jerk Complex: 1 Power Clean + 1 Hang Clean + 1 Jerk.\nConstruir hasta 135/95 lb con técnica perfecta. Si la técnica se rompe, no se sube.", style: C.CE },
+                    { time: ":15-:25", title: "ACCESORIOS FUERZA", desc: "3 Series:\n- 10 Dual DB Push Press (35/30 lb) pesados.\n- 12 GHD Sit-ups (Fortalecer core para gimnasia).", style: C.ACC },
+                    { time: ":25-:30", title: "LOGÍSTICA Y SET UP", desc: "Preparar barras, cuerdas de salto. Explicar penalización: Romper serie = Burpees.", style: C.LOG },
+                    { time: ":30-:45", title: "ENTRENAMIENTO (FRUSTRACIÓN)", desc: "15 Min AMRAP:\n- 5 Clean & Jerk (135/95 lb - Touch&Go si es posible).\n- 30 Double Unders.\n⚠️ REGLA MENTAL: Si tropiezas en los DUs, pagas 5 Burpees over the bar inmediatos antes de retomar.", style: C.WOD },
+                    { time: ":45-:50", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Down-regulation. Descompresión de muñecas y hombros en rack. Masaje plantar.", style: C.ENF }
+                ]
+            },
+            {
+                week: 1, day: "Miercoles", header: "Partner Day - Sincronización Base", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Comunicación M/F. El 'No Rep' del juez será estricto si no hay sincronía perfecta.", style: C.PIZ },
+                    { time: ":03-:15", title: "SKILL GIMNASIA SYNC", desc: "Práctica de Sync Toes to Bar. Las dos espinillas o pies deben tocar la barra al mismo tiempo. Práctica de comunicación visual.", style: C.CE },
+                    { time: ":15-:25", title: "ACCESORIOS CORE", desc: "3 Series en pareja:\n- 20 Sync AbMat Sit-ups.\n- 45s Sync Plank Hold.", style: C.ACC },
+                    { time: ":25-:28", title: "PAUSA Y LOGÍSTICA", desc: "Preparar DBs (35/30) y Wall Balls (20/14).", style: C.LOG },
+                    { time: ":28-:48", title: "ENTRENAMIENTO SYNC", desc: "20 Min AMRAP (M/F):\n- 10 Sync DB Snatches (35/30 lb. Bloqueo arriba simultáneo).\n- 20 Sync Wall Balls (20/14 lb. Profundidad paralela).\n- 10 Sync Toes to Bar (o Knees to Elbows, tocar simultáneo).\n⚠️ Sincronía rota = NO REP.", style: C.WOD },
+                    { time: ":48-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Descompresión lumbar en posición de esfinge. Caminata suave.", style: C.ENF }
+                ]
+            },
+            {
+                week: 1, day: "Viernes", header: "Snatch Tech + Fatiga de Empuje", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Overhead Squat y fatiga de hombros estricta para prepararnos para HSPU.", style: C.PIZ },
+                    { time: ":03-:18", title: "SKILL HALTEROFILIA", desc: "Snatch Balance + Overhead Squat. \nTrabajar estabilidad de hombros hasta llegar a 95/65 lb.", style: C.CE },
+                    { time: ":18-:28", title: "ACCESORIOS TRACCIÓN", desc: "3 Series:\n- 5-8 Strict Pull-ups (usar banda gruesa si es necesario, CERO KIPPING).\n- 10 DB Romanian Deadlifts pesados.", style: C.ACC },
+                    { time: ":28-:32", title: "LOGÍSTICA Y SET UP", desc: "Explicar estándares de Hand Release Push-ups y HSPU.", style: C.LOG },
+                    { time: ":32-:47", title: "ENTRENAMIENTO (DENSIDAD)", desc: "AMRAP 15 \n - 10 Power Snatches (95/65 lb).\n- 12 Hand Release Push-ups (Avanzado: 6-8 HSPU).\n- 400m Run (Sprint moderado).", style: C.WOD },
+                    { time: ":47-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Apertura de pecho con foam roller. Estiramiento de cadena anterior y hombros.", style: C.ENF }
+                ]
+            },
+
+            // ================== SEMANA 2 ==================
+            {
+                week: 2, day: "Lunes", header: "Deadlift Pesado + Volumen Gimnástico", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Cargas de competencia en DL (155/115). Manejo de grip.", style: C.PIZ },
+                    { time: ":03-:18", title: "FUERZA ESPECÍFICA", desc: "Deadlift.\n5 Series x 5 Reps Touch & Go a 155/115 lb. Foco: Hook grip, espalda inquebrantable.", style: C.CE },
+                    { time: ":18-:28", title: "ACCESORIOS UNILATERAL", desc: "3 Series:\n- 8 Bulgarian Split Squats con KB pesado por pierna.\n- 15m Farmer Carry pesado (Grip burn).", style: C.ACC },
+                    { time: ":28-:32", title: "LOGÍSTICA Y SET UP", desc: "Ajustar cargas. Escalar Pull-ups (Strict a Kipping).", style: C.LOG },
+                    { time: ":32-:48", title: "ENTRENAMIENTO (RESISTENCIA)", desc: "4 Rondas For Time (16m Cap):\n- 15 Deadlifts (155/115 lb).\n- 10 Pull-ups (Volumen de competencia).\n- 15 Box Jumps (Step down).", style: C.WOD },
+                    { time: ":48-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Masaje fascial en isquiosurales. Descompresión de antebrazos.", style: C.ENF }
+                ]
+            },
+            {
+                week: 2, day: "Miercoles", header: "Partner Day - I Go, You Go Estratégico", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Transiciones rápidas. Uno trabaja al 100%, el otro recupera activo.", style: C.PIZ },
+                    { time: ":03-:15", title: "SKILL GIMNASIA", desc: "Progresiones de Rope Climb (Cuerda). Aprender a usar J-Hook para ahorrar brazos.", style: C.CE },
+                    { time: ":15-:25", title: "ACCESORIOS ESPALDA", desc: "3 Series en equipo:\n- 12 Pendlay Rows sincrónicos (Barra ligera).\n- 30s Hollow Hold simultáneo.", style: C.ACC },
+                    { time: ":25-:30", title: "LOGÍSTICA Y SET UP", desc: "Trazar distancias de carrera. Explicar relevos.", style: C.LOG },
+                    { time: ":30-:50", title: "ENTRENAMIENTO (RELEVOS)", desc: "20 Min AMRAP (I Go, You Go por rondas completas):\nAtleta A hace 1 ronda completa, Atleta B espera:\n- 200m Run.\n- 10 Burpees over the bar.\n- 1 Rope Climb (o 5 Pull-ups).", style: C.WOD },
+                    { time: ":50-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Caminar suave. Dead hang en barra para relajar trapecios y dorsales.", style: C.ENF }
+                ]
+            },
+            {
+                week: 2, day: "Viernes", header: "Fatiga de Piernas + OHS", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Aprender a hacer sentadillas estables cuando las piernas queman por correr.", style: C.PIZ },
+                    { time: ":03-:18", title: "SKILL FUERZA", desc: "Front Squat con pausa de 3 segundos en el fondo.\n5 x 3 Reps pesadas. Foco: Salir explosivo del estancamiento.", style: C.CE },
+                    { time: ":18-:28", title: "ACCESORIOS HOMBRO", desc: "3 Series:\n- 10 Z-Press con DBs (sentados en el piso).\n- 12 Elevaciones laterales para deltoides medio.", style: C.ACC },
+                    { time: ":28-:32", title: "LOGÍSTICA Y SET UP", desc: "Preparar barras en 95/65 lb para Overhead Squats.", style: C.LOG },
+                    { time: ":32-:48", title: "ENTRENAMIENTO (FRUSTRACIÓN)", desc: "Por Tiempo (16m Cap):\n- 800m Run (Entrada)\n- 30 Overhead Squats (95/65 lb) - Romper la serie = 200m Run extra.\n- 800m Run (Salida).", style: C.WOD },
+                    { time: ":48-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Estiramiento Couch Stretch pasivo (liberar cuádriceps y flexores de cadera).", style: C.ENF }
+                ]
+            },
+
+            // ================== SEMANA 3 ==================
+            {
+                week: 3, day: "Lunes", header: "C&J Bajo Presión + T2B", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Semana de estrés. Complejos pesados respirando fuerte.", style: C.PIZ },
+                    { time: ":03-:18", title: "FUERZA ESPECÍFICA", desc: "Clean & Jerk desde el piso.\nEMOM 10 Min: 1 C&J Pesado (Subiendo a +135/95).", style: C.CE },
+                    { time: ":18-:28", title: "ACCESORIOS CORE", desc: "3 Series:\n- 15 V-Ups explosivos.\n- 10 Hip Extensions en GHD (Fortalecer erector espinal).", style: C.ACC },
+                    { time: ":28-:33", title: "LOGÍSTICA Y PENALIZACIÓN", desc: "Trazar estándar de T2B. Si caes de la barra antes de 5 reps, penalización.", style: C.LOG },
+                    { time: ":33-:48", title: "ENTRENAMIENTO (ESTRÉS)", desc: "15 Min AMRAP:\n- 3 Clean & Jerks (135/95 lb).\n- 12 Toes to Bar (Mínimo en series de 4. Bajar antes = 5 Burpees).\n- 30 Double Unders.", style: C.WOD },
+                    { time: ":48-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Masaje con pelota en trapecios y apertura de fascia toracolumbar.", style: C.ENF }
+                ]
+            },
+            {
+                week: 3, day: "Miercoles", header: "Partner Day - El 'Gusano' Mental", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Tolerancia a la frustración con el compañero. O avanzan juntos o fracasan juntos.", style: C.PIZ },
+                    { time: ":03-:18", title: "SKILL SYNC COMPLEJO", desc: "Práctica de Sync Burpee over the bar y Sync Medball Cleans. Timing perfecto de salto y recepción.", style: C.CE },
+                    { time: ":18-:26", title: "ACCESORIOS ESTABILIDAD", desc: "3 Series Sync:\n- 10 Push-ups tocando la mano del compañero arriba.\n- 30s Wall Sit sincronizado.", style: C.ACC },
+                    { time: ":26-:30", title: "LOGÍSTICA Y SET UP", desc: "Explicar 'No Rep' riguroso.", style: C.LOG },
+                    { time: ":30-:50", title: "ENTRENAMIENTO (TORTURA SYNC)", desc: "20 Min AMRAP M/F:\n- 10 Sync Burpees over the bar.\n- 15 Sync Medball Cleans (20/14 lb).\n- 20 Sync Alternating DB Snatches (35/30 lb).\n⚠️ 1 repética asíncrona = toda la serie se repite desde CERO.", style: C.WOD },
+                    { time: ":50-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Caminar soltando brazos. Estiramientos de cuello y trapecio.", style: C.ENF }
+                ]
+            },
+            {
+                week: 3, day: "Viernes", header: "Fatiga Aeróbica y Snatch", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Mantener técnica de Snatch cuando la frecuencia cardíaca está a 170 BPM.", style: C.PIZ },
+                    { time: ":03-:18", title: "FUERZA ESPECÍFICA", desc: "Power Snatch + Hang Squat Snatch Complex.\nConstruir cargas intermedias (95/65 lb) puliendo la recepción.", style: C.CE },
+                    { time: ":18-:28", title: "ACCESORIOS POSTERIOR", desc: "3 Series:\n- 10 RDLs pesados con mancuernas.\n- 10 Remo a un brazo en banco.", style: C.ACC },
+                    { time: ":28-:32", title: "LOGÍSTICA Y SET UP", desc: "Preparar cajas 24/20 y barras de Snatch.", style: C.LOG },
+                    { time: ":32-:48", title: "ENTRENAMIENTO (COMPETENCIA)", desc: "4 Rondas For Time (16m Cap):\n- 400m Run.\n- 15 Box Jumps (24/20\").\n- 7 Power Snatches (95/65 lb).", style: C.WOD },
+                    { time: ":48-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Elevar piernas a 90°. Masaje fascial en gemelos y planta del pie.", style: C.ENF }
+                ]
+            },
+
+            // ================== SEMANA 4 ==================
+            {
+                week: 4, day: "Lunes", header: "Cargas Pico + Gimnasia Densidad", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Semana 4. Acercándonos al peak de fuerza y perfeccionando HSPU.", style: C.PIZ },
+                    { time: ":03-:18", title: "FUERZA MÁXIMA", desc: "Clean & Jerk (Pesado).\nBuscar un 2RM del día (Debe ser > 135/95).", style: C.CE },
+                    { time: ":18-:28", title: "ACCESORIOS HOMBRO", desc: "3 Series:\n- 10 Press estricto con mancuernas.\n- 10 Pájaros (vuelos traseros) para escápulas.", style: C.ACC },
+                    { time: ":28-:35", title: "LOGÍSTICA Y SET UP", desc: "Estandarizar HSPU (o Hand Release Push Ups si aún no salen estrictos).", style: C.LOG },
+                    { time: ":35-:47", title: "ENTRENAMIENTO (DENSIDAD)", desc: "EMOM 12 Min:\n- Min 1: 10 Deadlifts Pesados (185/135 o 155/115).\n- Min 2: 5-8 HSPU (o 12 Hand Release Push-ups).\n- Min 3: 40 Double Unders.", style: C.WOD },
+                    { time: ":47-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Descompresión cervical y lumbar. Foam roller en isquios.", style: C.ENF }
+                ]
+            },
+            {
+                week: 4, day: "Miercoles", header: "Partner Day - Grip & Rip", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Destrucción de agarre en pareja. Sincronización bajo fatiga de antebrazos.", style: C.PIZ },
+                    { time: ":03-:15", title: "SKILL GIMNASIA", desc: "Técnica de Pull-ups cíclicos y cómo rotar rápido con el partner sin perder segundos.", style: C.CE },
+                    { time: ":15-:25", title: "ACCESORIOS GRIP", desc: "3 Series:\n- 50m Farmer's Carry M/F sincronizados.\n- 10 DB Curls tipo martillo.", style: C.ACC },
+                    { time: ":25-:30", title: "LOGÍSTICA Y SET UP", desc: "Acomodar estaciones de T2B y DBs.", style: C.LOG },
+                    { time: ":30-:50", title: "ENTRENAMIENTO (AGARRE)", desc: "20 Min AMRAP (Dividir libre, solo 1 trabaja):\n- 50 Pull-ups.\n- 50 DB Snatches alternados (50/35 o 35/30).\n- 50 Toes to Bar.\n- 50 Sync Burpees (ambos trabajan aquí).", style: C.WOD },
+                    { time: ":50-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Masaje y estiramiento profundo de flexores de muñeca y antebrazo.", style: C.ENF }
+                ]
+            },
+            {
+                week: 4, day: "Viernes", header: "Snatch Absoluto + Sleds", timeline: [
+                    { time: ":00-:03", title: "PIZARRA", desc: "Briefing: Búsqueda de RM en Snatch y WOD de puro motor anaeróbico.", style: C.PIZ },
+                    { time: ":03-:20", title: "FUERZA MÁXIMA", desc: "Squat Snatch.\nBuscar 1RM del día. Foco en metida rápida y caída segura. Cero miedo.", style: C.CE },
+                    { time: ":20-:30", title: "ACCESORIOS ESTABILIDAD", desc: "3 Series:\n- 10 Overhead Squats (Barra vacía, pausa 3s abajo).\n- 12 Extensiones lumbares.", style: C.ACC },
+                    { time: ":30-:35", title: "LOGÍSTICA Y SET UP", desc: "Armar pista corta de correr y burpees.", style: C.LOG },
+                    { time: ":35-:45", title: "ENTRENAMIENTO (MOTOR)", desc: "Por Tiempo (10m Cap):\n- 21-15-9\n- Burpees over the box (24/20\").\n- Cal Row o SkiErg (Sprint).", style: C.WOD },
+                    { time: ":45-:55", title: "ENFRIAMIENTO PROFILÁCTICO", desc: "Relajación sistema nervioso parasimpático (boca arriba).", style: C.ENF }
+                ]
+            },
+
+            // ================== SEMANA 5 (SIMULATION) ==================
+            {
+                week: 5, day: "Lunes", header: "Simulacro 1: C&J + Gimnasia", timeline: [
+                    { time: ":00-:05", title: "PIZARRA", desc: "Briefing: Semana de simulacro. Intensidad 100%. Imaginamos que el juez está enfrente.", style: C.PIZ },
+                    { time: ":05-:15", title: "CALENTAMIENTO / MOBILITY", desc: "Movilidad torácica, muñecas, tobillos y preparación neural.", style: C.CG },
+                    { time: ":15-:25", title: "PREP COMPETICIÓN", desc: "Aproximar al peso del simulacro. Repasar estándares: codos bloqueados, caderas extendidas.", style: C.CE },
+                    { time: ":25-:30", title: "LOGÍSTICA HEAT", desc: "Dividir en heats si es necesario para simular competencia real.", style: C.LOG },
+                    { time: ":30-:42", title: "SIMULACRO EVENTO 1", desc: "Por Tiempo (12m Cap):\n- 15 Clean & Jerks (135/95 lb).\n- 30 Pull-ups.\n- 10 Clean & Jerks.\n- 20 Hand Release Push-ups (o HSPU).", style: C.WOD },
+                    { time: ":42-:55", title: "ENFRIAMIENTO Y ESTRATEGIA", desc: "Bajar pulsaciones. Feedback de tácticas: ¿saliste muy rápido? ¿rompiste bien?", style: C.ENF }
+                ]
+            },
+            {
+                week: 5, day: "Miercoles", header: "Simulacro 2: Sync Endurance", timeline: [
+                    { time: ":00-:05", title: "PIZARRA", desc: "Briefing: Evento M/F. El equipo es tan rápido como su eslabón más cansado.", style: C.PIZ },
+                    { time: ":05-:15", title: "CALENTAMIENTO / MOBILITY", desc: "Trote suave, fluidez de cadera y sincronización de burpees.", style: C.CG },
+                    { time: ":15-:20", title: "PREP COMPETICIÓN", desc: "Ajuste de Wall Balls y DBs. Práctica de sincronía.", style: C.CE },
+                    { time: ":20-:25", title: "LOGÍSTICA HEAT", desc: "Preparar carril de competencia. Jueces cruzados (atletas se juzgan mutuamente).", style: C.LOG },
+                    { time: ":25-:45", title: "SIMULACRO EVENTO 2", desc: "20 Min AMRAP (M/F):\n- 20 Sync Wall Balls (20/14).\n- 20 Sync DB Snatches (35/30).\n- 20 Sync Toes to Bar (o Knees to Elbow).\n- 400m Run Juntos (Llegar al mismo tiempo).", style: C.WOD },
+                    { time: ":45-:55", title: "ENFRIAMIENTO Y ESTRATEGIA", desc: "Evaluar fallas de comunicación. Masaje plantar y de gemelos.", style: C.ENF }
+                ]
+            },
+            {
+                week: 5, day: "Viernes", header: "Simulacro 3: Snatch & Motor", timeline: [
+                    { time: ":00-:05", title: "PIZARRA", desc: "Briefing: Evento explosivo. Respiración bajo carga.", style: C.PIZ },
+                    { time: ":05-:15", title: "CALENTAMIENTO / MOBILITY", desc: "Activación neural, saltos pliométricos y OHS con PVC.", style: C.CG },
+                    { time: ":15-:25", title: "PREP COMPETICIÓN", desc: "Aproximación de Snatch (95/65). Calentar Double Unders.", style: C.CE },
+                    { time: ":25-:30", title: "LOGÍSTICA HEAT", desc: "Revisar estándar de extensión de rodillas/cadera en el Snatch.", style: C.LOG },
+                    { time: ":30-:40", title: "SIMULACRO EVENTO 3", desc: "Por Tiempo (10m Cap):\n- 30 Power Snatches (95/65 lb).\n- 100 Double Unders.\n- 15 Power Snatches.\n- 50 Double Unders.", style: C.WOD },
+                    { time: ":40-:55", title: "ENFRIAMIENTO Y ESTRATEGIA", desc: "Descompresión lumbar total. Feedback técnico. Cierre de semana pesada.", style: C.ENF }
+                ]
+            },
+
+            // ================== SEMANA 6 (PEAK / TAPERING) ==================
+            {
+                week: 6, day: "Lunes", header: "Tapering: Flush Aeróbico y Movilidad", timeline: [
+                    { time: ":00-:05", title: "PIZARRA", desc: "Briefing: Semana de competencia. El trabajo duro ya está hecho. Hoy es purga de ácido láctico.", style: C.PIZ },
+                    { time: ":05-:20", title: "MOVILIDAD Y ACTIVACIÓN", desc: "Flujo de yoga, aperturas de cadera, rotaciones torácicas.", style: C.CG },
+                    { time: ":20-:35", title: "SKILL LIGERO", desc: "Repaso técnico (Barra vacía). 3 Rondas lentas de 5 Snatches, 5 C&J perfectos.", style: C.CE },
+                    { time: ":35-:50", title: "ENTRENAMIENTO (RECOVERY)", desc: "15 Min AMRAP (ZONA 2, Hablando tranquilamente):\n- 1000m BikeErg.\n- 15m Bear Crawl.\n- 30s Plank.", style: C.WOD },
+                    { time: ":50-:60", title: "ENFRIAMIENTO MENTAL", desc: "Visualización de los eventos. Respiración parasimpática.", style: C.ENF }
+                ]
+            },
+            {
+                week: 6, day: "Miercoles", header: "Tapering: Sincronía Perfecta al 50%", timeline: [
+                    { time: ":00-:05", title: "PIZARRA", desc: "Briefing: Última afinación M/F. Sudar poco, comunicarse mucho.", style: C.PIZ },
+                    { time: ":05-:20", title: "CALENTAMIENTO", desc: "Trote ligero, movilidad dinámica y PNF en parejas.", style: C.CG },
+                    { time: ":20-:45", title: "PRÁCTICA SYNC (CERO FATIGA)", desc: "EMOM 20 Min (Alternando):\n- Min 1: 10 Sync Burpees a paso lento pero exacto.\n- Min 2: 10 Sync Medball Cleans.\n- Min 3: 10 Sync T2B (o colgarse juntos).\n- Min 4: Descanso.", style: C.WOD },
+                    { time: ":45-:55", title: "LOGÍSTICA COMPETENCIA", desc: "Repasar qué llevar: Zapatos, magnesia, snacks, muñequeras, horarios de heats.", style: C.LOG },
+                    { time: ":55-:60", title: "ENFRIAMIENTO", desc: "Cierre, choque de puños. Descanso absoluto Jueves y Viernes.", style: C.ENF }
+                ]
+            },
+            {
+                week: 6, day: "Viernes", header: "REST DAY / TRAVEL / BRIEFING", timeline: [
+                    { time: "N/A", title: "DESCANSO ABSOLUTO", desc: "Hoy no hay entrenamiento. Hidratación, carbohidratos de calidad, preparar la maleta y dormir 8+ horas.", style: C.DESC }
+                ]
+            },
+            {
+                week: 6, day: "Competicion", header: "GAME DAY: SEPT 5 & 6", timeline: [
+                    { time: "SÁBADO", title: "DÍA 1 DE COMPETENCIA", desc: "Llegar 2 horas antes del Heat.\nCalentamiento guiado específico.\nAlimentación intra-evento.\n¡Darlo todo en la pista!", style: C.COMP },
+                    { time: "SÁBADO NCHE", title: "RECUPERACIÓN", desc: "Baño de contraste, masajes, estiramiento ligero y reposición calórica agresiva.", style: C.ENF },
+                    { time: "DOMINGO", title: "DÍA 2 DE COMPETENCIA", desc: "Afrontar la fatiga mental y física.\nCierre de la competencia, podio y festejo del Ascenso Integral.", style: C.COMP },
+                    { time: "LUNES POST", title: "CELEBRACIÓN KRONOS", desc: "Compartir medallas, experiencias, fotos y planificar el siguiente objetivo. ¡Son un orgullo!", style: C.PIZ }
+                ]
+            }
+        ];
+
+        // --- LÓGICA DE LA APLICACIÓN ---
+        const cardsContainer = document.getElementById('cards-container');
+        const weekFilters = document.querySelectorAll('#week-filters button');
+        const dayFilters = document.querySelectorAll('#day-filters button');
+        const compBtn = document.getElementById('comp-btn');
+        const header = document.getElementById('main-header');
+        const weekTitle = document.getElementById('week-title');
+        const volBadge = document.getElementById('vol-badge');
+        const intBadge = document.getElementById('int-badge');
+        const focBadge = document.getElementById('foc-badge');
+
+        let currentWeek = 1;
+        let currentDay = "all";
+
+        function renderCards() {
+            cardsContainer.innerHTML = '';
+            const meta = metaData[currentWeek];
+            weekTitle.textContent = meta.title;
+            volBadge.textContent = meta.vol;
+            intBadge.textContent = meta.int;
+            focBadge.textContent = meta.foc;
+
+            header.className = `max-w-7xl mx-auto mb-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-2xl border-l-4 shadow-xl transition-all duration-300 ${meta.color}`;
+            weekTitle.className = `text-2xl font-heading ${meta.text}`;
+            intBadge.className = `text-xl font-heading ${meta.text}`;
+
+            // Mostrar u ocultar el botón de competencia solo en la semana 6
+            if (currentWeek === 6) {
+                compBtn.classList.remove('hidden');
+            } else {
+                compBtn.classList.add('hidden');
+                if (currentDay === 'Competicion') {
+                    currentDay = 'all';
+                    dayFilters.forEach(b => b.classList.remove('btn-active'));
+                    dayFilters[0].classList.add('btn-active');
+                }
+            }
+
+            const filteredWods = workouts.filter(w => w.week === currentWeek && (currentDay === 'all' || w.day.toLowerCase() === currentDay.toLowerCase()));
+
+            filteredWods.forEach(w => {
+                const isDouble = w.day === "Competicion";
+                const isFri = w.day === "Viernes" && currentWeek === 6;
+                const colSpan = (isDouble || isFri) ? 'lg:col-span-3' : '';
+
+                let cardHTML = `
+                    <article class="bg-slate-800 rounded-xl border ${isDouble ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-slate-700'} overflow-hidden card-hover ${colSpan}">
+                       <div class="${isDouble ? 'bg-black' : (w.day === 'Miercoles' ? 'bg-blue-900' : 'bg-slate-900')} p-4 border-b border-slate-700 flex justify-between items-center relative overflow-hidden">
+                          ${isDouble ? '<div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #ef4444 10px, #ef4444 20px);"></div>' : ''}
+                          <div class="relative z-10">
+                              <h3 class="text-3xl font-heading ${isDouble ? 'text-red-500' : 'text-white'} tracking-widest">${w.day.toUpperCase()}</h3>
+                              <span class="text-xs ${isDouble ? 'text-slate-300' : 'text-amber-500'} font-bold uppercase tracking-widest">${w.header}</span>
+                          </div>
+                          ${isDouble ? '<span class="px-3 py-1 bg-red-600 rounded text-xs font-bold uppercase tracking-wider text-white relative z-10">Evento Principal</span>' : ''}
+                       </div>
+                       <div class="flex flex-col md:${isDouble ? 'grid md:grid-cols-2 gap-4 p-4' : 'flex-col'}">
+                `;
+
+                // Render Timeline Items
+                let timelineHTML = '';
+                w.timeline.forEach(item => {
+                    timelineHTML += `
+                        <div class="flex stretch group">
+                            <div class="${item.style.c} w-2 md:w-3 shrink-0 transition-all group-hover:w-4"></div>
+                            <div class="p-3 pb-4 border-b border-slate-700/50 flex-1 bg-slate-800/30">
+                                <div class="font-bold text-xs ${item.style.t} mb-1 tracking-wider uppercase font-heading text-lg flex items-center gap-2">
+                                    <span class="bg-black/50 px-2 py-0.5 rounded text-sm font-sans">${item.time}</span> ${item.title}
+                                </div>
+                                <div class="text-sm text-slate-300 leading-relaxed whitespace-pre-line">${item.desc}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardHTML += timelineHTML;
+                cardHTML += `</div></article>`;
+                cardsContainer.innerHTML += cardHTML;
+            });
+        }
+
+        weekFilters.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                weekFilters.forEach(b => b.classList.remove('btn-active'));
+                e.target.classList.add('btn-active');
+                currentWeek = parseInt(e.target.getAttribute('data-target'));
+                renderCards();
+            });
+        });
+
+        dayFilters.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                dayFilters.forEach(b => b.classList.remove('btn-active'));
+                e.target.classList.add('btn-active');
+                currentDay = e.target.getAttribute('data-target');
+                renderCards();
+            });
+        });
+
+        renderCards();
+    </script>
+</body>
+
+</html>

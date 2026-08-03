@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import ConnectionBadge from '@/components/kronos/ConnectionBadge.vue'
+import KronosLogo from '@/components/kronos/KronosLogo.vue'
 import NavItems from '@/layouts/components/NavItems.vue'
 import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
 
@@ -38,11 +39,7 @@ import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
         to="/"
         class="app-logo app-title-wrapper"
       >
-        <div class="app-logo-mark">K</div>
-
-        <h1 class="kronos-display font-weight-medium leading-normal text-base">
-          Kronos
-        </h1>
+        <KronosLogo class="app-logo-image" />
       </RouterLink>
 
       <IconBtn
@@ -71,7 +68,7 @@ import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 .app-logo {
   display: flex;
   align-items: center;
-  column-gap: 0.75rem;
+  inline-size: 188px;
 
   .app-logo-title {
     font-size: 1.25rem;
@@ -81,14 +78,8 @@ import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
   }
 }
 
-.app-logo-mark {
-  display: grid;
-  border-radius: 10px;
-  background: #ff401b;
-  block-size: 38px;
-  color: #fff;
-  font: 700 0.9rem/1 "Syncopate", sans-serif;
-  inline-size: 38px;
-  place-items: center;
+.app-logo-image {
+  block-size: 48px;
+  inline-size: 180px;
 }
 </style>

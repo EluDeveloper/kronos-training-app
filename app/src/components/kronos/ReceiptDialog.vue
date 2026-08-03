@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import KronosLogo from '@/components/kronos/KronosLogo.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import type { ReceiptData } from '@/utils/receipts'
 import { downloadReceipt, paymentMethodLabel, printReceipt, shareReceipt } from '@/utils/receipts'
@@ -15,6 +16,8 @@ const emit = defineEmits<{
 
 const { success, failure } = useNotifications()
 const working = ref(false)
+const isCollection = computed(() => props.receipt?.kind === 'collection')
+const documentLabel = computed(() => isCollection.value ? 'Aviso de pago' : 'Recibo')
 
 async function run(action: 'download' | 'print' | 'share') {
   if (!props.receipt)
@@ -24,14 +27,14 @@ async function run(action: 'download' | 'print' | 'share') {
   try {
     if (action === 'download') {
       await downloadReceipt(props.receipt)
-      success('Recibo descargado.')
+      success(`${documentLabel.value} descargado.`)
     }
     else if (action === 'print') {
       await printReceipt(props.receipt)
     }
     else {
       const result = await shareReceipt(props.receipt)
-      success(result === 'shared' ? 'Recibo enviado al menú de compartir.' : 'PDF descargado y WhatsApp abierto.')
+      success(result === 'shared' ? `${documentLabel.value} enviado al menú de compartir.` : 'PDF descargado y WhatsApp abierto.')
     }
   }
   catch (error) {
@@ -49,12 +52,9 @@ async function run(action: 'download' | 'print' | 'share') {
   <VDialog :model-value="modelValue" max-width="680" @update:model-value="emit('update:modelValue', $event)">
     <VCard v-if="receipt" class="kronos-card" rounded="xl">
       <div class="receipt-header pa-6">
-        <div>
-          <div class="text-h5 font-weight-black text-kronos-cyan">KRONOS</div>
-          <div class="text-caption">TRAINING CENTER</div>
-        </div>
+        <KronosLogo class="receipt-logo" />
         <div class="text-right">
-          <div class="text-overline text-kronos-orange">RECIBO</div>
+          <div class="text-overline text-kronos-orange">{{ isCollection ? 'AVISO DE PAGO' : 'RECIBO' }}</div>
           <div class="font-weight-bold">{{ receipt.folio }}</div>
         </div>
       </div>
@@ -65,7 +65,11 @@ async function run(action: 'download' | 'print' | 'share') {
           <div class="text-sm-right"><div class="text-caption text-medium-emphasis">Fecha</div><div>{{ formatDate(receipt.issuedAt) }}</div></div>
         </div>
 
-        <VAlert color="info" variant="tonal" class="mb-5"><strong>{{ receipt.concept }}</strong><br>Método: {{ paymentMethodLabel(receipt.method) }}</VAlert>
+        <VAlert color="info" variant="tonal" class="mb-5">
+          <strong>{{ receipt.concept }}</strong>
+          <template v-if="!isCollection"><br>Método: {{ paymentMethodLabel(receipt.method) }}</template>
+          <template v-else><br>Este aviso no es un comprobante de pago.</template>
+        </VAlert>
 
         <VTable density="comfortable" class="mb-5">
           <thead><tr><th>CONCEPTO</th><th class="text-right">IMPORTE</th></tr></thead>
@@ -77,10 +81,17 @@ async function run(action: 'download' | 'print' | 'share') {
           </tbody>
         </VTable>
 
-        <div class="receipt-totals ms-auto">
+        <div v-if="!isCollection" class="receipt-totals ms-auto">
           <div class="d-flex justify-space-between"><span>Total</span><strong>{{ formatCurrency(receipt.total) }}</strong></div>
           <div class="d-flex justify-space-between"><span>{{ receipt.kind === 'sale-payment' ? 'Abono recibido' : 'Pagado' }}</span><strong>{{ formatCurrency(receipt.amountPaid) }}</strong></div>
-          <div class="d-flex justify-space-between text-h6 mt-3" :class="receipt.balance > 0 ? 'text-kronos-orange' : 'text-success'"><span>{{ receipt.balance > 0 ? 'Saldo' : 'Liquidado' }}</span><strong>{{ formatCurrency(receipt.balance) }}</strong></div>
+          <div class="d-flex justify-space-between"><span>Saldo</span><strong>{{ formatCurrency(receipt.balance) }}</strong></div>
+          <VChip class="mt-3 justify-center" :color="receipt.balance > 0 ? 'error' : 'success'" variant="flat">
+            {{ receipt.balance > 0 ? 'Saldo pendiente' : 'Pago completo' }}
+          </VChip>
+        </div>
+        <div v-else class="receipt-totals ms-auto">
+          <div class="d-flex justify-space-between text-h6"><span>Total a pagar</span><strong class="text-kronos-orange">{{ formatCurrency(receipt.total) }}</strong></div>
+          <VChip class="mt-3 justify-center" color="error" variant="flat">Pendiente de pago</VChip>
         </div>
       </VCardText>
 
@@ -102,6 +113,11 @@ async function run(action: 'download' | 'print' | 'share') {
   justify-content: space-between;
   background: #1b1d1a;
   border-block-end: 1px solid rgba(151, 213, 222, 20%);
+}
+
+.receipt-logo {
+  block-size: 58px;
+  inline-size: min(55%, 230px);
 }
 
 .receipt-totals {

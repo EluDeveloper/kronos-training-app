@@ -9,6 +9,7 @@ import VerticalNavSectionTitle from '@layouts/components/VerticalNavSectionTitle
   <VerticalNavLink :item="{ title: 'Dashboard', icon: 'ri-dashboard-3-line', to: '/dashboard' }" />
   <VerticalNavLink :item="{ title: 'Atletas', icon: 'ri-team-line', to: '/atletas' }" />
   <VerticalNavLink :item="{ title: 'Mensualidades', icon: 'ri-wallet-3-line', to: '/pagos' }" />
+  <VerticalNavLink :item="{ title: 'Visitas', icon: 'ri-footprint-line', to: '/visitas' }" />
   <VerticalNavLink :item="{ title: 'Rendimiento', icon: 'ri-line-chart-line', to: '/rendimiento' }" />
 
   <VerticalNavSectionTitle :item="{ heading: 'Administración' }" />

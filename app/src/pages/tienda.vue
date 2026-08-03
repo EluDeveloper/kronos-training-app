@@ -187,8 +187,39 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose() })
   <VTabs v-model="tab" class="mb-5"><VTab value="pos">Punto de venta</VTab><VTab value="inventory">Inventario</VTab><VTab value="credit">Deudas y abonos</VTab><VTab value="sales">Ventas</VTab></VTabs>
 
   <VWindow v-model="tab">
-    <VWindowItem value="pos"><VRow><VCol cols="12" lg="7"><VCard class="kronos-card" rounded="xl"><VCardTitle class="pa-6">Armar venta</VCardTitle><VCardText><VRow><VCol cols="12" md="7"><VSelect v-model="selectedProductId" :items="activeProducts" item-title="name" item-value="id" label="Producto" :item-props="item => ({ subtitle: `${item.stock} disponibles · ${formatCurrency(item.salePrice)}` })" /></VCol><VCol cols="6" md="2"><VTextField v-model.number="selectedQuantity" type="number" min="1" label="Cantidad" /></VCol><VCol cols="6" md="3"><VBtn block height="56" variant="tonal" @click="addToCart">Agregar</VBtn></VCol></VRow><VTable v-if="cartItems.length"><thead><tr><th>PRODUCTO</th><th>CANT.</th><th>IMPORTE</th><th></th></tr></thead><tbody><tr v-for="item in cartItems" :key="item.productId"><td>{{ item.name }}</td><td>{{ item.quantity }}</td><td>{{ formatCurrency(item.quantity * item.unitPrice) }}</td><td><VBtn icon="ri-close-line" variant="text" size="small" @click="removeFromCart(item.productId)" /></td></tr></tbody></VTable><EmptyState v-else icon="ri-shopping-basket-line" title="Carrito vacío" description="Selecciona productos disponibles para iniciar." /></VCardText></VCard></VCol>
-      <VCol cols="12" lg="5"><VCard class="kronos-card pa-6" rounded="xl"><p class="text-overline text-kronos-cyan">Cobro</p><p class="text-h3 font-weight-bold mb-6">{{ formatCurrency(cartTotal) }}</p><VSelect v-model="saleForm.athleteId" :items="athletes.sorted" item-title="profile.name" item-value="id" label="Vincular atleta (opcional)" clearable /><VTextField v-model="saleForm.customerName" label="Nombre del cliente" /><VSelect v-model="saleForm.method" :items="[{title:'Efectivo',value:'cash'},{title:'Transferencia',value:'transfer'},{title:'Tarjeta',value:'card'},{title:'Otro',value:'other'}]" label="Método" /><VTextField v-model.number="saleForm.initialPayment" type="number" min="0" :max="cartTotal" label="Pago inicial" prefix="$" /><VAlert v-if="saleForm.initialPayment < cartTotal" type="info" variant="tonal" class="mb-5">Saldo a crédito: {{ formatCurrency(cartTotal - saleForm.initialPayment) }}</VAlert><VBtn block size="large" :loading="saving" :disabled="!cartItems.length" @click="completeSale">Completar venta</VBtn></VCard></VCol></VRow></VWindowItem>
+    <VWindowItem value="pos">
+      <VRow>
+        <VCol cols="12" lg="7">
+          <VCard class="kronos-card" rounded="xl">
+            <VCardTitle class="pa-6">Armar venta</VCardTitle>
+            <VCardText>
+              <VRow>
+                <VCol cols="12" md="7"><VAutocomplete v-model="selectedProductId" :items="activeProducts" item-title="name" item-value="id" label="Buscar producto" prepend-inner-icon="ri-search-line" :item-props="item => ({ subtitle: `${item.stock} disponibles · ${formatCurrency(item.salePrice)}` })" clearable auto-select-first /></VCol>
+                <VCol cols="6" md="2"><VTextField v-model.number="selectedQuantity" type="number" min="1" label="Cantidad" /></VCol>
+                <VCol cols="6" md="3"><VBtn block height="56" variant="tonal" @click="addToCart">Agregar</VBtn></VCol>
+              </VRow>
+              <VTable v-if="cartItems.length"><thead><tr><th>PRODUCTO</th><th>CANT.</th><th>IMPORTE</th><th></th></tr></thead><tbody><tr v-for="item in cartItems" :key="item.productId"><td>{{ item.name }}</td><td>{{ item.quantity }}</td><td>{{ formatCurrency(item.quantity * item.unitPrice) }}</td><td><VBtn icon="ri-close-line" variant="text" size="small" @click="removeFromCart(item.productId)" /></td></tr></tbody></VTable>
+              <EmptyState v-else icon="ri-shopping-basket-line" title="Carrito vacío" description="Selecciona productos disponibles para iniciar." />
+            </VCardText>
+          </VCard>
+        </VCol>
+
+        <VCol cols="12" lg="5">
+          <VCard class="kronos-card checkout-card pa-6" rounded="xl">
+            <p class="text-overline text-kronos-cyan mb-1">Cobro</p>
+            <p class="text-h3 font-weight-bold mb-7">{{ formatCurrency(cartTotal) }}</p>
+            <div class="d-flex flex-column ga-5">
+              <VAutocomplete v-model="saleForm.athleteId" :items="athletes.sorted" item-title="profile.name" item-value="id" label="Buscar atleta (opcional)" prepend-inner-icon="ri-search-line" clearable auto-select-first />
+              <VTextField v-model="saleForm.customerName" label="Nombre del cliente" />
+              <VSelect v-model="saleForm.method" :items="[{title:'Efectivo',value:'cash'},{title:'Transferencia',value:'transfer'},{title:'Tarjeta',value:'card'},{title:'Otro',value:'other'}]" label="Método" />
+              <VTextField v-model.number="saleForm.initialPayment" type="number" min="0" :max="cartTotal" label="Pago inicial" prefix="$" />
+              <VAlert v-if="saleForm.initialPayment < cartTotal" type="info" variant="tonal">Saldo a crédito: {{ formatCurrency(cartTotal - saleForm.initialPayment) }}</VAlert>
+              <VBtn block size="large" :loading="saving" :disabled="!cartItems.length" @click="completeSale">Completar venta</VBtn>
+            </div>
+          </VCard>
+        </VCol>
+      </VRow>
+    </VWindowItem>
 
     <VWindowItem value="inventory"><VCard class="kronos-card" rounded="xl"><VTable v-if="commerce.products.length" class="text-no-wrap"><thead><tr><th>PRODUCTO</th><th>CATEGORÍA</th><th>STOCK</th><th>COSTO</th><th>PRECIO</th><th></th></tr></thead><tbody><tr v-for="product in commerce.products" :key="product.id"><td><strong>{{ product.name }}</strong><div class="text-caption text-medium-emphasis">{{ product.size || 'Sin talla' }}</div></td><td>{{ product.category }}</td><td><VChip size="small" :color="product.stock <= product.alertLevel ? 'warning' : 'success'">{{ product.stock }}</VChip></td><td>{{ formatCurrency(product.unitCost) }}</td><td>{{ formatCurrency(product.salePrice) }}</td><td class="text-end"><VBtn icon="ri-add-box-line" variant="text" @click="openStock(product)" /><VBtn icon="ri-edit-line" variant="text" @click="openProduct(product)" /></td></tr></tbody></VTable><EmptyState v-else icon="ri-archive-line" title="Sin inventario" description="Crea el primer producto de la tienda." /></VCard></VWindowItem>
 

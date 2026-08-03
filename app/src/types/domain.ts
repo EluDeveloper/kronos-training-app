@@ -7,6 +7,7 @@ export type PaymentStatus = 'paid' | 'pending' | 'not-applicable'
 export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'other'
 export type SaleStatus = 'paid' | 'credit' | 'cancelled'
 export type ExpenseStatus = 'paid' | 'pending' | 'scheduled'
+export type PlanAccessType = 'unlimited' | 'visit-pack' | 'pay-per-visit'
 
 export interface AuditFields {
   createdAt: ISOTimestamp
@@ -43,6 +44,9 @@ export interface MembershipPlan extends AuditFields {
   billingPeriod: 'monthly' | 'quarterly' | 'other'
   price: number
   status: ActiveStatus
+  accessType?: PlanAccessType
+  visitLimit?: number | null
+  pricePerVisit?: number | null
 }
 
 export interface Payment extends AuditFields {
@@ -52,6 +56,19 @@ export interface Payment extends AuditFields {
   method?: PaymentMethod | null
   amount?: number | null
   appliedAt?: ISOTimestamp | null
+  concept?: string | null
+  visitCount?: number | null
+}
+
+export interface Visit extends AuditFields {
+  id: EntityId
+  athleteId: EntityId
+  period: string
+  visitedAt: ISOTimestamp
+  planId: EntityId
+  accessType: PlanAccessType
+  unitPrice: number
+  note?: string | null
 }
 
 export interface Skill {
@@ -165,3 +182,24 @@ export const calculateAge = (birthDate?: ISODate | null, referenceDate = new Dat
 }
 
 export const currentPeriod = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+export const planAccessType = (plan?: MembershipPlan | null): PlanAccessType => {
+  if (plan?.accessType)
+    return plan.accessType
+
+  const name = plan?.name.toLocaleLowerCase('es') ?? ''
+  if (name.includes('cupon') || name.includes('10 visita'))
+    return 'visit-pack'
+  if (name.includes('por visita') || name.includes('visita individual'))
+    return 'pay-per-visit'
+
+  return 'unlimited'
+}
+
+export const planVisitLimit = (plan?: MembershipPlan | null) => planAccessType(plan) === 'visit-pack'
+  ? Math.max(1, Number(plan?.visitLimit || 10))
+  : null
+
+export const planVisitPrice = (plan?: MembershipPlan | null) => planAccessType(plan) === 'pay-per-visit'
+  ? Math.max(0, Number(plan?.pricePerVisit ?? plan?.price ?? 0))
+  : 0

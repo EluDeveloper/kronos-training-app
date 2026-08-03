@@ -422,6 +422,67 @@ Verificación de liberación:
 - `jspdf` se actualizó a 4.2.1 después de detectar una vulnerabilidad crítica en versiones anteriores; la auditoría de producción ya no reporta vulnerabilidades críticas.
 - Typecheck, build y despliegue final de Firebase Hosting completados correctamente.
 
+### Fase 8 — Operación avanzada y experiencia de uso — EN PROGRESO
+
+#### Fase 8A — Identidad, recibos y cobro emergente — LIBERADA 2026-08-03
+
+- [x] Usar los logos oficiales de `app/public/images/Kronos` en navegación, estados de sistema y recibos.
+- [x] Sustituir el estado ambiguo `Liquidado $0` por `Saldo $0` y `Pago completo`.
+- [x] Abrir el cobro en un diálogo desde el dashboard sin abandonar la página.
+- [x] Generar el recibo inmediatamente después del cobro emergente.
+- [x] Cambiar la selección de atleta del cobro a un autocomplete buscable.
+- [x] Separar visualmente atleta, periodo, monto y método en el formulario de pago.
+- [x] Mejorar el espaciado del formulario de venta y hacer buscables atleta y producto.
+- [x] Mover deudas, inventario y egresos antes de las listas de acciones mensuales.
+- [x] Añadir búsqueda, filtro por periodo y paginación de 15 al historial de pagos.
+- [x] Renderizar y revisar visualmente el PDF actualizado.
+- [x] Ejecutar typecheck, build, despliegue y prueba en producción.
+
+Verificación de liberación:
+
+- El PDF muestra el logo horizontal oficial sobre el encabezado oscuro, saldo separado y estado `Pago completo` sin presentar `$0` como si fuera el importe liquidado.
+- En producción, el botón Cobrar abrió un diálogo con atleta buscable, periodo, importe y método; no se escribió ningún pago durante la prueba de interfaz.
+- Los indicadores operativos aparecen antes de las mensualidades vencidas.
+- El historial de pagos publicado muestra filtros y máximo 15 registros por página.
+- La consola de producción no registró errores ni advertencias.
+
+#### Fase 8B — Tickets de cobranza consolidados — LIBERADA 2026-08-03
+
+- [x] Crear aviso de cobranza con mensualidad y adeudos de tienda del atleta.
+- [x] Detallar productos y saldos de cada venta pendiente.
+- [x] Mostrar el adeudo de tienda junto al atleta en las acciones del dashboard.
+- [x] Descargar, imprimir y compartir el aviso por WhatsApp.
+- [x] Diferenciar visualmente un aviso informativo de un recibo pagado.
+- [x] Renderizar, revisar, construir y desplegar la fase.
+
+Verificación de liberación:
+
+- El aviso A5 usa el logo oficial, lista mensualidad y productos pendientes, muestra el total a pagar y aclara que no es comprobante de pago.
+- El mensaje de WhatsApp enumera cada concepto y su importe antes del total.
+- En producción, Recordar abrió el aviso con mensualidad, total, PDF, impresión y WhatsApp sin errores de consola.
+
+#### Fase 8C — Visitas y cuponera — PENDIENTE
+
+- [ ] Registrar visitas por atleta y periodo.
+- [ ] Calcular visitas acumuladas para cobro al final del mes.
+- [ ] Controlar cuponera de 10 visitas y visitas restantes.
+- [ ] Alertar cuando queden dos visitas y preparar recordatorio de renovación.
+- [ ] Considerar adeudos de tienda en estados de cuenta por visitas.
+
+#### Fase 8D — Tablas, filtros y formularios — PENDIENTE
+
+- [ ] Limitar todas las tablas a 15 registros por página.
+- [ ] Añadir filtros útiles a todas las tablas.
+- [ ] Sustituir selects extensos por autocompletes buscables.
+- [ ] Revisar espaciado y comportamiento responsivo de todos los formularios.
+
+#### Fase 8E — Rendimiento comparativo — PENDIENTE
+
+- [ ] Editar marcas existentes.
+- [ ] Seleccionar atleta y skill con búsqueda.
+- [ ] Mostrar gráfica histórica y evolución por marca.
+- [ ] Mantener eliminación y conversión lb/kg.
+
 Riesgo de dependencias pendiente:
 
 - `npm audit --omit=dev` reporta 9 avisos (2 moderados y 7 altos) en la cadena de herramientas heredada de la plantilla: Vite/esbuild/Rollup, PostCSS, Immutable y utilidades de lint/build.

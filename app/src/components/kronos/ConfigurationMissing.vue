@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import KronosLogo from '@/components/kronos/KronosLogo.vue'
+
 defineProps<{
   missing: readonly string[]
 }>()
@@ -7,7 +9,7 @@ defineProps<{
 <template>
   <main class="setup-page pa-6">
     <VCard class="kronos-card setup-card pa-7 pa-md-10" rounded="xl">
-      <div class="brand-mark mb-7">K</div>
+      <KronosLogo class="setup-logo mb-7" />
       <p class="text-overline text-kronos-cyan mb-2">Configuración inicial</p>
       <h1 class="kronos-display text-h4 text-md-h3 mb-4">Conecta Kronos</h1>
       <p class="text-body-1 text-medium-emphasis mb-6">
@@ -38,15 +40,8 @@ defineProps<{
   inline-size: min(100%, 680px);
 }
 
-.brand-mark {
-  display: grid;
-  border: 1px solid rgba(151, 213, 222, 0.3);
-  border-radius: 16px;
-  background: #ff401b;
-  block-size: 58px;
-  color: white;
-  font: 700 1.5rem/1 "Syncopate", sans-serif;
-  inline-size: 58px;
-  place-items: center;
+.setup-logo {
+  block-size: 72px;
+  inline-size: min(100%, 320px);
 }
 </style>

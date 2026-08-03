@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import KronosLogo from '@/components/kronos/KronosLogo.vue'
+
 const props = defineProps<{
   uid: string
   error?: string | null
@@ -18,6 +20,7 @@ async function copyUid() {
 <template>
   <main class="setup-page pa-6">
     <VCard class="kronos-card setup-card pa-7 pa-md-10" rounded="xl">
+      <KronosLogo class="setup-logo mb-7" />
       <VIcon icon="ri-device-line" color="secondary" size="46" class="mb-5" />
       <p class="text-overline text-kronos-cyan mb-2">Acceso protegido</p>
       <h1 class="kronos-display text-h4 mb-4">Autoriza este dispositivo</h1>
@@ -55,6 +58,11 @@ async function copyUid() {
 
 .setup-card {
   inline-size: min(100%, 760px);
+}
+
+.setup-logo {
+  block-size: 72px;
+  inline-size: min(100%, 320px);
 }
 
 .uid-box {

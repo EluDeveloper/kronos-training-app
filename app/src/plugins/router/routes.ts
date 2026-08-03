@@ -17,6 +17,10 @@ export const routes = [
         component: () => import('@/pages/pagos.vue'),
       },
       {
+        path: 'visitas',
+        component: () => import('@/pages/visitas.vue'),
+      },
+      {
         path: 'rendimiento',
         component: () => import('@/pages/rendimiento.vue'),
       },

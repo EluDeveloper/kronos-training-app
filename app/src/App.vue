@@ -2,6 +2,7 @@
 import ConfigurationMissing from '@/components/kronos/ConfigurationMissing.vue'
 import DevicePending from '@/components/kronos/DevicePending.vue'
 import GlobalSnackbar from '@/components/kronos/GlobalSnackbar.vue'
+import KronosLogo from '@/components/kronos/KronosLogo.vue'
 import { useSessionStore } from '@/stores/session'
 
 const session = useSessionStore()
@@ -19,6 +20,7 @@ onBeforeUnmount(() => session.dispose())
 
     <div v-else-if="session.status === 'booting' || session.status === 'authorizing'" class="app-loading">
       <div class="text-center">
+        <KronosLogo class="loading-logo mx-auto mb-7" />
         <VProgressCircular indeterminate color="secondary" size="52" width="4" />
         <p class="kronos-display text-body-2 mt-5">Conectando Kronos</p>
       </div>
@@ -40,5 +42,10 @@ onBeforeUnmount(() => session.dispose())
   display: grid;
   min-block-size: 100vh;
   place-items: center;
+}
+
+.loading-logo {
+  block-size: 76px;
+  inline-size: min(72vw, 320px);
 }
 </style>

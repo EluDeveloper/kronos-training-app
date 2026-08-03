@@ -69,3 +69,11 @@ test('meta y lista de dispositivos no se pueden modificar desde el cliente', asy
   await assertFails(db.ref('v1/meta/schemaVersion').set(2))
   await assertFails(db.ref('v1/authorizedDevices/another').set(device(true)))
 })
+
+test('las visitas válidas respetan atleta y periodo de la ruta', async () => {
+  const db = env.authenticatedContext('authorized').database()
+  const now = Date.now()
+  const visit = { id: 'visit-1', athleteId: 'athlete-1', period: '2026-08', visitedAt: now, planId: 'plan-1', accessType: 'visit-pack', unitPrice: 0, note: null, createdAt: now, updatedAt: now }
+  await assertSucceeds(db.ref('v1/visits/athlete-1/2026-08/visit-1').set(visit))
+  await assertFails(db.ref('v1/visits/another-athlete/2026-08/visit-1').set(visit))
+})

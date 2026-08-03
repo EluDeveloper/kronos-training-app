@@ -142,7 +142,7 @@ Cada atleta contiene:
 
 ## Estado del respaldo analizado
 
-El archivo `kronos_backup_20260802.json` es JSON válido y coincide con el formato de exportación de `kronos.html`.
+El archivo `kronos_backup_20260803.json` es JSON válido y coincide con el formato de exportación de `kronos.html`. Los conteos se revalidaron directamente antes de preparar la migración.
 
 ### Conteos
 
@@ -205,11 +205,10 @@ La función actual:
 
 Con el respaldo analizado:
 
-- Ventas no canceladas: `$2,415`.
-- Deuda abierta: `$540`.
-- Valor cobrado por las ventas: `$1,875`.
-- El algoritmo anual actual contabilizaría `$2,255`.
-- Diferencia neta: sobreestimación de `$380`.
+- Ventas no canceladas: `$2,495`.
+- Deuda abierta conciliada: `$530`.
+- Valor aplicado a las ventas: `$1,965`.
+- El efectivo bruto registrado antes de conciliar cambio y saldo asciende a `$2,905`, por lo que no puede utilizarse directamente como ingreso.
 
 Este cálculo debe corregirse antes de migrar los reportes financieros.
 

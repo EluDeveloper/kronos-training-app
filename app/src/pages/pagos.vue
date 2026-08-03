@@ -10,6 +10,8 @@ import { formatCurrency, formatDate, timestampValue } from '@/utils/kronos'
 const athletes = useAthletesStore()
 const payments = usePaymentsStore()
 const { success, failure } = useNotifications()
+const route = useRoute()
+const router = useRouter()
 const dialog = ref(false)
 const saving = ref(false)
 const form = reactive({ athleteId: '', period: currentPeriod(), amount: 0, method: 'cash' as PaymentMethod })
@@ -31,6 +33,24 @@ function openForm() {
   form.method = 'cash'
   dialog.value = true
 }
+
+function openCollectionFromRoute() {
+  const athleteId = typeof route.query.athleteId === 'string' ? route.query.athleteId : ''
+  const requestedPeriod = typeof route.query.period === 'string' ? route.query.period : currentPeriod()
+  const athlete = athletes.active.find(item => item.id === athleteId)
+
+  if (route.query.collect !== '1' || !athlete)
+    return
+
+  form.athleteId = athlete.id
+  form.period = /^\d{4}-\d{2}$/.test(requestedPeriod) ? requestedPeriod : currentPeriod()
+  form.amount = athlete.membership.agreedAmount
+  form.method = 'cash'
+  dialog.value = true
+  router.replace({ path: '/pagos' })
+}
+
+watch([() => route.query.collect, () => athletes.active.length], openCollectionFromRoute, { immediate: true })
 
 async function save() {
   if (!form.athleteId || !/^\d{4}-\d{2}$/.test(form.period) || form.amount <= 0) {

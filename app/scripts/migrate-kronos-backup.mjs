@@ -129,7 +129,8 @@ for (const source of raw.tienda_ventas ?? []) {
 
 for (const source of raw.egresos ?? []) {
   const id = safeId('expense', source.id)
-  const createdAt = text(source.timestamps?.created_at) || `${text(source.fecha)}T12:00:00.000Z`
+  const createdAt = text(source.timestamps?.created_at)
+  invariant(createdAt, `Egreso sin timestamp de creación: ${id}`)
   v1.expenses[id] = { id, date: text(source.fecha), category: text(source.categoria), subcategory: text(source.subcategoria) || null, description: text(source.descripcion), amount: num(source.monto), method: method(source.tipo_pago), status: normalized(source.estado) === 'pagado' ? 'paid' : normalized(source.estado) === 'programado' ? 'scheduled' : 'pending', registeredBy: text(source.registrado_por) || 'Migración', receiptUrl: text(source.comprobante_url) || null, createdAt, updatedAt: text(source.timestamps?.updated_at) || createdAt }
 }
 

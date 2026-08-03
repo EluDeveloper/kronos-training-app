@@ -32,9 +32,9 @@ Construir dentro de `app/` un MVP web de Kronos que:
 - Project ID: `kronos-training-fd5e5`
 - Realtime Database: `https://kronos-training-fd5e5-default-rtdb.firebaseio.com/`
 
-## Configuración Firebase pendiente
+## Configuración Firebase aplicada
 
-Antes de probar la conexión real se necesita obtener de Firebase Console el objeto de configuración de la aplicación web:
+La aplicación web `Kronos Training Web` quedó registrada en Firebase y su configuración oficial se cargó localmente mediante:
 
 - `apiKey`
 - `authDomain`
@@ -44,9 +44,9 @@ Antes de probar la conexión real se necesita obtener de Firebase Console el obj
 - `databaseURL`
 - `projectId`
 
-Para App Check también se requiere la clave pública del proveedor reCAPTCHA Enterprise o del proveedor elegido.
+App Check quedó registrado con reCAPTCHA Enterprise y los dominios oficiales de Firebase Hosting.
 
-Estas propiedades deben representarse como variables `VITE_FIREBASE_*`. Debe existir un `.env.example` sin secretos y un `.env.local` ignorado por Git.
+Estas propiedades se representan como variables `VITE_FIREBASE_*`. Existe un `.env.example` sin credenciales y un `.env.local` ignorado por Git con la configuración del proyecto.
 
 La configuración web no es el mecanismo de seguridad. La seguridad dependerá de Authentication, App Check y las reglas de Realtime Database.
 
@@ -310,7 +310,7 @@ Verificación de liberación:
 - Las pantallas principales incluyen estados vacíos, búsquedas/filtros y distribuciones adaptables para móvil, tablet y escritorio.
 - Typecheck completado sin errores después de integrar la fase.
 
-### Fase 5 — Migración — PREPARADA, PENDIENTE DE EJECUCIÓN REAL
+### Fase 5 — Migración — LIBERADA 2026-08-03
 
 - [x] Leer el respaldo sin modificarlo.
 - [x] Validar esquema y tipos.
@@ -319,7 +319,7 @@ Verificación de liberación:
 - [x] Marcar bajas sin fecha como `migrationNeedsReview`.
 - [x] Comparar conteos.
 - [x] Probar en Emulator Suite.
-- [ ] Ejecutar migración real una sola vez.
+- [x] Ejecutar migración real una sola vez.
 - [x] Registrar `schemaVersion` y `migratedAt`.
 
 Verificación completada:
@@ -329,6 +329,10 @@ Verificación completada:
 - No se encontraron referencias huérfanas ni advertencias de transformación.
 - Los abonos conservan su propia fecha y se limitan al saldo de la venta; las ventas canceladas se marcan como inventario ya restituido porque el stock del respaldo es el stock final.
 - `npm run test:rules` pasó 7 de 7 pruebas en Realtime Database Emulator: acceso anónimo, dispositivo pendiente, autoautorización, acceso permitido, stock negativo, venta atómica y nodos administrativos.
+- El emulador requiere Java 21 o compatible en `PATH`; la verificación de esta sesión se realizó con un JRE portátil temporal.
+- La base destino se verificó vacía antes de escribir y las reglas se desplegaron antes de la carga.
+- La migración real a `/v1` se ejecutó una sola vez y la lectura posterior confirmó exactamente 55 atletas, 5 planes, 11 skills, 5 productos, 96 ventas, 74 egresos, 97 marcas y 660 pagos.
+- El archivo temporal `kronos-v1-migration.json`, que contenía datos reales, se eliminó después de comprobar los conteos remotos.
 
 Conteos esperados:
 
@@ -341,7 +345,7 @@ Conteos esperados:
 - 97 marcas.
 - 660 estados mensuales de pago, salvo transformación documentada.
 
-### Fase 6 — Hosting — CONFIGURADA, PENDIENTE DE CREDENCIALES Y DESPLIEGUE
+### Fase 6 — Hosting — LIBERADA 2026-08-03
 
 - [x] Crear `.firebaserc` para `kronos-training-fd5e5`.
 - [x] Crear `firebase.json` con `dist`.
@@ -349,20 +353,67 @@ Conteos esperados:
 - [x] Incluir `database.rules.json`.
 - [x] Ejecutar typecheck y build.
 - [x] Probar reglas en emulador.
-- [ ] Desplegar a preview.
-- [ ] Validar móvil, tablet y escritorio.
-- [ ] Activar App Check.
-- [ ] Desplegar Hosting y reglas.
-- [ ] Configurar alertas de presupuesto.
+- [x] Desplegar a preview; sustituido por una validación directa sobre la versión oficial solicitada por el usuario.
+- [x] Validar móvil, tablet y escritorio.
+- [x] Activar App Check.
+- [x] Desplegar Hosting y reglas.
+- [x] Revisar alertas de presupuesto; no aplican mientras el proyecto continúe en el Plan Spark sin cuenta de facturación.
 
 Verificación completada:
 
 - `npm run typecheck` finaliza sin errores.
 - `npm run build` genera correctamente `app/dist`.
 - Hosting usa caché inmutable sólo para assets versionados y desactiva caché para `index.html`.
-- El despliegue no debe ejecutarse hasta configurar la aplicación web, habilitar Anonymous Auth y preparar App Check.
+- Anonymous Authentication está habilitado y el primer dispositivo quedó autorizado mediante su UID.
+- App Check con reCAPTCHA Enterprise está registrado y el enforcement de Realtime Database figura como aplicado.
+- La versión oficial está publicada en `https://kronos-training-fd5e5.web.app`.
+- La versión publicada se recargó después de activar enforcement: mostró el dashboard sincronizado y no produjo errores ni advertencias de consola.
+- La prueba responsiva se ejecutó en 390×844, 1024×768 y 1440×900 sin desbordamiento horizontal.
 
-## Procedimiento controlado pendiente
+### Fase 7 — Dashboard accionable y recibos — EN PROGRESO
+
+#### Fase 7A — Reporte anual y acciones del mes — LIBERADA 2026-08-03
+
+- [x] Separar el dashboard en Mes actual y Reporte anual.
+- [x] Calcular mensualidades por fecha real de aplicación.
+- [x] Calcular ventas y abonos por fecha real de aplicación sin duplicarlos.
+- [x] Comparar ingresos, egresos y flujo neto para los 12 meses del año seleccionado.
+- [x] Mostrar mensualidades vencidas y próximas a vencer.
+- [x] Mostrar deudas de tienda, inventario bajo y egresos pendientes.
+- [x] Abrir cobranza con atleta y periodo precargados desde el dashboard.
+- [x] Abrir directamente las pestañas de deudas e inventario desde las acciones mensuales.
+- [x] Ejecutar typecheck, build, despliegue y prueba en producción.
+
+Verificación de liberación:
+
+- La versión oficial muestra ambas pestañas, los cuatro indicadores anuales, la gráfica comparativa y el detalle mensual.
+- Se verificó en producción una mensualidad vencida: la acción Cobrar navegó a `/pagos` y abrió el formulario con el periodo preparado.
+- La consola de producción no registró errores ni advertencias durante la prueba.
+
+#### Fase 7B — Recibos operativos — PENDIENTE
+
+- [ ] Generar recibos de mensualidades.
+- [ ] Generar recibos de ventas.
+- [ ] Generar recibos de abonos.
+- [ ] Regenerar recibos desde los historiales.
+- [ ] Conservar folio, fecha, concepto, método, monto y saldo en la representación del recibo.
+
+#### Fase 7C — PDF, impresión y WhatsApp — PENDIENTE
+
+- [ ] Crear diseño de recibo con identidad Kronos.
+- [ ] Descargar el recibo como PDF.
+- [ ] Imprimir el recibo.
+- [ ] Compartir el PDF mediante Web Share API cuando el dispositivo lo permita.
+- [ ] Abrir WhatsApp con destinatario y mensaje preparados como alternativa.
+- [ ] Validar el PDF renderizado y probar la liberación en producción.
+
+Riesgo de dependencias pendiente:
+
+- `npm audit --omit=dev` reporta 9 avisos (2 moderados y 7 altos) en la cadena de herramientas heredada de la plantilla: Vite/esbuild/Rollup, PostCSS, Sass/Immutable y Stylelint.
+- El artefacto publicado es estático y esos paquetes no ejecutan un servidor Node en Firebase Hosting, pero deben actualizarse en una fase de mantenimiento.
+- No ejecutar `npm audit fix --force` sin una rama y pruebas completas porque propone una actualización mayor de Vite.
+
+## Procedimiento controlado ejecutado
 
 1. Registrar u obtener la aplicación web en Firebase Console y crear `app/.env.local` desde `.env.example`.
 2. Habilitar Authentication > Sign-in method > Anonymous.
@@ -372,10 +423,12 @@ Verificación completada:
 6. Ejecutar `npm run migrate:check` y revisar nuevamente los conteos.
 7. Generar el archivo local ignorado por Git con `npm run migrate:export`.
 8. Confirmar que la base destino no contiene datos de negocio que deban conservarse.
-9. Ejecutar una sola vez `npx firebase database:update /v1 kronos-v1-migration.json --project kronos-training-fd5e5 --confirm`. Esta operación conserva `/v1/authorizedDevices` porque el archivo sólo contiene los hijos de negocio.
+9. Ejecutar una sola vez `npx firebase database:update /v1 kronos-v1-migration.json --project kronos-training-fd5e5 --force`. Esta operación conserva `/v1/authorizedDevices` porque el archivo sólo contiene los hijos de negocio.
 10. Abrir la aplicación, copiar el UID pendiente y crear `/v1/authorizedDevices/{uid}` con `{ "enabled": true, "label": "..." }` desde Firebase Console.
 11. Configurar reCAPTCHA Enterprise/App Check, colocar `VITE_FIREBASE_APPCHECK_SITE_KEY`, reconstruir y activar enforcement.
-12. Desplegar a un canal preview, validar dispositivos y después publicar Hosting.
+12. Validar la versión oficial y publicar Hosting. En esta liberación se omitió el canal preview porque el usuario solicitó avanzar directamente al despliegue oficial.
+
+Los pasos 1 a 12 se completaron el 2026-08-03. Si se repite el procedimiento en otro entorno, primero debe comprobarse que el destino no contiene una migración previa.
 
 El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de Git. Debe eliminarse de forma segura después de verificar la migración.
 
@@ -421,10 +474,10 @@ El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de 
 2. Revisar `git status` y preservar cambios del usuario.
 3. Trabajar en `app/`.
 4. Revisar `package.json`, tema, rutas y navegación; no repetir el análisis de `kronos.html`.
-5. Retomar desde la primera casilla pendiente de las fases 5 y 6.
-6. Solicitar la configuración de la aplicación web antes de conectar o desplegar.
-7. No abrir reglas públicas ni ejecutar la migración real más de una vez.
-8. Repetir typecheck, build, `migrate:check` y `test:rules` antes del despliegue final.
+5. Retomar desde el mantenimiento posterior al MVP o desde una nueva solicitud del usuario; las fases 1 a 6 están liberadas.
+6. Mantener `.env.local` fuera de Git y no copiar credenciales a documentos ni mensajes.
+7. No abrir reglas públicas ni volver a ejecutar la migración real sobre el proyecto de producción.
+8. Repetir typecheck, build, `migrate:check` y `test:rules` antes de una futura publicación.
 
 ## Mensaje sugerido para reanudar
 
@@ -433,9 +486,9 @@ El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de 
 ## Estado actual del handoff
 
 - Análisis y estrategia Firebase terminados.
-- Fases 1, 2, 3 y 4 implementadas y liberadas.
-- Transformación de Fase 5 validada con los conteos reales; falta únicamente la escritura controlada en Firebase.
-- Reglas, Emulator Suite y build de Hosting verificados; falta preview y despliegue real.
-- Firebase instalado; la conexión real continúa pendiente de las variables de la aplicación web.
-- Sin migración real ni despliegue todavía.
-- Siguiente paso: obtener la configuración web, habilitar Anonymous Auth y ejecutar el procedimiento controlado pendiente.
+- Fases 1 a 6 implementadas y liberadas.
+- Respaldo migrado una sola vez a Realtime Database y conteos remotos verificados.
+- Anonymous Authentication, autorización por dispositivo, reglas y App Check activos.
+- Build, typecheck, Emulator Suite y pruebas responsivas completados.
+- Aplicación oficial disponible en `https://kronos-training-fd5e5.web.app`.
+- Siguiente paso recomendado: probar la autorización de un segundo dispositivo real y priorizar el mantenimiento de dependencias señalado en este documento.

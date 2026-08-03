@@ -11,6 +11,7 @@ import { formatCurrency, formatDate, saleAppliedAmount, saleBalance, timestampVa
 const commerce = useCommerceStore()
 const athletes = useAthletesStore()
 const notifications = useNotificationsStore()
+const route = useRoute()
 const tab = ref('pos')
 const saving = ref(false)
 const productDialog = ref(false)
@@ -32,6 +33,11 @@ const inventoryValue = computed(() => commerce.products.reduce((sum, item) => su
 const outstanding = computed(() => commerce.openCredit.reduce((sum, sale) => sum + saleBalance(sale), 0))
 const recentSales = computed(() => [...commerce.sales].sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt)).slice(0, 20))
 const customerName = (sale: Sale) => athletes.items.find(item => item.id === sale.athleteId)?.profile.name ?? sale.customerName
+
+watch(() => route.query.tab, requestedTab => {
+  if (requestedTab === 'credit' || requestedTab === 'inventory' || requestedTab === 'sales' || requestedTab === 'pos')
+    tab.value = requestedTab
+}, { immediate: true })
 
 watch(() => saleForm.athleteId, id => {
   if (id)

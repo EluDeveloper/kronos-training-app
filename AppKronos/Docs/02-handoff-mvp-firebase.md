@@ -295,12 +295,20 @@ Verificación de liberación:
 - Egresos pagados, pendientes o programados incluidos en el resumen mensual.
 - Typecheck completado sin errores después de integrar todas las pantallas de la fase.
 
-### Fase 4 — Módulos secundarios
+### Fase 4 — Módulos secundarios — LIBERADA 2026-08-03
 
-- [ ] Programación editable.
-- [ ] Comunidad y cumpleaños.
-- [ ] PRs recientes.
-- [ ] Estados vacíos y filtros responsivos.
+- [x] Programación editable.
+- [x] Comunidad y cumpleaños.
+- [x] PRs recientes.
+- [x] Estados vacíos y filtros responsivos.
+
+Verificación de liberación:
+
+- Programación permite crear, editar, cambiar de fecha y eliminar WODs con bloques dinámicos.
+- Comunidad calcula los cumpleaños de los próximos 60 días a partir de la fecha de nacimiento, sin guardar edades derivadas.
+- PRs recientes se obtienen de las mejores marcas vigentes por atleta y skill.
+- Las pantallas principales incluyen estados vacíos, búsquedas/filtros y distribuciones adaptables para móvil, tablet y escritorio.
+- Typecheck completado sin errores después de integrar la fase.
 
 ### Fase 5 — Migración
 
@@ -393,7 +401,7 @@ Conteos esperados:
 ## Estado actual del handoff
 
 - Análisis y estrategia Firebase terminados.
-- Fases 1, 2 y 3 implementadas y verificadas mediante typecheck.
+- Fases 1, 2, 3 y 4 implementadas y verificadas mediante typecheck.
 - Firebase instalado; la conexión real continúa pendiente de las variables de la aplicación web.
 - Sin migración real ni despliegue todavía.
-- Siguiente paso: Fase 4 — programación, comunidad, cumpleaños y PRs recientes.
+- Siguiente paso: Fase 5 — reglas, transformación y validación del respaldo.

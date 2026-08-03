@@ -41,3 +41,6 @@ public/mockServiceWorker.js
 # Env files
 .env*
 !.env.example
+
+# Local migration export contains production data
+kronos-v1-migration.json

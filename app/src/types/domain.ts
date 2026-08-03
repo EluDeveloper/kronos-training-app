@@ -80,6 +80,7 @@ export interface Product extends AuditFields {
   unitCost: number
   salePrice: number
   status: ActiveStatus
+  inventoryAdjustments?: Record<EntityId, ISOTimestamp>
 }
 
 export interface SaleItem {
@@ -109,6 +110,7 @@ export interface Sale extends AuditFields {
   status: SaleStatus
   payments?: Record<EntityId, SalePayment>
   cancelledAt?: ISOTimestamp | null
+  inventoryRestoredAt?: ISOTimestamp | null
 }
 
 export interface Expense extends AuditFields {

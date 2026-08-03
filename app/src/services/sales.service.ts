@@ -69,26 +69,38 @@ export const salesService = {
       throw new Error('El abono no pudo aplicarse. Verifica el saldo actual.')
   },
   async cancel(saleId: string) {
-    const result = await runTransaction(ref(requireDatabase(), businessPath('')), current => {
-      const sale = current?.sales?.[saleId] as Sale | undefined
-      if (!sale || sale.status === 'cancelled')
+    const database = requireDatabase()
+    const saleRef = ref(database, businessPath(`sales/${saleId}`))
+    const result = await runTransaction(saleRef, current => {
+      const sale = current as Sale | null
+      if (!sale || sale.inventoryRestoredAt)
         return
-
-      Object.values(sale.items ?? {}).forEach(item => {
-        const product = current.products?.[item.productId]
-        if (product) {
-          product.stock = Number(product.stock || 0) + Number(item.quantity || 0)
-          product.updatedAt = Date.now()
-        }
-      })
-      sale.status = 'cancelled'
-      sale.cancelledAt = Date.now()
-      sale.updatedAt = Date.now()
-
-      return current
+      if (sale.status !== 'cancelled') {
+        sale.status = 'cancelled'
+        sale.cancelledAt = Date.now()
+        sale.updatedAt = Date.now()
+      }
+      return sale
     })
 
     if (!result.committed)
-      throw new Error('La venta ya fue cancelada o dejó de existir.')
+      throw new Error('La venta ya fue cancelada y su inventario fue restituido, o dejó de existir.')
+
+    const sale = result.snapshot.val() as Sale
+    await Promise.all(Object.values(sale.items ?? {}).map(item => runTransaction(
+      ref(database, businessPath(`products/${item.productId}`)),
+      current => {
+        if (!current)
+          return
+        current.inventoryAdjustments = current.inventoryAdjustments ?? {}
+        if (current.inventoryAdjustments[saleId])
+          return current
+        current.stock = Number(current.stock || 0) + Number(item.quantity || 0)
+        current.inventoryAdjustments[saleId] = Date.now()
+        current.updatedAt = Date.now()
+        return current
+      },
+    )))
+    await update(saleRef, { inventoryRestoredAt: serverTimestamp(), updatedAt: serverTimestamp() })
   },
 }

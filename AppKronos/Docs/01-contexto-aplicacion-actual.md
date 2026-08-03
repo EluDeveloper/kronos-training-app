@@ -149,15 +149,15 @@ El archivo `kronos_backup_20260802.json` es JSON válido y coincide con el forma
 | Entidad | Cantidad |
 | --- | ---: |
 | Atletas | 55 |
-| Atletas activos | 47 |
-| Atletas inactivos | 8 |
+| Atletas activos | 44 |
+| Atletas inactivos | 11 |
 | Planes | 5 |
 | Skills | 11 |
 | Productos | 5 |
-| Ventas | 92 |
-| Ventas liquidadas | 72 |
-| Ventas con deuda | 16 |
-| Ventas canceladas | 4 |
+| Ventas | 96 |
+| Ventas liquidadas | 74 |
+| Ventas con deuda | 17 |
+| Ventas canceladas | 5 |
 | Egresos | 74 |
 | Marcas deportivas | 97 |
 | Entradas mensuales de pago | 660 |

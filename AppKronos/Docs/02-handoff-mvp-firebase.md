@@ -310,17 +310,25 @@ Verificación de liberación:
 - Las pantallas principales incluyen estados vacíos, búsquedas/filtros y distribuciones adaptables para móvil, tablet y escritorio.
 - Typecheck completado sin errores después de integrar la fase.
 
-### Fase 5 — Migración
+### Fase 5 — Migración — PREPARADA, PENDIENTE DE EJECUCIÓN REAL
 
-- [ ] Leer el respaldo sin modificarlo.
-- [ ] Validar esquema y tipos.
-- [ ] Transformar a `/v1`.
-- [ ] Corregir lógica financiera sin inventar fechas.
-- [ ] Marcar bajas sin fecha como `migrationNeedsReview`.
-- [ ] Comparar conteos.
-- [ ] Probar en Emulator Suite.
+- [x] Leer el respaldo sin modificarlo.
+- [x] Validar esquema y tipos.
+- [x] Transformar a `/v1`.
+- [x] Corregir lógica financiera sin inventar fechas.
+- [x] Marcar bajas sin fecha como `migrationNeedsReview`.
+- [x] Comparar conteos.
+- [x] Probar en Emulator Suite.
 - [ ] Ejecutar migración real una sola vez.
-- [ ] Registrar `schemaVersion` y `migratedAt`.
+- [x] Registrar `schemaVersion` y `migratedAt`.
+
+Verificación completada:
+
+- `npm run migrate:check` valida el respaldo sin generar archivos adicionales ni escribir en Firebase.
+- Resultado: 55 atletas (44 activos y 11 inactivos), 4 bajas por revisar, 5 planes, 11 skills, 5 productos, 96 ventas, 74 egresos, 97 marcas y 660 pagos.
+- No se encontraron referencias huérfanas ni advertencias de transformación.
+- Los abonos conservan su propia fecha y se limitan al saldo de la venta; las ventas canceladas se marcan como inventario ya restituido porque el stock del respaldo es el stock final.
+- `npm run test:rules` pasó 7 de 7 pruebas en Realtime Database Emulator: acceso anónimo, dispositivo pendiente, autoautorización, acceso permitido, stock negativo, venta atómica y nodos administrativos.
 
 Conteos esperados:
 
@@ -328,24 +336,48 @@ Conteos esperados:
 - 5 planes.
 - 11 skills.
 - 5 productos.
-- 92 ventas.
+- 96 ventas.
 - 74 egresos.
 - 97 marcas.
 - 660 estados mensuales de pago, salvo transformación documentada.
 
-### Fase 6 — Hosting
+### Fase 6 — Hosting — CONFIGURADA, PENDIENTE DE CREDENCIALES Y DESPLIEGUE
 
-- [ ] Crear `.firebaserc` para `kronos-training-fd5e5`.
-- [ ] Crear `firebase.json` con `dist`.
-- [ ] Configurar rewrite SPA.
-- [ ] Incluir `database.rules.json`.
-- [ ] Ejecutar typecheck y build.
-- [ ] Probar reglas en emulador.
+- [x] Crear `.firebaserc` para `kronos-training-fd5e5`.
+- [x] Crear `firebase.json` con `dist`.
+- [x] Configurar rewrite SPA.
+- [x] Incluir `database.rules.json`.
+- [x] Ejecutar typecheck y build.
+- [x] Probar reglas en emulador.
 - [ ] Desplegar a preview.
 - [ ] Validar móvil, tablet y escritorio.
 - [ ] Activar App Check.
 - [ ] Desplegar Hosting y reglas.
 - [ ] Configurar alertas de presupuesto.
+
+Verificación completada:
+
+- `npm run typecheck` finaliza sin errores.
+- `npm run build` genera correctamente `app/dist`.
+- Hosting usa caché inmutable sólo para assets versionados y desactiva caché para `index.html`.
+- El despliegue no debe ejecutarse hasta configurar la aplicación web, habilitar Anonymous Auth y preparar App Check.
+
+## Procedimiento controlado pendiente
+
+1. Registrar u obtener la aplicación web en Firebase Console y crear `app/.env.local` desde `.env.example`.
+2. Habilitar Authentication > Sign-in method > Anonymous.
+3. Ejecutar `npm run build` con la configuración real.
+4. Iniciar sesión en Firebase CLI mediante `npx firebase login`.
+5. Desplegar primero las reglas con `npx firebase deploy --only database`.
+6. Ejecutar `npm run migrate:check` y revisar nuevamente los conteos.
+7. Generar el archivo local ignorado por Git con `npm run migrate:export`.
+8. Confirmar que la base destino no contiene datos de negocio que deban conservarse.
+9. Ejecutar una sola vez `npx firebase database:update /v1 kronos-v1-migration.json --project kronos-training-fd5e5 --confirm`. Esta operación conserva `/v1/authorizedDevices` porque el archivo sólo contiene los hijos de negocio.
+10. Abrir la aplicación, copiar el UID pendiente y crear `/v1/authorizedDevices/{uid}` con `{ "enabled": true, "label": "..." }` desde Firebase Console.
+11. Configurar reCAPTCHA Enterprise/App Check, colocar `VITE_FIREBASE_APPCHECK_SITE_KEY`, reconstruir y activar enforcement.
+12. Desplegar a un canal preview, validar dispositivos y después publicar Hosting.
+
+El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de Git. Debe eliminarse de forma segura después de verificar la migración.
 
 ## Criterios de aceptación
 
@@ -389,10 +421,10 @@ Conteos esperados:
 2. Revisar `git status` y preservar cambios del usuario.
 3. Trabajar en `app/`.
 4. Revisar `package.json`, tema, rutas y navegación; no repetir el análisis de `kronos.html`.
-5. Implementar la Fase 1.
-6. Hacer que el proyecto compile aunque falten variables reales.
-7. No abrir reglas públicas.
-8. Ejecutar typecheck y build tras el primer bloque.
+5. Retomar desde la primera casilla pendiente de las fases 5 y 6.
+6. Solicitar la configuración de la aplicación web antes de conectar o desplegar.
+7. No abrir reglas públicas ni ejecutar la migración real más de una vez.
+8. Repetir typecheck, build, `migrate:check` y `test:rules` antes del despliegue final.
 
 ## Mensaje sugerido para reanudar
 
@@ -401,7 +433,9 @@ Conteos esperados:
 ## Estado actual del handoff
 
 - Análisis y estrategia Firebase terminados.
-- Fases 1, 2, 3 y 4 implementadas y verificadas mediante typecheck.
+- Fases 1, 2, 3 y 4 implementadas y liberadas.
+- Transformación de Fase 5 validada con los conteos reales; falta únicamente la escritura controlada en Firebase.
+- Reglas, Emulator Suite y build de Hosting verificados; falta preview y despliegue real.
 - Firebase instalado; la conexión real continúa pendiente de las variables de la aplicación web.
 - Sin migración real ni despliegue todavía.
-- Siguiente paso: Fase 5 — reglas, transformación y validación del respaldo.
+- Siguiente paso: obtener la configuración web, habilitar Anonymous Auth y ejecutar el procedimiento controlado pendiente.

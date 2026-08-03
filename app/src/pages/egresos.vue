@@ -40,6 +40,10 @@ async function save() {
     notifications.show('Completa fecha, categoría, descripción y monto.', 'warning')
     return
   }
+  if (form.status === 'paid' && form.date > new Date().toISOString().slice(0, 10)) {
+    notifications.show('Un egreso futuro no puede marcarse como pagado.', 'warning')
+    return
+  }
   saving.value = true
   try {
     const payload = { ...form, category: form.category.trim(), subcategory: form.subcategory.trim() || null, description: form.description.trim(), amount: Number(form.amount), registeredBy: form.registeredBy.trim() || 'Administración', receiptUrl: form.receiptUrl.trim() || null }

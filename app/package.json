@@ -8,6 +8,9 @@
     "build": "vite build",
     "preview": "vite preview --port 5050",
     "typecheck": "vue-tsc --noEmit",
+    "migrate:check": "node scripts/migrate-kronos-backup.mjs",
+    "migrate:export": "node scripts/migrate-kronos-backup.mjs --out kronos-v1-migration.json",
+    "test:rules": "firebase emulators:exec --only database \"node --test tests/database.rules.test.mjs\"",
     "lint": "eslint . -c .eslintrc.cjs --fix --ext .ts,.js,.cjs,.vue,.tsx,.jsx",
     "build:icons": "tsx src/plugins/iconify/build-icons.ts",
     "postinstall": "npm run build:icons"
@@ -33,6 +36,7 @@
     "webfontloader": "^1.6.28"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@antfu/eslint-config-vue": "^0.43.1",
     "@antfu/utils": "^0.7.10",
     "@iconify-json/ri": "^1.2.1",
@@ -46,6 +50,7 @@
     "@vitejs/plugin-vue": "^5.2.1",
     "@vitejs/plugin-vue-jsx": "^4.1.1",
     "eslint": "^8.57.1",
+    "firebase-tools": "^15.25.1",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-case-police": "^0.6.1",
     "eslint-plugin-import": "^2.31.0",

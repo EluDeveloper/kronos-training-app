@@ -7,6 +7,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AccountStatus: typeof import('./src/components/kronos/AccountStatus.vue')['default']
     CardStatisticsHorizontal: typeof import('./src/@core/components/cards/CardStatisticsHorizontal.vue')['default']
     CardStatisticsVertical: typeof import('./src/@core/components/cards/CardStatisticsVertical.vue')['default']
     CardStatisticsWithImages: typeof import('./src/@core/components/cards/CardStatisticsWithImages.vue')['default']
@@ -15,13 +16,16 @@ declare module 'vue' {
     DevicePending: typeof import('./src/components/kronos/DevicePending.vue')['default']
     EmptyState: typeof import('./src/components/kronos/EmptyState.vue')['default']
     ErrorHeader: typeof import('./src/components/ErrorHeader.vue')['default']
+    FirstAdminSetup: typeof import('./src/components/kronos/FirstAdminSetup.vue')['default']
     GlobalAlertCenter: typeof import('./src/components/kronos/GlobalAlertCenter.vue')['default']
     KronosLogo: typeof import('./src/components/kronos/KronosLogo.vue')['default']
+    LoginScreen: typeof import('./src/components/kronos/LoginScreen.vue')['default']
     MembershipPaymentDialog: typeof import('./src/components/kronos/MembershipPaymentDialog.vue')['default']
     MetricCard: typeof import('./src/components/kronos/MetricCard.vue')['default']
     ModulePlaceholder: typeof import('./src/components/kronos/ModulePlaceholder.vue')['default']
     MoreBtn: typeof import('./src/@core/components/MoreBtn.vue')['default']
     PageHeader: typeof import('./src/components/kronos/PageHeader.vue')['default']
+    PasswordChangeRequired: typeof import('./src/components/kronos/PasswordChangeRequired.vue')['default']
     ReceiptDialog: typeof import('./src/components/kronos/ReceiptDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

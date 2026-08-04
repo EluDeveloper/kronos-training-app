@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import KronosLogo from '@/components/kronos/KronosLogo.vue'
+import { useSessionStore } from '@/stores/session'
 
 const props = defineProps<{
   uid: string
   error?: string | null
 }>()
+
+const session = useSessionStore()
 
 const copied = ref(false)
 
@@ -19,23 +22,44 @@ async function copyUid() {
 
 <template>
   <main class="setup-page pa-6">
-    <VCard class="kronos-card setup-card pa-7 pa-md-10" rounded="xl">
+    <VCard
+      class="kronos-card setup-card pa-7 pa-md-10"
+      rounded="xl"
+    >
       <KronosLogo class="setup-logo mb-7" />
-      <VIcon icon="ri-device-line" color="secondary" size="46" class="mb-5" />
-      <p class="text-overline text-kronos-cyan mb-2">Acceso protegido</p>
-      <h1 class="kronos-display text-h4 mb-4">Autoriza este dispositivo</h1>
+      <VIcon
+        icon="ri-device-line"
+        color="secondary"
+        size="46"
+        class="mb-5"
+      />
+      <p class="text-overline text-kronos-cyan mb-2">
+        Acceso protegido
+      </p>
+      <h1 class="kronos-display text-h4 mb-4">
+        Autoriza la configuración inicial
+      </h1>
       <p class="text-body-1 text-medium-emphasis mb-6">
-        La conexión con Firebase funciona. Para abrir los datos de Kronos, agrega este UID como
+        Para crear de forma segura la primera cuenta Admin, agrega temporalmente este UID como
         dispositivo habilitado en <strong>v1/authorizedDevices</strong>.
       </p>
 
-      <VAlert v-if="error" color="error" variant="tonal" class="mb-5">
+      <VAlert
+        v-if="error"
+        color="error"
+        variant="tonal"
+        class="mb-5"
+      >
         {{ error }}
       </VAlert>
 
       <div class="uid-box d-flex flex-column flex-sm-row align-sm-center ga-3 pa-4">
         <code class="flex-grow-1 text-break">{{ uid }}</code>
-        <VBtn variant="tonal" :prepend-icon="copied ? 'ri-check-line' : 'ri-file-copy-line'" @click="copyUid">
+        <VBtn
+          variant="tonal"
+          :prepend-icon="copied ? 'ri-check-line' : 'ri-file-copy-line'"
+          @click="copyUid"
+        >
           {{ copied ? 'Copiado' : 'Copiar UID' }}
         </VBtn>
       </div>
@@ -45,6 +69,15 @@ async function copyUid() {
         <li>Crea <code>v1/authorizedDevices/{{ uid }}</code>.</li>
         <li>Guarda <code>{ "enabled": true, "label": "Mi dispositivo" }</code>.</li>
       </ol>
+      <div class="d-flex justify-end mt-6">
+        <VBtn
+          variant="text"
+          prepend-icon="ri-arrow-left-line"
+          @click="session.logout"
+        >
+          Volver al acceso
+        </VBtn>
+      </div>
     </VCard>
   </main>
 </template>

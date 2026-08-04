@@ -562,6 +562,7 @@ Verificación disponible antes del despliegue:
 - Reglas y Hosting se publicaron correctamente en `kronos-training-fd5e5`.
 - En producción, Cristian Castillo mostró una visita pendiente de junio al consultar agosto, además de $25 de adeudo en tienda; el aviso generado desglosó ambos conceptos y totalizó $105.
 - El botón PDF funcionó en producción sin `Failed to fetch dynamically imported module`. La apertura automatizada de la pestaña de impresión fue bloqueada por la política del navegador integrado, pero el generador compartido fue validado mediante descarga y renderizado visual del PDF.
+<<<<<<< HEAD
 
 ### Fase 11 — Centro de alertas y WhatsApp Web — LIBERADA 2026-08-03
 
@@ -581,6 +582,8 @@ Verificación de liberación:
 - La prueba se cerró con Cancelar; no se modificaron ventas ni inventario reales.
 - Un recibo real de tienda mostró el botón `WhatsApp Web`, y la generación de PDF activó la nueva notificación global `Acción completada · Recibo descargado`.
 - Hosting se publicó correctamente en `https://kronos-training-fd5e5.web.app`.
+=======
+>>>>>>> b05abdd0d11ef5ec4852baf8279da3c78acf63e4
 
 Riesgo de dependencias pendiente:
 

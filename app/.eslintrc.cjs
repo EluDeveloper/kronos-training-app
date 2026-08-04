@@ -4,7 +4,6 @@ module.exports = {
     es2021: true,
   },
   extends: [
-    '@antfu/eslint-config-vue',
     'plugin:vue/vue3-recommended',
     'plugin:import/recommended',
     'plugin:import/typescript',
@@ -36,7 +35,6 @@ module.exports = {
     // indentation (Already present in TypeScript)
     'comma-spacing': ['error', { before: false, after: true }],
     'key-spacing': ['error', { afterColon: true }],
-    'n/prefer-global/process': ['off'],
     'sonarjs/cognitive-complexity': ['off'],
 
     'vue/first-attribute-linebreak': ['error', {
@@ -44,7 +42,6 @@ module.exports = {
       multiline: 'below',
     }],
 
-    'antfu/top-level-function': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
 
     // indentation (Already present in TypeScript)

@@ -1,23 +1,33 @@
 <script lang="ts" setup>
 import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
 import VerticalNavSectionTitle from '@layouts/components/VerticalNavSectionTitle.vue'
+import { useSessionStore } from '@/stores/session'
+import { accessModules } from '@/types/access'
+
+const session = useSessionStore()
+const sections = ['Operación', 'Administración', 'Box'] as const
+
+const visibleSections = computed(() => sections.map(section => ({
+  section,
+  modules: accessModules.filter(module => module.section === section && session.canAccess(module.key)),
+})).filter(group => group.modules.length))
 </script>
 
 <template>
+  <template
+    v-for="group in visibleSections"
+    :key="group.section"
+  >
+    <VerticalNavSectionTitle :item="{ heading: group.section }" />
+    <VerticalNavLink
+      v-for="module in group.modules"
+      :key="module.key"
+      :item="{ title: module.label, icon: module.icon, to: module.route }"
+    />
+  </template>
 
-  <VerticalNavSectionTitle :item="{ heading: 'Operación' }" />
-  <VerticalNavLink :item="{ title: 'Dashboard', icon: 'ri-dashboard-3-line', to: '/dashboard' }" />
-  <VerticalNavLink :item="{ title: 'Atletas', icon: 'ri-team-line', to: '/atletas' }" />
-  <VerticalNavLink :item="{ title: 'Mensualidades', icon: 'ri-wallet-3-line', to: '/pagos' }" />
-  <VerticalNavLink :item="{ title: 'Visitas', icon: 'ri-footprint-line', to: '/visitas' }" />
-  <VerticalNavLink :item="{ title: 'Rendimiento', icon: 'ri-line-chart-line', to: '/rendimiento' }" />
-
-  <VerticalNavSectionTitle :item="{ heading: 'Administración' }" />
-  <VerticalNavLink :item="{ title: 'Tienda', icon: 'ri-shopping-bag-3-line', to: '/tienda' }" />
-  <VerticalNavLink :item="{ title: 'Egresos', icon: 'ri-money-dollar-circle-line', to: '/egresos' }" />
-  <VerticalNavLink :item="{ title: 'Planes', icon: 'ri-price-tag-3-line', to: '/planes' }" />
-
-  <VerticalNavSectionTitle :item="{ heading: 'Box' }" />
-  <VerticalNavLink :item="{ title: 'Programación', icon: 'ri-calendar-schedule-line', to: '/programacion' }" />
-  <VerticalNavLink :item="{ title: 'Comunidad', icon: 'ri-group-2-line', to: '/comunidad' }" />
+  <template v-if="session.isAdmin">
+    <VerticalNavSectionTitle :item="{ heading: 'Sistema' }" />
+    <VerticalNavLink :item="{ title: 'Usuarios y permisos', icon: 'ri-user-settings-line', to: '/usuarios' }" />
+  </template>
 </template>

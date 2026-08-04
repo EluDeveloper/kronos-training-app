@@ -7,6 +7,7 @@ import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
 // Components
 import Footer from '@/layouts/components/Footer.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
+import UserProfile from '@/layouts/components/UserProfile.vue'
 </script>
 
 <template>
@@ -23,14 +24,19 @@ import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
         </IconBtn>
 
         <div class="d-none d-sm-block">
-          <p class="text-caption text-medium-emphasis mb-0">Centro de control</p>
-          <p class="font-weight-bold mb-0">Kronos Training</p>
+          <p class="text-caption text-medium-emphasis mb-0">
+            Centro de control
+          </p>
+          <p class="font-weight-bold mb-0">
+            Kronos Training
+          </p>
         </div>
 
         <VSpacer />
 
         <ConnectionBadge class="me-2" />
         <NavbarThemeSwitcher class="me-2" />
+        <UserProfile />
       </div>
     </template>
 

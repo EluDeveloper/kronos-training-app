@@ -10,37 +10,63 @@
           ".validate": "newData.hasChildren(['enabled']) && newData.child('enabled').isBoolean()"
         }
       },
+      "authConfig": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((root.child('v1/users').child(auth.uid).child('enabled').val() === true && root.child('v1/users').child(auth.uid).child('role').val() === 'admin') || root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true)",
+        ".validate": "newData.hasChildren(['initialized','initializedAt']) && newData.child('initialized').val() === true && newData.child('initializedAt').isNumber()"
+      },
+      "users": {
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && root.child('v1/users').child(auth.uid).child('role').val() === 'admin'",
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || (root.child('v1/users').child(auth.uid).child('enabled').val() === true && root.child('v1/users').child(auth.uid).child('role').val() === 'admin'))",
+          ".write": "auth != null && ((root.child('v1/users').child(auth.uid).child('enabled').val() === true && root.child('v1/users').child(auth.uid).child('role').val() === 'admin' && ($uid !== auth.uid || (newData.child('role').val() === 'admin' && newData.child('enabled').val() === true))) || (!root.child('v1/users').exists() && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true && newData.child('role').val() === 'admin' && newData.child('enabled').val() === true) || ($uid === auth.uid && data.exists() && newData.exists() && data.child('mustChangePassword').val() === true && newData.child('mustChangePassword').val() === false && newData.child('uid').val() === data.child('uid').val() && newData.child('displayName').val() === data.child('displayName').val() && newData.child('email').val() === data.child('email').val() && newData.child('role').val() === data.child('role').val() && newData.child('enabled').val() === data.child('enabled').val() && newData.child('permissions/dashboard').val() === data.child('permissions/dashboard').val() && newData.child('permissions/athletes').val() === data.child('permissions/athletes').val() && newData.child('permissions/payments').val() === data.child('permissions/payments').val() && newData.child('permissions/visits').val() === data.child('permissions/visits').val() && newData.child('permissions/performance').val() === data.child('permissions/performance').val() && newData.child('permissions/store').val() === data.child('permissions/store').val() && newData.child('permissions/expenses').val() === data.child('permissions/expenses').val() && newData.child('permissions/plans').val() === data.child('permissions/plans').val() && newData.child('permissions/workouts').val() === data.child('permissions/workouts').val() && newData.child('permissions/community').val() === data.child('permissions/community').val() && newData.child('createdBy').val() === data.child('createdBy').val() && newData.child('createdAt').val() === data.child('createdAt').val()))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['uid','displayName','email','role','enabled','mustChangePassword','createdBy','createdAt','updatedAt']) && newData.child('uid').val() === $uid && newData.child('displayName').isString() && newData.child('displayName').val().length >= 3 && newData.child('email').isString() && newData.child('email').val().length >= 5 && (newData.child('role').val() === 'admin' || newData.child('role').val() === 'reception') && newData.child('enabled').isBoolean() && newData.child('mustChangePassword').isBoolean() && newData.child('createdBy').isString() && newData.child('createdAt').isNumber() && newData.child('updatedAt').isNumber())",
+          "permissions": {
+            "dashboard": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "athletes": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "payments": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "visits": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "performance": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "store": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "expenses": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "plans": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "workouts": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "community": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "$other": { ".validate": false }
+          }
+        }
+      },
       "meta": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && root.child('v1/users').child(auth.uid).child('role').val() === 'admin'",
         ".write": false
       },
       "athletes": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/athletes').val() === true || root.child('v1/users').child(auth.uid).child('permissions/payments').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true || root.child('v1/users').child(auth.uid).child('permissions/performance').val() === true || root.child('v1/users').child(auth.uid).child('permissions/store').val() === true || root.child('v1/users').child(auth.uid).child('permissions/community').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/athletes').val() === true)",
         ".indexOn": ["status", "profile/name", "membership/paymentDay", "membership/planId"],
         "$id": {
           ".validate": "!newData.exists() || (newData.hasChildren(['id','profile','membership','status','createdAt','updatedAt']) && newData.child('id').val() === $id && newData.child('profile/name').isString() && newData.child('profile/name').val().length > 0 && newData.child('profile/phone').isString() && newData.child('membership/planId').isString() && newData.child('membership/agreedAmount').isNumber() && newData.child('membership/agreedAmount').val() >= 0 && newData.child('membership/paymentDay').isNumber() && newData.child('membership/paymentDay').val() >= 1 && newData.child('membership/paymentDay').val() <= 31 && (newData.child('status').val() === 'active' || newData.child('status').val() === 'inactive'))"
         }
       },
       "visitors": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true || root.child('v1/users').child(auth.uid).child('permissions/store').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true)",
         ".indexOn": ["name", "phone"],
         "$id": {
           ".validate": "!newData.exists() || (newData.hasChildren(['id','name','phone','pricePerVisit','createdAt','updatedAt']) && newData.child('id').val() === $id && newData.child('name').isString() && newData.child('name').val().length > 2 && newData.child('phone').isString() && newData.child('phone').val().matches(/^\\d{10}$/) && newData.child('pricePerVisit').isNumber() && newData.child('pricePerVisit').val() > 0)"
         }
       },
       "plans": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/athletes').val() === true || root.child('v1/users').child(auth.uid).child('permissions/payments').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true || root.child('v1/users').child(auth.uid).child('permissions/plans').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/plans').val() === true)",
         ".indexOn": ["status", "name"],
         "$id": {
           ".validate": "!newData.exists() || (newData.hasChildren(['id','name','billingPeriod','price','status','createdAt','updatedAt']) && newData.child('id').val() === $id && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('price').isNumber() && newData.child('price').val() >= 0 && (newData.child('billingPeriod').val() === 'monthly' || newData.child('billingPeriod').val() === 'quarterly' || newData.child('billingPeriod').val() === 'other') && (newData.child('status').val() === 'active' || newData.child('status').val() === 'inactive') && (!newData.child('accessType').exists() || newData.child('accessType').val() === 'unlimited' || newData.child('accessType').val() === 'visit-pack' || newData.child('accessType').val() === 'pay-per-visit') && (!newData.child('visitLimit').exists() || (newData.child('visitLimit').isNumber() && newData.child('visitLimit').val() > 0)) && (!newData.child('pricePerVisit').exists() || (newData.child('pricePerVisit').isNumber() && newData.child('pricePerVisit').val() >= 0)))"
         }
       },
       "payments": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/payments').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/payments').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true)",
         "$athleteId": {
           "$period": {
             ".validate": "!newData.exists() || (newData.hasChildren(['athleteId','period','status','createdAt','updatedAt']) && newData.child('athleteId').val() === $athleteId && newData.child('period').val() === $period && $period.matches(/^\\d{4}-(0[1-9]|1[0-2])$/) && (newData.child('status').val() === 'paid' || newData.child('status').val() === 'pending' || newData.child('status').val() === 'not-applicable') && (!newData.child('amount').exists() || (newData.child('amount').isNumber() && newData.child('amount').val() >= 0)) && (!newData.child('visitorId').exists() || (newData.child('visitorId').val() === $athleteId && root.child('v1/visitors').child($athleteId).exists())))"
@@ -48,8 +74,8 @@
         }
       },
       "visitPayments": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true)",
         "$visitorId": {
           "$paymentId": {
             ".validate": "!newData.exists() || (newData.hasChildren(['id','visitorId','customerName','phone','throughPeriod','amount','method','appliedAt','visitRefs','createdAt','updatedAt']) && newData.child('id').val() === $paymentId && newData.child('visitorId').val() === $visitorId && root.child('v1/visitors').child($visitorId).exists() && newData.child('customerName').isString() && newData.child('customerName').val().length > 2 && newData.child('phone').isString() && newData.child('phone').val().matches(/^\\d{10}$/) && newData.child('throughPeriod').val().matches(/^\\d{4}-(0[1-9]|1[0-2])$/) && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('method').val() === 'cash' || newData.child('method').val() === 'transfer' || newData.child('method').val() === 'card' || newData.child('method').val() === 'other') && (newData.child('appliedAt').isNumber() || newData.child('appliedAt').isString()) && newData.child('visitRefs').hasChildren())",
@@ -62,16 +88,16 @@
         }
       },
       "skills": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/performance').val() === true || root.child('v1/users').child(auth.uid).child('permissions/community').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/performance').val() === true)",
         ".indexOn": ["status", "name"],
         "$id": {
           ".validate": "!newData.exists() || (newData.hasChildren(['id','name','status']) && newData.child('id').val() === $id && newData.child('name').isString() && newData.child('name').val().length > 0 && (newData.child('status').val() === 'active' || newData.child('status').val() === 'inactive'))"
         }
       },
       "performance": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/performance').val() === true || root.child('v1/users').child(auth.uid).child('permissions/community').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/performance').val() === true)",
         "$athleteId": {
           "$skillId": {
             "$recordId": {
@@ -81,8 +107,8 @@
         }
       },
       "products": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/store').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/store').val() === true)",
         ".indexOn": ["status", "category", "stock"],
         "$id": {
           ".validate": "!newData.exists() || (newData.hasChildren(['id','name','category','stock','alertLevel','unitCost','salePrice','status','createdAt','updatedAt']) && newData.child('id').val() === $id && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('category').isString() && newData.child('stock').isNumber() && newData.child('stock').val() >= 0 && newData.child('alertLevel').isNumber() && newData.child('alertLevel').val() >= 0 && newData.child('unitCost').isNumber() && newData.child('unitCost').val() >= 0 && newData.child('salePrice').isNumber() && newData.child('salePrice').val() >= 0 && (newData.child('status').val() === 'active' || newData.child('status').val() === 'inactive'))",
@@ -94,8 +120,8 @@
         }
       },
       "sales": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/payments').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true || root.child('v1/users').child(auth.uid).child('permissions/store').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/store').val() === true)",
         ".indexOn": ["createdAt", "status", "athleteId", "visitorId"],
         "$id": {
           ".validate": "!newData.exists() || (newData.hasChildren(['id','customerName','items','total','status','createdAt','updatedAt']) && newData.child('id').val() === $id && newData.child('customerName').isString() && newData.child('customerName').val().length > 0 && newData.child('items').hasChildren() && newData.child('total').isNumber() && newData.child('total').val() >= 0 && (newData.child('status').val() === 'paid' || newData.child('status').val() === 'credit' || newData.child('status').val() === 'cancelled') && (!newData.child('visitorId').exists() || (newData.child('visitorId').isString() && root.child('v1/visitors').child(newData.child('visitorId').val()).exists())))",
@@ -112,16 +138,16 @@
         }
       },
       "expenses": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/expenses').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/expenses').val() === true)",
         ".indexOn": ["date", "status", "category"],
         "$id": {
           ".validate": "!newData.exists() || (newData.hasChildren(['id','date','category','description','amount','method','status','registeredBy','createdAt','updatedAt']) && newData.child('id').val() === $id && newData.child('date').isString() && newData.child('category').isString() && newData.child('description').isString() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('method').val() === 'cash' || newData.child('method').val() === 'transfer' || newData.child('method').val() === 'card' || newData.child('method').val() === 'other') && (newData.child('status').val() === 'paid' || newData.child('status').val() === 'pending' || newData.child('status').val() === 'scheduled') && newData.child('registeredBy').isString())"
         }
       },
       "visits": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true)",
         "$subjectId": {
           "$period": {
             "$visitId": {
@@ -131,16 +157,16 @@
         }
       },
       "workouts": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/workouts').val() === true)",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/workouts').val() === true)",
         ".indexOn": ["date"],
         "$date": {
           ".validate": "!newData.exists() || (newData.hasChildren(['id','date','focus','blocks','createdAt','updatedAt']) && newData.child('id').val() === $date && newData.child('date').val() === $date && $date.matches(/^\\d{4}-(0[1-9]|1[0-2])-([0-2]\\d|3[0-1])$/) && newData.child('focus').isString() && newData.child('focus').val().length > 0 && newData.child('blocks').hasChildren())"
         }
       },
       "settings": {
-        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
-        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true"
+        ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && root.child('v1/users').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && root.child('v1/users').child(auth.uid).child('role').val() === 'admin'"
       },
       "$other": {
         ".validate": false

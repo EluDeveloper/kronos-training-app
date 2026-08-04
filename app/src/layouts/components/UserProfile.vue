@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import avatar1 from '@images/avatars/avatar-1.png'
+import { useSessionStore } from '@/stores/session'
+import { roleLabel } from '@/types/access'
+
+const session = useSessionStore()
+const initials = computed(() => session.profile?.displayName.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toLocaleUpperCase('es') || 'KT')
 </script>
 
 <template>
@@ -12,118 +16,47 @@ import avatar1 from '@images/avatars/avatar-1.png'
     bordered
   >
     <VAvatar
-      class="cursor-pointer"
+      class="cursor-pointer font-weight-bold"
       color="primary"
       variant="tonal"
     >
-      <VImg :src="avatar1" />
-
-      <!-- SECTION Menu -->
+      {{ initials }}
       <VMenu
         activator="parent"
-        width="230"
+        width="290"
         location="bottom end"
         offset="14px"
       >
         <VList>
-          <!-- 👉 User Avatar & Name -->
           <VListItem>
             <template #prepend>
-              <VListItemAction start>
-                <VBadge
-                  dot
-                  location="bottom right"
-                  offset-x="3"
-                  offset-y="3"
-                  color="success"
-                >
-                  <VAvatar
-                    color="primary"
-                    variant="tonal"
-                  >
-                    <VImg :src="avatar1" />
-                  </VAvatar>
-                </VBadge>
-              </VListItemAction>
+              <VAvatar
+                color="primary"
+                variant="tonal"
+                class="me-3"
+              >
+                {{ initials }}
+              </VAvatar>
             </template>
-
             <VListItemTitle class="font-weight-semibold">
-              John Doe
+              {{ session.profile?.displayName }}
             </VListItemTitle>
-            <VListItemSubtitle>Admin</VListItemSubtitle>
+            <VListItemSubtitle>{{ session.profile ? roleLabel(session.profile.role) : '' }} · {{ session.authEmail }}</VListItemSubtitle>
           </VListItem>
           <VDivider class="my-2" />
-
-          <!-- 👉 Profile -->
-          <VListItem link>
-            <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="ri-user-line"
-                size="22"
-              />
-            </template>
-
-            <VListItemTitle>Profile</VListItemTitle>
-          </VListItem>
-
-          <!-- 👉 Settings -->
-          <VListItem link>
-            <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="ri-settings-4-line"
-                size="22"
-              />
-            </template>
-
-            <VListItemTitle>Settings</VListItemTitle>
-          </VListItem>
-
-          <!-- 👉 Pricing -->
-          <VListItem link>
-            <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="ri-money-dollar-circle-line"
-                size="22"
-              />
-            </template>
-
-            <VListItemTitle>Pricing</VListItemTitle>
-          </VListItem>
-
-          <!-- 👉 FAQ -->
-          <VListItem link>
-            <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="ri-question-line"
-                size="22"
-              />
-            </template>
-
-            <VListItemTitle>FAQ</VListItemTitle>
-          </VListItem>
-
-          <!-- Divider -->
-          <VDivider class="my-2" />
-
-          <!-- 👉 Logout -->
-          <VListItem to="/login">
-            <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="ri-logout-box-r-line"
-                size="22"
-              />
-            </template>
-
-            <VListItemTitle>Logout</VListItemTitle>
-          </VListItem>
+          <VListItem
+            v-if="session.isAdmin"
+            to="/usuarios"
+            prepend-icon="ri-user-settings-line"
+            title="Usuarios y permisos"
+          />
+          <VListItem
+            prepend-icon="ri-logout-box-r-line"
+            title="Cerrar sesión"
+            @click="session.logout"
+          />
         </VList>
       </VMenu>
-      <!-- !SECTION -->
     </VAvatar>
   </VBadge>
 </template>

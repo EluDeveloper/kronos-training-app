@@ -9,9 +9,6 @@ import svgLoader from 'vite-svg-loader'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  server: {
-    host: true, // Escucha en todas las interfaces de red
-  },
   plugins: [
     vue(),
     vueJsx(),

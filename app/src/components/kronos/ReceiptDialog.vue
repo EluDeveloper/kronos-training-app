@@ -61,7 +61,7 @@ async function run(action: 'download' | 'print' | 'share') {
 
       <VCardText class="pa-6">
         <div class="d-flex flex-wrap justify-space-between ga-3 mb-6">
-          <div><div class="text-caption text-medium-emphasis">Cliente</div><div class="text-h6 font-weight-bold">{{ receipt.customerName }}</div></div>
+          <div><div class="text-caption text-medium-emphasis">Cliente</div><div class="text-h6 font-weight-bold">{{ receipt.customerName }}</div><div v-if="receipt.phone" class="text-body-2 text-medium-emphasis">Celular: {{ receipt.phone }}</div></div>
           <div class="text-sm-right"><div class="text-caption text-medium-emphasis">Fecha</div><div>{{ formatDate(receipt.issuedAt) }}</div></div>
         </div>
 

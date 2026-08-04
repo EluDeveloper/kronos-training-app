@@ -12,6 +12,10 @@ const athletes = useAthletesStore()
 const plans = usePlansStore()
 const { success, failure } = useNotifications()
 const search = ref('')
+const statusFilter = ref<string | null>(null)
+const planFilter = ref<string | null>(null)
+const page = ref(1)
+const perPage = 15
 const dialog = ref(false)
 const saving = ref(false)
 const editingId = ref<string | null>(null)
@@ -20,8 +24,14 @@ const form = reactive({
   paymentDay: 1, registrationDate: new Date().toISOString().slice(0, 10),
 })
 
-const filtered = computed(() => athletes.sorted.filter(athlete => athlete.profile.name.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es'))))
+const filtered = computed(() => athletes.sorted
+  .filter(athlete => !statusFilter.value || athlete.status === statusFilter.value)
+  .filter(athlete => !planFilter.value || athlete.membership.planId === planFilter.value)
+  .filter(athlete => `${athlete.profile.name} ${athlete.profile.phone} ${athlete.membership.schedule}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es'))))
+const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
+const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
 const planItems = computed(() => plans.active.map(plan => ({ title: `${plan.name} · ${formatCurrency(plan.price)}`, value: plan.id })))
+const planFilterItems = computed(() => plans.items.map(plan => ({ title: plan.name, value: plan.id })))
 const planName = (id: string) => plans.items.find(plan => plan.id === id)?.name ?? 'Plan no disponible'
 
 watch(() => form.planId, id => {
@@ -29,6 +39,7 @@ watch(() => form.planId, id => {
   if (plan && !editingId.value)
     form.agreedAmount = plan.price
 })
+watch([search, statusFilter, planFilter], () => { page.value = 1 })
 
 function openForm(athlete?: Athlete) {
   editingId.value = athlete?.id ?? null
@@ -95,12 +106,17 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
 
   <VCard class="kronos-card" rounded="xl">
     <VCardText>
-      <VTextField v-model="search" prepend-inner-icon="ri-search-line" label="Buscar atleta" class="mb-5" clearable />
+      <VRow class="mb-2">
+        <VCol cols="12" lg="6"><VTextField v-model="search" prepend-inner-icon="ri-search-line" label="Buscar nombre, teléfono u horario" clearable /></VCol>
+        <VCol cols="12" sm="6" lg="3"><VAutocomplete v-model="planFilter" :items="planFilterItems" label="Plan" clearable auto-select-first /></VCol>
+        <VCol cols="12" sm="6" lg="3"><VSelect v-model="statusFilter" :items="[{ title: 'Activos', value: 'active' }, { title: 'Inactivos', value: 'inactive' }]" label="Estado" clearable /></VCol>
+      </VRow>
       <EmptyState v-if="!filtered.length" title="Sin atletas" description="Registra el primer atleta o cambia la búsqueda." icon="ri-team-line" />
-      <VTable v-else>
+      <template v-else>
+      <VTable>
         <thead><tr><th>Atleta</th><th>Plan</th><th>Horario</th><th>Día de pago</th><th>Estado</th><th /></tr></thead>
         <tbody>
-          <tr v-for="athlete in filtered" :key="athlete.id">
+          <tr v-for="athlete in paginated" :key="athlete.id">
             <td><p class="font-weight-bold mb-0">{{ athlete.profile.name }}</p><span class="text-caption text-medium-emphasis">{{ athlete.profile.phone }}<template v-if="calculateAge(athlete.profile.birthDate) !== null"> · {{ calculateAge(athlete.profile.birthDate) }} años</template></span></td>
             <td>{{ planName(athlete.membership.planId) }}<br><span class="text-caption text-medium-emphasis">{{ formatCurrency(athlete.membership.agreedAmount) }}</span></td>
             <td>{{ athlete.membership.schedule }}</td>
@@ -110,22 +126,25 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
           </tr>
         </tbody>
       </VTable>
+      <div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5"><span class="text-caption text-medium-emphasis">{{ filtered.length }} atletas · máximo 15 por página</span><VPagination v-model="page" :length="pageCount" :total-visible="5" /></div>
+      </template>
     </VCardText>
   </VCard>
 
   <VDialog v-model="dialog" max-width="760">
-    <VCard class="kronos-card" :title="editingId ? 'Editar atleta' : 'Nuevo atleta'">
-      <VCardText><VRow>
+    <VCard class="kronos-card" rounded="xl">
+      <VCardItem class="pa-6 pb-2" :title="editingId ? 'Editar atleta' : 'Nuevo atleta'" subtitle="Datos personales y configuración de la membresía." />
+      <VCardText class="pa-6"><VRow>
         <VCol cols="12" md="7"><VTextField v-model="form.name" label="Nombre completo" /></VCol>
         <VCol cols="12" md="5"><VTextField v-model="form.phone" label="Teléfono" maxlength="10" /></VCol>
         <VCol cols="12" md="4"><VTextField v-model="form.birthDate" type="date" label="Fecha de nacimiento" /></VCol>
         <VCol cols="12" md="4"><VTextField v-model="form.schedule" label="Horario base" /></VCol>
         <VCol cols="12" md="4"><VTextField v-model="form.registrationDate" type="date" label="Fecha de registro" /></VCol>
-        <VCol cols="12" md="6"><VSelect v-model="form.planId" :items="planItems" label="Plan" /></VCol>
+        <VCol cols="12" md="6"><VAutocomplete v-model="form.planId" :items="planItems" label="Buscar plan" prepend-inner-icon="ri-search-line" auto-select-first /></VCol>
         <VCol cols="6" md="3"><VTextField v-model.number="form.agreedAmount" type="number" min="1" label="Monto" prefix="$" /></VCol>
         <VCol cols="6" md="3"><VTextField v-model.number="form.paymentDay" type="number" min="1" max="31" label="Día de pago" /></VCol>
       </VRow></VCardText>
-      <VCardActions><VSpacer /><VBtn variant="text" @click="dialog = false">Cancelar</VBtn><VBtn :loading="saving" @click="save">Guardar</VBtn></VCardActions>
+      <VCardActions class="pa-6 pt-0"><VSpacer /><VBtn variant="text" @click="dialog = false">Cancelar</VBtn><VBtn :loading="saving" @click="save">Guardar</VBtn></VCardActions>
     </VCard>
   </VDialog>
 </template>

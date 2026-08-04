@@ -1,8 +1,9 @@
 import type { PerformanceRecord } from '@/types/domain'
-import { createEntity, deleteEntity, subscribeValue, type ErrorHandler } from './realtime.service'
+import { createEntity, deleteEntity, subscribeValue, updateEntity, type ErrorHandler } from './realtime.service'
 
 type PerformanceTree = Record<string, Record<string, Record<string, Omit<PerformanceRecord, 'id' | 'athleteId' | 'skillId'>>>>
 export type NewPerformanceRecord = Omit<PerformanceRecord, 'id'>
+export type PerformanceRecordUpdate = Pick<PerformanceRecord, 'type' | 'valueLbs' | 'valueKg' | 'recordedAt'>
 
 export const performanceService = {
   subscribe(onChange: (items: PerformanceRecord[]) => void, onError: ErrorHandler) {
@@ -18,6 +19,9 @@ export const performanceService = {
     const { athleteId, skillId, ...data } = record
 
     return createEntity(`performance/${athleteId}/${skillId}`, data as unknown as Record<string, unknown>)
+  },
+  update(record: PerformanceRecord, data: PerformanceRecordUpdate) {
+    return updateEntity(`performance/${record.athleteId}/${record.skillId}/${record.id}`, data as unknown as Record<string, unknown>)
   },
   delete: (record: PerformanceRecord) => deleteEntity(`performance/${record.athleteId}/${record.skillId}/${record.id}`),
 }

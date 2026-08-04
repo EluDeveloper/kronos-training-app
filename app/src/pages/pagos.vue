@@ -7,13 +7,15 @@ import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
 import { usePaymentsStore } from '@/stores/payments'
 import { usePlansStore } from '@/stores/plans'
+import { useVisitorsStore } from '@/stores/visitors'
 import { currentPeriod, type Payment } from '@/types/domain'
-import { buildMembershipReceipt, type ReceiptData } from '@/utils/receipts'
+import { buildMembershipReceipt, buildVisitorVisitReceipt, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, timestampValue } from '@/utils/kronos'
 
 const athletes = useAthletesStore()
 const payments = usePaymentsStore()
 const plans = usePlansStore()
+const visitors = useVisitorsStore()
 const { failure } = useNotifications()
 const route = useRoute()
 const router = useRouter()
@@ -27,10 +29,10 @@ const periodFilter = ref('')
 const page = ref(1)
 const perPage = 15
 
-const athleteName = (id: string) => athletes.items.find(item => item.id === id)?.profile.name ?? 'Atleta'
+const payerName = (payment: Payment) => payment.visitorId ? visitors.items.find(item => item.id === payment.visitorId)?.name ?? 'Visitante' : athletes.items.find(item => item.id === payment.athleteId)?.profile.name ?? 'Atleta'
 const filtered = computed(() => [...payments.paid]
   .filter(payment => !periodFilter.value || payment.period === periodFilter.value)
-  .filter(payment => `${athleteName(payment.athleteId)} ${payment.period} ${payment.method ?? ''}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es')))
+  .filter(payment => `${payerName(payment)} ${payment.period} ${payment.method ?? ''}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.appliedAt) - timestampValue(a.appliedAt)))
 const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
 const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
@@ -38,6 +40,14 @@ const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage
 watch([search, periodFilter], () => { page.value = 1 })
 
 function showReceipt(payment: Payment) {
+  if (payment.visitorId) {
+    const visitor = visitors.items.find(item => item.id === payment.visitorId)
+    if (visitor) {
+      activeReceipt.value = buildVisitorVisitReceipt(payment, visitor)
+      receiptDialog.value = true
+      return
+    }
+  }
   const athlete = athletes.items.find(item => item.id === payment.athleteId)
 
   if (!athlete) {
@@ -72,8 +82,8 @@ function openCollectionFromRoute() {
 
 watch([() => route.query.collect, () => athletes.active.length], openCollectionFromRoute, { immediate: true })
 
-onMounted(() => { athletes.subscribe(); payments.subscribe(); plans.subscribe() })
-onBeforeUnmount(() => { athletes.dispose(); payments.dispose(); plans.dispose() })
+onMounted(() => { athletes.subscribe(); visitors.subscribe(); payments.subscribe(); plans.subscribe() })
+onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose(); plans.dispose() })
 </script>
 
 <template>
@@ -92,10 +102,10 @@ onBeforeUnmount(() => { athletes.dispose(); payments.dispose(); plans.dispose() 
       <EmptyState v-if="!filtered.length" title="Sin pagos aplicados" description="Registra la primera mensualidad o cambia los filtros." icon="ri-wallet-line" />
       <template v-else>
         <VTable>
-          <thead><tr><th>Atleta</th><th>Periodo</th><th>Método</th><th>Aplicado</th><th class="text-right">Monto</th><th></th></tr></thead>
+          <thead><tr><th>Cliente</th><th>Periodo</th><th>Método</th><th>Aplicado</th><th class="text-right">Monto</th><th></th></tr></thead>
           <tbody>
             <tr v-for="payment in paginated" :key="`${payment.athleteId}-${payment.period}`">
-              <td class="font-weight-bold">{{ athleteName(payment.athleteId) }}</td>
+              <td class="font-weight-bold">{{ payerName(payment) }}<div v-if="payment.visitorId" class="text-caption text-medium-emphasis">Visitante</div></td>
               <td>{{ payment.period }}</td>
               <td class="text-capitalize">{{ payment.method }}</td>
               <td>{{ formatDate(payment.appliedAt) }}</td>

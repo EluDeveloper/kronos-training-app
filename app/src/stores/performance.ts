@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { Unsubscribe } from 'firebase/database'
-import { performanceService, type NewPerformanceRecord } from '@/services/performance.service'
+import { performanceService, type NewPerformanceRecord, type PerformanceRecordUpdate } from '@/services/performance.service'
 import { skillsService } from '@/services/skills.service'
 import type { PerformanceRecord, Skill } from '@/types/domain'
 
@@ -29,9 +29,10 @@ export const usePerformanceStore = defineStore('performance', () => {
   }
 
   const create = (record: NewPerformanceRecord) => performanceService.create(record)
+  const update = (record: PerformanceRecord, data: PerformanceRecordUpdate) => performanceService.update(record, data)
   const remove = (record: PerformanceRecord) => performanceService.delete(record)
   const createSkill = (name: string) => skillsService.create(name)
   const dispose = () => { stopRecords?.(); stopSkills?.(); stopRecords = null; stopSkills = null }
 
-  return { records, skills, loading, error, subscribe, create, remove, createSkill, dispose }
+  return { records, skills, loading, error, subscribe, create, update, remove, createSkill, dispose }
 })

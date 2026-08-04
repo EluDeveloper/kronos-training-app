@@ -422,7 +422,7 @@ Verificación de liberación:
 - `jspdf` se actualizó a 4.2.1 después de detectar una vulnerabilidad crítica en versiones anteriores; la auditoría de producción ya no reporta vulnerabilidades críticas.
 - Typecheck, build y despliegue final de Firebase Hosting completados correctamente.
 
-### Fase 8 — Operación avanzada y experiencia de uso — EN PROGRESO
+### Fase 8 — Operación avanzada y experiencia de uso — LIBERADA 2026-08-03
 
 #### Fase 8A — Identidad, recibos y cobro emergente — LIBERADA 2026-08-03
 
@@ -461,27 +461,80 @@ Verificación de liberación:
 - El mensaje de WhatsApp enumera cada concepto y su importe antes del total.
 - En producción, Recordar abrió el aviso con mensualidad, total, PDF, impresión y WhatsApp sin errores de consola.
 
-#### Fase 8C — Visitas y cuponera — PENDIENTE
+#### Fase 8C — Visitas y cuponera — LIBERADA 2026-08-03
 
-- [ ] Registrar visitas por atleta y periodo.
-- [ ] Calcular visitas acumuladas para cobro al final del mes.
-- [ ] Controlar cuponera de 10 visitas y visitas restantes.
-- [ ] Alertar cuando queden dos visitas y preparar recordatorio de renovación.
-- [ ] Considerar adeudos de tienda en estados de cuenta por visitas.
+- [x] Registrar visitas por atleta y periodo.
+- [x] Calcular visitas acumuladas para cobro al final del mes.
+- [x] Controlar cuponera configurable, con valor inicial de 10 visitas, y mostrar visitas restantes.
+- [x] Alertar cuando queden dos visitas y preparar recordatorio de renovación.
+- [x] Considerar adeudos de tienda en estados de cuenta por visitas.
+- [x] Añadir el módulo Visitas a navegación y reglas de seguridad de Firebase.
+- [x] Mostrar cuponeras próximas a vencer dentro de las acciones del dashboard.
+- [x] Ejecutar typecheck, pruebas de reglas, build, despliegue y validación en producción.
 
-#### Fase 8D — Tablas, filtros y formularios — PENDIENTE
+Verificación de liberación:
 
-- [ ] Limitar todas las tablas a 15 registros por página.
-- [ ] Añadir filtros útiles a todas las tablas.
-- [ ] Sustituir selects extensos por autocompletes buscables.
-- [ ] Revisar espaciado y comportamiento responsivo de todos los formularios.
+- Los planes permiten elegir acceso libre, cuponera o cobro por visita; la cuponera propone 10 visitas y conserva un límite configurable.
+- El módulo Visitas registra fecha, hora y nota, calcula consumo mensual, bloquea visitas por encima del límite y pagina el historial a 15 registros.
+- Los atletas con cobro por visita pueden generar un estado de cuenta, cobrar el acumulado y obtener el recibo correspondiente.
+- Los avisos por visitas y renovación agregan los productos pendientes de tienda y preparan el envío por WhatsApp.
+- El PDF de muestra se renderizó con logo oficial, siete visitas, precio unitario, adeudo de tienda y total a pagar, sin cortes ni solapamientos.
+- Las 8 pruebas de Realtime Database Emulator pasaron, incluidas la escritura válida de visitas y el rechazo cuando atleta o ruta no coinciden.
+- Hosting y reglas se desplegaron correctamente; en producción se verificaron el módulo, sus indicadores y la alerta `Cuponeras por renovar` del dashboard.
 
-#### Fase 8E — Rendimiento comparativo — PENDIENTE
+#### Fase 8D — Tablas, filtros y formularios — LIBERADA 2026-08-03
 
-- [ ] Editar marcas existentes.
-- [ ] Seleccionar atleta y skill con búsqueda.
-- [ ] Mostrar gráfica histórica y evolución por marca.
-- [ ] Mantener eliminación y conversión lb/kg.
+- [x] Limitar las tablas históricas y operativas a 15 registros por página.
+- [x] Añadir filtros útiles a las tablas de atletas, pagos, planes, visitas, egresos, inventario, deudas y ventas.
+- [x] Sustituir selects extensos por autocompletes buscables.
+- [x] Revisar espaciado y comportamiento responsivo de los formularios de atleta, pago, visita, plan, egreso, producto, venta y abono.
+- [x] Ejecutar typecheck, build, despliegue y validación en producción.
+
+Verificación de liberación:
+
+- Atletas permite buscar por nombre, teléfono u horario, y filtrar por plan y estado; el plan también es buscable dentro del formulario.
+- Egresos permite buscar texto, filtrar por categoría y estado, y reutilizar o capturar categorías desde un combo buscable.
+- Inventario filtra por texto y nivel de existencia; Deudas busca cliente o producto; Ventas busca cliente o producto y filtra estado.
+- El carrito, inventario, deudas y ventas usan paginación independiente, con máximo 15 filas por página.
+- En producción se verificaron los filtros y el texto de límite de página en Atletas, Egresos y las tres vistas históricas de Tienda sin modificar datos reales.
+
+#### Fase 8E — Rendimiento comparativo — LIBERADA 2026-08-03
+
+- [x] Editar marcas existentes.
+- [x] Seleccionar atleta y skill con búsqueda.
+- [x] Mostrar gráfica histórica y evolución por marca.
+- [x] Mostrar última marca, mejor marca y variación entre primera y última.
+- [x] Paginar el historial a un máximo de 15 registros.
+- [x] Mantener eliminación y conversión lb/kg.
+- [x] Ejecutar typecheck, build, despliegue y validación en producción.
+
+Verificación de liberación:
+
+- La gráfica selecciona automáticamente el primer skill con historial del atleta y ordena las marcas cronológicamente.
+- En producción se verificó el comparativo de Osvaldo Garces Gomez para Back Squat, incluyendo última marca, mejor marca y variación total.
+- El botón Editar abrió el formulario con atleta y skill fijos, y permitió corregir tipo, fecha y valor; la prueba se cerró sin guardar para no alterar datos reales.
+- Los selectores de atleta, skill y tipo son buscables, y el historial conserva búsqueda y máximo 15 filas por página.
+
+### Fase 9 — Visitantes externos — LIBERADA 2026-08-03
+
+- [x] Separar visitantes por evento de los atletas con membresía activa.
+- [x] Guardar nombre completo, celular y tarifa por visita en un directorio reutilizable.
+- [x] Permitir seleccionar fecha y hora de la visita, incluidas fechas anteriores.
+- [x] Buscar visitantes existentes o registrar uno nuevo al capturar la visita.
+- [x] Acumular visitas por periodo y cobrar sin asignar un plan de membresía.
+- [x] Generar estado de cuenta y recibo pagado con nombre y celular para WhatsApp.
+- [x] Asociar ventas de Tienda al mismo visitante y conservar su celular en recibos de venta y abono.
+- [x] Incluir adeudos de productos del visitante en su estado de cuenta por visitas.
+- [x] Actualizar reglas de Realtime Database para visitantes, visitas, pagos y ventas.
+- [x] Ejecutar typecheck, nueve pruebas de reglas, build, despliegue y validación en producción.
+
+Verificación de liberación:
+
+- El visitante se guarda en `/v1/visitors` y nunca se agrega a `/v1/athletes`, por lo que no modifica el conteo de miembros activos ni requiere plan.
+- La prueba de reglas permite crear visita y venta relacionadas con un visitante válido, y rechaza guardar la visita bajo un identificador diferente.
+- El recibo PDF se renderizó con logo oficial, nombre, celular, siete visitas, tarifa unitaria, total pagado y saldo cero, sin cortes ni duplicación de conceptos.
+- En producción se abrió el formulario de visitante y se verificaron búsqueda, nombre, celular, tarifa y fecha/hora; la prueba se cerró sin crear datos reales.
+- En Tienda se verificó el selector combinado `Buscar miembro o visitante (opcional)` sin completar ventas reales.
 
 Riesgo de dependencias pendiente:
 

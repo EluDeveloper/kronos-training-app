@@ -1,4 +1,4 @@
-import type { Athlete, ISOTimestamp, Payment, PaymentMethod, Sale, SalePayment } from '@/types/domain'
+import type { Athlete, ISOTimestamp, Payment, PaymentMethod, Sale, SalePayment, VisitorContact } from '@/types/domain'
 import { formatCurrency, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 
 export type ReceiptKind = 'membership' | 'sale' | 'sale-payment' | 'collection'
@@ -23,6 +23,10 @@ export interface ReceiptData {
   amountPaid: number
   balance: number
 }
+
+type ReceiptCustomer = Athlete | VisitorContact
+const customerName = (customer: ReceiptCustomer) => 'profile' in customer ? customer.profile.name : customer.name
+const customerPhone = (customer: ReceiptCustomer) => 'profile' in customer ? customer.profile.phone : customer.phone
 
 const methodLabels: Record<PaymentMethod, string> = {
   cash: 'Efectivo',
@@ -54,6 +58,25 @@ export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planN
   }
 }
 
+export function buildVisitorVisitReceipt(payment: Payment, visitor: VisitorContact): ReceiptData {
+  const amount = Number(payment.amount ?? 0)
+  const description = payment.visitCount ? `Visitas acumuladas ${payment.period}` : payment.concept?.trim() || `Pago de visitas ${payment.period}`
+
+  return {
+    kind: 'membership',
+    folio: `VIS-${payment.period.replace('-', '')}-${folioSuffix(visitor.id)}`,
+    issuedAt: payment.appliedAt ?? payment.updatedAt,
+    customerName: visitor.name,
+    phone: visitor.phone,
+    concept: `Pago de visitas ${payment.period}`,
+    lines: [{ description, ...(payment.visitCount ? { quantity: payment.visitCount, unitPrice: amount / payment.visitCount } : {}), amount }],
+    method: payment.method,
+    total: amount,
+    amountPaid: amount,
+    balance: 0,
+  }
+}
+
 const storeDebtLines = (openSales: Sale[]): ReceiptLine[] => openSales
   .filter(sale => sale.status === 'credit' && saleBalance(sale) > 0)
   .map(sale => {
@@ -67,7 +90,7 @@ const storeDebtLines = (openSales: Sale[]): ReceiptLine[] => openSales
     }
   })
 
-export function buildSaleReceipt(sale: Sale, athlete?: Athlete): ReceiptData {
+export function buildSaleReceipt(sale: Sale, customer?: ReceiptCustomer): ReceiptData {
   const paid = saleAppliedAmount(sale)
   const payments = Object.values(sale.payments ?? {}).sort((a, b) => timestampValue(a.appliedAt) - timestampValue(b.appliedAt))
   const uniqueMethods = [...new Set(payments.map(payment => payment.method))]
@@ -76,8 +99,8 @@ export function buildSaleReceipt(sale: Sale, athlete?: Athlete): ReceiptData {
     kind: 'sale',
     folio: `VEN-${folioSuffix(sale.id)}`,
     issuedAt: sale.createdAt,
-    customerName: athlete?.profile.name ?? sale.customerName,
-    phone: athlete?.profile.phone,
+    customerName: customer ? customerName(customer) : sale.customerName,
+    phone: customer ? customerPhone(customer) : null,
     concept: sale.status === 'cancelled' ? 'Venta cancelada' : 'Venta de tienda',
     lines: Object.values(sale.items ?? {}).map(item => ({
       description: item.name,
@@ -92,7 +115,7 @@ export function buildSaleReceipt(sale: Sale, athlete?: Athlete): ReceiptData {
   }
 }
 
-export function buildSalePaymentReceipt(sale: Sale, targetPayment: SalePayment, athlete?: Athlete): ReceiptData {
+export function buildSalePaymentReceipt(sale: Sale, targetPayment: SalePayment, customer?: ReceiptCustomer): ReceiptData {
   const orderedPayments = Object.values(sale.payments ?? {}).sort((a, b) => {
     const difference = timestampValue(a.appliedAt) - timestampValue(b.appliedAt)
 
@@ -110,8 +133,8 @@ export function buildSalePaymentReceipt(sale: Sale, targetPayment: SalePayment, 
     kind: 'sale-payment',
     folio: `ABO-${folioSuffix(targetPayment.id)}`,
     issuedAt: targetPayment.appliedAt,
-    customerName: athlete?.profile.name ?? sale.customerName,
-    phone: athlete?.profile.phone,
+    customerName: customer ? customerName(customer) : sale.customerName,
+    phone: customer ? customerPhone(customer) : null,
     concept: `Abono a venta ${`VEN-${folioSuffix(sale.id)}`}`,
     lines: [{ description: 'Abono aplicado', amount: Number(targetPayment.amountApplied || 0) }],
     method: targetPayment.method,
@@ -144,7 +167,7 @@ export function buildCollectionTicket(athlete: Athlete, period: string, openSale
   }
 }
 
-export function buildVisitStatement(athlete: Athlete, period: string, visitCount: number, unitPrice: number, openSales: Sale[]): ReceiptData {
+export function buildVisitStatement(customer: ReceiptCustomer, period: string, visitCount: number, unitPrice: number, openSales: Sale[]): ReceiptData {
   const visitsAmount = visitCount * unitPrice
   const lines: ReceiptLine[] = [
     { description: `Visitas acumuladas ${period}`, quantity: visitCount, unitPrice, amount: visitsAmount },
@@ -154,10 +177,10 @@ export function buildVisitStatement(athlete: Athlete, period: string, visitCount
 
   return {
     kind: 'collection',
-    folio: `VIS-${period.replace('-', '')}-${folioSuffix(athlete.id)}`,
+    folio: `VIS-${period.replace('-', '')}-${folioSuffix(customer.id)}`,
     issuedAt: Date.now(),
-    customerName: athlete.profile.name,
-    phone: athlete.profile.phone,
+    customerName: customerName(customer),
+    phone: customerPhone(customer),
     concept: `Estado de cuenta por visitas ${period}`,
     lines,
     method: null,
@@ -264,6 +287,10 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(8.5)
   pdf.setTextColor(90, 94, 88)
+  if (receipt.phone) {
+    pdf.text(`Celular: ${receipt.phone}`, margin, y)
+    y += 5
+  }
   pdf.text(`Fecha: ${new Date(receipt.issuedAt).toLocaleString('es-MX')}`, margin, y)
   y += 5
   pdf.text(`Concepto: ${receipt.concept}`, margin, y)

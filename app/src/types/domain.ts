@@ -38,6 +38,13 @@ export interface Athlete extends AuditFields {
   migrationNeedsReview?: boolean
 }
 
+export interface VisitorContact extends AuditFields {
+  id: EntityId
+  name: string
+  phone: string
+  pricePerVisit: number
+}
+
 export interface MembershipPlan extends AuditFields {
   id: EntityId
   name: string
@@ -51,6 +58,7 @@ export interface MembershipPlan extends AuditFields {
 
 export interface Payment extends AuditFields {
   athleteId: EntityId
+  visitorId?: EntityId | null
   period: string
   status: PaymentStatus
   method?: PaymentMethod | null
@@ -62,10 +70,11 @@ export interface Payment extends AuditFields {
 
 export interface Visit extends AuditFields {
   id: EntityId
-  athleteId: EntityId
+  athleteId?: EntityId | null
+  visitorId?: EntityId | null
   period: string
   visitedAt: ISOTimestamp
-  planId: EntityId
+  planId?: EntityId | null
   accessType: PlanAccessType
   unitPrice: number
   note?: string | null
@@ -121,6 +130,7 @@ export interface SalePayment {
 export interface Sale extends AuditFields {
   id: EntityId
   athleteId?: EntityId | null
+  visitorId?: EntityId | null
   customerName: string
   items: Record<EntityId, SaleItem>
   total: number

@@ -10,7 +10,9 @@ import { useCommerceStore } from '@/stores/commerce'
 import { useExpensesStore } from '@/stores/expenses'
 import { usePaymentsStore } from '@/stores/payments'
 import { usePlansStore } from '@/stores/plans'
-import { currentPeriod, type Payment } from '@/types/domain'
+import { useVisitsStore } from '@/stores/visits'
+import { useVisitorsStore } from '@/stores/visitors'
+import { currentPeriod, planAccessType, planVisitLimit, type Payment } from '@/types/domain'
 import { formatCurrency, formatDate, saleBalance, timestampValue } from '@/utils/kronos'
 import { buildCollectionTicket, buildMembershipReceipt, type ReceiptData } from '@/utils/receipts'
 
@@ -19,6 +21,8 @@ const payments = usePaymentsStore()
 const commerce = useCommerceStore()
 const expenses = useExpensesStore()
 const plans = usePlansStore()
+const visits = useVisitsStore()
+const visitors = useVisitorsStore()
 const { failure } = useNotifications()
 const router = useRouter()
 const tab = ref('month')
@@ -58,7 +62,7 @@ const recentPayments = computed(() => [...payments.paid]
   .slice(0, 7))
 
 const paidAthleteIds = computed(() => new Set(payments.paid
-  .filter(payment => payment.period === period)
+  .filter(payment => payment.period === period && !payment.visitorId)
   .map(payment => payment.athleteId)))
 
 const unpaidAthletes = computed(() => athletes.active
@@ -76,8 +80,22 @@ const pendingExpenses = computed(() => expenses.items
   .filter(expense => expense.status !== 'paid' && expense.date.startsWith(period))
   .sort((a, b) => a.date.localeCompare(b.date)))
 
-const actionCount = computed(() => overdueAthletes.value.length + commerce.openCredit.length + commerce.lowStock.length + pendingExpenses.value.length)
+const couponRenewals = computed(() => athletes.active.flatMap(athlete => {
+  const plan = plans.items.find(item => item.id === athlete.membership.planId)
+  if (planAccessType(plan) !== 'visit-pack')
+    return []
+  const limit = planVisitLimit(plan)
+  if (limit === null)
+    return []
+  const used = visits.items.filter(visit => visit.athleteId === athlete.id && visit.period === period).length
+  const remaining = Math.max(0, limit - used)
+
+  return remaining <= 2 ? [{ athlete, used, limit, remaining }] : []
+}))
+
+const actionCount = computed(() => overdueAthletes.value.length + commerce.openCredit.length + commerce.lowStock.length + pendingExpenses.value.length + couponRenewals.value.length)
 const athleteName = (id: string) => athletes.items.find(item => item.id === id)?.profile.name ?? 'Atleta'
+const paymentCustomerName = (payment: Payment) => payment.visitorId ? visitors.items.find(item => item.id === payment.visitorId)?.name ?? 'Visitante' : athleteName(payment.athleteId)
 const storeDebtForAthlete = (athleteId: string) => commerce.openCredit
   .filter(sale => sale.athleteId === athleteId)
   .reduce((total, sale) => total + saleBalance(sale), 0)
@@ -120,7 +138,7 @@ const annualExpenses = computed(() => annualRows.value.reduce((total, row) => to
 const annualNet = computed(() => annualMemberships.value + annualShop.value - annualExpenses.value)
 
 const annualSeries = computed(() => [
-  { name: 'Mensualidades', data: annualRows.value.map(row => row.memberships) },
+  { name: 'Membresías y visitas', data: annualRows.value.map(row => row.memberships) },
   { name: 'Tienda y abonos', data: annualRows.value.map(row => row.shop) },
   { name: 'Egresos', data: annualRows.value.map(row => row.expenses) },
 ])
@@ -171,12 +189,18 @@ function openCommerce(tabName: 'credit' | 'inventory') {
   router.push({ path: '/tienda', query: { tab: tabName } })
 }
 
+function openVisits(athleteId?: string) {
+  router.push({ path: '/visitas', query: athleteId ? { athlete: athleteId } : undefined })
+}
+
 onMounted(() => {
   athletes.subscribe()
   payments.subscribe()
   commerce.subscribe()
   expenses.subscribe()
   plans.subscribe()
+  visits.subscribe()
+  visitors.subscribe()
 })
 
 onBeforeUnmount(() => {
@@ -185,6 +209,8 @@ onBeforeUnmount(() => {
   commerce.dispose()
   expenses.dispose()
   plans.dispose()
+  visits.dispose()
+  visitors.dispose()
 })
 </script>
 
@@ -203,7 +229,7 @@ onBeforeUnmount(() => {
           <MetricCard label="Atletas activos" :value="athletes.active.length" icon="ri-team-line" detail="Membresías activas" />
         </VCol>
         <VCol cols="12" sm="6" lg="3">
-          <MetricCard label="Mensualidades" :value="formatCurrency(membershipIncome)" icon="ri-wallet-3-line" color="success" :detail="`Cobrado en ${period}`" />
+          <MetricCard label="Membresías y visitas" :value="formatCurrency(membershipIncome)" icon="ri-wallet-3-line" color="success" :detail="`Cobrado en ${period}`" />
         </VCol>
         <VCol cols="12" sm="6" lg="3">
           <MetricCard label="Ingresos de tienda" :value="formatCurrency(shopIncome)" icon="ri-shopping-bag-3-line" color="secondary" detail="Ventas y abonos aplicados" />
@@ -224,22 +250,36 @@ onBeforeUnmount(() => {
 
               <template v-else>
                 <VRow class="mb-5">
-                  <VCol cols="12" md="4">
+                  <VCol cols="12" sm="6" lg="3">
                     <VCard variant="tonal" color="error" rounded="lg" @click="openCommerce('credit')">
                       <VCardText><div class="text-caption">Deudas de tienda</div><div class="text-h5 font-weight-bold">{{ commerce.openCredit.length }}</div><div>{{ formatCurrency(openDebt) }}</div></VCardText>
                     </VCard>
                   </VCol>
-                  <VCol cols="12" md="4">
+                  <VCol cols="12" sm="6" lg="3">
                     <VCard variant="tonal" color="warning" rounded="lg" @click="openCommerce('inventory')">
                       <VCardText><div class="text-caption">Inventario bajo</div><div class="text-h5 font-weight-bold">{{ commerce.lowStock.length }}</div><div>productos</div></VCardText>
                     </VCard>
                   </VCol>
-                  <VCol cols="12" md="4">
+                  <VCol cols="12" sm="6" lg="3">
                     <VCard variant="tonal" color="info" rounded="lg" to="/egresos">
                       <VCardText><div class="text-caption">Egresos pendientes</div><div class="text-h5 font-weight-bold">{{ pendingExpenses.length }}</div><div>este mes</div></VCardText>
                     </VCard>
                   </VCol>
+                  <VCol cols="12" sm="6" lg="3">
+                    <VCard variant="tonal" color="secondary" rounded="lg" @click="openVisits()">
+                      <VCardText><div class="text-caption">Cuponeras por renovar</div><div class="text-h5 font-weight-bold">{{ couponRenewals.length }}</div><div>con 2 visitas o menos</div></VCardText>
+                    </VCard>
+                  </VCol>
                 </VRow>
+
+                <div v-if="couponRenewals.length" class="mb-5">
+                  <div class="d-flex align-center ga-2 mb-2"><VIcon icon="ri-coupon-3-line" color="secondary" /><span class="font-weight-bold">Cuponeras próximas a vencer</span></div>
+                  <VList bg-color="transparent" density="comfortable">
+                    <VListItem v-for="item in couponRenewals" :key="item.athlete.id" :title="item.athlete.profile.name" :subtitle="`${item.used} de ${item.limit} visitas usadas · ${item.remaining} restantes`" rounded="lg" @click="openVisits(item.athlete.id)">
+                      <template #append><VBtn size="small" variant="tonal" prepend-icon="ri-whatsapp-line" @click.stop="openVisits(item.athlete.id)">Preparar renovación</VBtn></template>
+                    </VListItem>
+                  </VList>
+                </div>
 
                 <div v-if="overdueAthletes.length" class="mb-5">
                   <div class="d-flex align-center ga-2 mb-2"><VIcon icon="ri-alarm-warning-line" color="error" /><span class="font-weight-bold">Mensualidades vencidas</span></div>
@@ -276,7 +316,7 @@ onBeforeUnmount(() => {
             <VCardText>
               <EmptyState v-if="!recentPayments.length" title="Sin pagos todavía" description="Los pagos aplicados aparecerán aquí." icon="ri-wallet-line" />
               <VList v-else bg-color="transparent" density="comfortable">
-                <VListItem v-for="payment in recentPayments" :key="`${payment.athleteId}-${payment.period}`" :title="athleteName(payment.athleteId)" :subtitle="`${payment.period} · ${formatDate(payment.appliedAt)}`">
+                <VListItem v-for="payment in recentPayments" :key="`${payment.athleteId}-${payment.period}`" :title="paymentCustomerName(payment)" :subtitle="`${payment.visitorId ? 'Visitas' : 'Membresía'} · ${payment.period} · ${formatDate(payment.appliedAt)}`">
                   <template #append><span class="text-success font-weight-bold">{{ formatCurrency(payment.amount ?? 0) }}</span></template>
                 </VListItem>
               </VList>
@@ -293,7 +333,7 @@ onBeforeUnmount(() => {
       </div>
 
       <VRow class="mb-2">
-        <VCol cols="12" sm="6" lg="3"><MetricCard label="Mensualidades" :value="formatCurrency(annualMemberships)" icon="ri-wallet-3-line" color="success" :detail="`${selectedYear}`" /></VCol>
+        <VCol cols="12" sm="6" lg="3"><MetricCard label="Membresías y visitas" :value="formatCurrency(annualMemberships)" icon="ri-wallet-3-line" color="success" :detail="`${selectedYear}`" /></VCol>
         <VCol cols="12" sm="6" lg="3"><MetricCard label="Tienda y abonos" :value="formatCurrency(annualShop)" icon="ri-shopping-bag-3-line" color="secondary" :detail="`${selectedYear}`" /></VCol>
         <VCol cols="12" sm="6" lg="3"><MetricCard label="Egresos" :value="formatCurrency(annualExpenses)" icon="ri-arrow-down-circle-line" color="error" :detail="`${selectedYear}`" /></VCol>
         <VCol cols="12" sm="6" lg="3"><MetricCard label="Resultado neto" :value="formatCurrency(annualNet)" icon="ri-funds-line" :color="annualNet >= 0 ? 'success' : 'error'" :detail="`${selectedYear}`" /></VCol>

@@ -8,8 +8,8 @@ import { useAthletesStore } from '@/stores/athletes'
 import { useVisitorsStore } from '@/stores/visitors'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSessionStore } from '@/stores/session'
-import type { PaymentMethod, Product, Sale, SaleItem, SalePayment } from '@/types/domain'
-import { buildSalePaymentReceipt, buildSaleReceipt, type ReceiptData } from '@/utils/receipts'
+import type { PaymentMethod, Product, Sale, SaleItem, SalePayment, StoreCreditEntry } from '@/types/domain'
+import { buildSalePaymentReceipt, buildSaleReceipt, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 
 const commerce = useCommerceStore()
@@ -43,10 +43,10 @@ const salesStatusFilter = ref<string | null>(null)
 const salesPage = ref(1)
 const perPage = 15
 const cart = ref<Record<string, SaleItem>>({})
-const saleForm = reactive({ customerKey: '', customerName: '', method: 'cash' as PaymentMethod, initialPayment: 0 })
+const saleForm = reactive({ customerKey: '', customerName: '', method: 'cash' as PaymentMethod, initialPayment: 0, received: 0, creditApplied: 0, saveExcessAsCredit: false })
 const productForm = reactive({ name: '', category: '', size: '', stock: 0, alertLevel: 2, unitCost: 0, salePrice: 0, status: 'active' as const })
 const stockForm = reactive({ product: null as Product | null, quantity: 1 })
-const paymentForm = reactive({ sale: null as Sale | null, amount: 0, method: 'cash' as PaymentMethod, received: 0 })
+const paymentForm = reactive({ sale: null as Sale | null, amount: 0, method: 'cash' as PaymentMethod, received: 0, saveExcessAsCredit: false })
 
 const activeProducts = computed(() => commerce.products.filter(item => item.status === 'active'))
 
@@ -61,6 +61,30 @@ const paginatedCartItems = computed(() => cartItems.value.slice((cartPage.value 
 const cartTotal = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0))
 const inventoryValue = computed(() => commerce.products.reduce((sum, item) => sum + item.stock * item.unitCost, 0))
 const outstanding = computed(() => commerce.openCredit.reduce((sum, sale) => sum + saleBalance(sale), 0))
+const selectedSaleAthleteId = computed(() => saleForm.customerKey.startsWith('athlete:') ? saleForm.customerKey.slice(8) : '')
+const availableStoreCredit = computed(() => commerce.creditForAthlete(selectedSaleAthleteId.value))
+const cashExcess = computed(() => saleForm.method === 'cash' ? Math.max(0, Number(saleForm.received || 0) - Number(saleForm.initialPayment || 0)) : 0)
+const saleCreditDeposit = computed(() => saleForm.saveExcessAsCredit && selectedSaleAthleteId.value && Number(saleForm.initialPayment) + Number(saleForm.creditApplied) >= cartTotal.value ? cashExcess.value : 0)
+const saleChange = computed(() => Math.max(0, cashExcess.value - saleCreditDeposit.value))
+const paymentExcess = computed(() => paymentForm.method === 'cash' ? Math.max(0, Number(paymentForm.received || 0) - Number(paymentForm.amount || 0)) : 0)
+const paymentCreditDeposit = computed(() => paymentForm.saveExcessAsCredit && paymentForm.sale?.athleteId && Number(paymentForm.amount) >= saleBalance(paymentForm.sale) ? paymentExcess.value : 0)
+const paymentChange = computed(() => Math.max(0, paymentExcess.value - paymentCreditDeposit.value))
+
+const creditAccounts = computed(() => commerce.storeCredits
+  .filter(account => account.balance > 0 || Object.keys(account.entries ?? {}).length)
+  .map(account => ({
+    ...account,
+    athleteName: athletes.items.find(athlete => athlete.id === account.athleteId)?.profile.name ?? 'Atleta',
+    history: Object.values(account.entries ?? {}).sort((a, b) => timestampValue(b.occurredAt) - timestampValue(a.occurredAt)),
+  }))
+  .sort((a, b) => a.athleteName.localeCompare(b.athleteName, 'es')))
+
+const storePaymentHistory = computed(() => commerce.sales
+  .flatMap(sale => salePayments(sale).map(payment => ({ sale, payment })))
+  .sort((a, b) => timestampValue(b.payment.appliedAt) - timestampValue(a.payment.appliedAt))
+  .slice(0, 50))
+
+const creditEntryLabel = (entry: StoreCreditEntry) => ({ deposit: 'Depósito', application: 'Aplicado', refund: 'Reintegro' })[entry.type]
 
 const filteredInventory = computed(() => commerce.products
   .filter(product => {
@@ -113,10 +137,26 @@ watch(() => saleForm.customerKey, key => {
     saleForm.customerName = visitors.items.find(item => item.id === key.slice(8))?.name ?? ''
   else if (key.startsWith('athlete:'))
     saleForm.customerName = athletes.items.find(item => item.id === key.slice(8))?.profile.name ?? ''
+
+  saleForm.creditApplied = 0
+  saleForm.saveExcessAsCredit = false
 })
 watch(cartTotal, total => {
-  if (saleForm.initialPayment > total)
-    saleForm.initialPayment = total
+  saleForm.creditApplied = Math.min(Number(saleForm.creditApplied || 0), availableStoreCredit.value, total)
+  saleForm.initialPayment = Math.min(Number(saleForm.initialPayment || 0), Math.max(0, total - saleForm.creditApplied))
+})
+watch(() => saleForm.creditApplied, value => {
+  saleForm.creditApplied = Math.max(0, Math.min(Number(value || 0), availableStoreCredit.value, cartTotal.value))
+  saleForm.initialPayment = Math.min(Number(saleForm.initialPayment || 0), Math.max(0, cartTotal.value - saleForm.creditApplied))
+})
+watch(() => saleForm.method, method => {
+  saleForm.received = method === 'cash' ? Math.max(Number(saleForm.received || 0), Number(saleForm.initialPayment || 0)) : Number(saleForm.initialPayment || 0)
+  if (method !== 'cash')
+    saleForm.saveExcessAsCredit = false
+})
+watch(() => saleForm.initialPayment, value => {
+  if (saleForm.method === 'cash' && Number(saleForm.received || 0) < Number(value || 0))
+    saleForm.received = Number(value || 0)
 })
 watch(() => cartItems.value.length, () => { cartPage.value = Math.min(cartPage.value, cartPageCount.value) })
 watch([inventorySearch, inventoryStockFilter], () => { inventoryPage.value = 1 })
@@ -153,7 +193,9 @@ async function completeSale() {
 
   const total = cartTotal.value
   const initialPayment = Number(saleForm.initialPayment)
-  if (!cartItems.value.length || !saleForm.customerName.trim() || initialPayment < 0 || initialPayment > total) {
+  const creditApplied = Number(saleForm.creditApplied || 0)
+  const received = saleForm.method === 'cash' ? Number(saleForm.received || 0) : initialPayment
+  if (!cartItems.value.length || !saleForm.customerName.trim() || initialPayment < 0 || creditApplied < 0 || creditApplied > availableStoreCredit.value || initialPayment + creditApplied > total || received < initialPayment) {
     notifications.show('Agrega productos, cliente y un pago válido.', 'warning')
 
     return
@@ -161,8 +203,17 @@ async function completeSale() {
   saving.value = true
   try {
     const createdAt = Date.now()
-    const paymentId = `initial-${createdAt}`
-    const payments = initialPayment > 0 ? { [paymentId]: { id: paymentId, amountApplied: initialPayment, method: saleForm.method, receivedAmount: initialPayment, changeGiven: 0, appliedAt: createdAt } } : {}
+    const payments: Record<string, SalePayment> = {}
+    if (creditApplied > 0) {
+      const creditPaymentId = `credit-${createdAt}`
+
+      payments[creditPaymentId] = { id: creditPaymentId, amountApplied: creditApplied, method: 'store-credit', receivedAmount: creditApplied, changeGiven: 0, creditBalance: availableStoreCredit.value - creditApplied + saleCreditDeposit.value, appliedAt: createdAt }
+    }
+    if (initialPayment > 0) {
+      const paymentId = `initial-${createdAt}`
+
+      payments[paymentId] = { id: paymentId, amountApplied: initialPayment, method: saleForm.method, receivedAmount: received, changeGiven: saleChange.value, ...(saleCreditDeposit.value > 0 ? { creditBalance: availableStoreCredit.value - creditApplied + saleCreditDeposit.value } : {}), appliedAt: createdAt }
+    }
 
     const salePayload = {
       athleteId: saleForm.customerKey.startsWith('athlete:') ? saleForm.customerKey.slice(8) : null,
@@ -170,17 +221,19 @@ async function completeSale() {
       customerName: saleForm.customerName.trim(),
       items: cart.value,
       total,
-      status: initialPayment >= total ? 'paid' : 'credit',
+      status: initialPayment + creditApplied >= total ? 'paid' : 'credit',
       payments,
     } as const
 
-    const saleId = await commerce.createSale(salePayload)
+    const saleId = await commerce.createSale(salePayload, saleCreditDeposit.value, creditApplied)
     const createdSale: Sale = { ...salePayload, id: saleId, createdAt, updatedAt: createdAt }
 
-    notifications.show(initialPayment >= total ? 'Venta cobrada y existencias actualizadas.' : 'Venta a crédito registrada.')
+    const creditMessage = saleCreditDeposit.value > 0 ? ` Saldo a favor generado: ${formatCurrency(saleCreditDeposit.value)}.` : ''
+
+    notifications.show(`${initialPayment + creditApplied >= total ? 'Venta cobrada y existencias actualizadas.' : 'Venta a crédito registrada.'}${creditMessage}`)
     showSaleReceipt(createdSale)
     cart.value = {}
-    Object.assign(saleForm, { customerKey: '', customerName: '', method: 'cash', initialPayment: 0 })
+    Object.assign(saleForm, { customerKey: '', customerName: '', method: 'cash', initialPayment: 0, received: 0, creditApplied: 0, saveExcessAsCredit: false })
   }
   catch (error) {
     notifications.show(error instanceof Error ? error.message : 'No se pudo completar la venta.', 'error')
@@ -248,6 +301,7 @@ function openPayment(sale: Sale) {
   paymentForm.amount = saleBalance(sale)
   paymentForm.received = saleBalance(sale)
   paymentForm.method = 'cash'
+  paymentForm.saveExcessAsCredit = false
   paymentDialog.value = true
 }
 async function applyPayment() {
@@ -256,13 +310,14 @@ async function applyPayment() {
 
   const sale = paymentForm.sale
   const amount = Number(paymentForm.amount)
-  if (!sale || amount <= 0 || amount > saleBalance(sale))
+  const received = paymentForm.method === 'cash' ? Number(paymentForm.received || 0) : amount
+  if (!sale || amount <= 0 || amount > saleBalance(sale) || received < amount)
     return notifications.show('El abono excede el saldo o no es válido.', 'warning')
   saving.value = true
   try {
-    const result = await commerce.addPayment(sale.id, amount, paymentForm.method, Number(paymentForm.received || amount), Math.max(0, Number(paymentForm.received || amount) - amount))
+    const result = await commerce.addPayment(sale.id, amount, paymentForm.method, received, paymentChange.value, paymentCreditDeposit.value)
 
-    notifications.show('Abono aplicado al saldo correcto.')
+    notifications.show(paymentCreditDeposit.value > 0 ? `Abono aplicado. Se guardaron ${formatCurrency(paymentCreditDeposit.value)} como saldo a favor.` : 'Abono aplicado al saldo correcto.')
     paymentDialog.value = false
     showPaymentReceipt(result.sale, result.payment)
   }
@@ -484,6 +539,22 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                 v-model="saleForm.customerName"
                 label="Nombre del cliente"
               />
+              <VAlert
+                v-if="selectedSaleAthleteId"
+                color="secondary"
+                variant="tonal"
+              >
+                Saldo a favor disponible: <strong>{{ formatCurrency(availableStoreCredit) }}</strong>
+              </VAlert>
+              <VTextField
+                v-if="selectedSaleAthleteId && availableStoreCredit > 0"
+                v-model.number="saleForm.creditApplied"
+                type="number"
+                min="0"
+                :max="Math.min(availableStoreCredit, cartTotal)"
+                label="Aplicar saldo a favor"
+                prefix="$"
+              />
               <VSelect
                 v-model="saleForm.method"
                 :items="[{title:'Efectivo',value:'cash'},{title:'Transferencia',value:'transfer'},{title:'Tarjeta',value:'card'},{title:'Otro',value:'other'}]"
@@ -493,16 +564,45 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                 v-model.number="saleForm.initialPayment"
                 type="number"
                 min="0"
-                :max="cartTotal"
-                label="Pago inicial"
+                :max="Math.max(0, cartTotal - saleForm.creditApplied)"
+                label="Pago aplicado"
                 prefix="$"
               />
+              <VTextField
+                v-if="saleForm.method === 'cash'"
+                v-model.number="saleForm.received"
+                type="number"
+                min="0"
+                label="Efectivo recibido"
+                prefix="$"
+              />
+              <VSwitch
+                v-if="selectedSaleAthleteId && cashExcess > 0 && saleForm.initialPayment + saleForm.creditApplied >= cartTotal"
+                v-model="saleForm.saveExcessAsCredit"
+                color="secondary"
+                hide-details
+                label="Guardar excedente como saldo a favor"
+              />
               <VAlert
-                v-if="saleForm.initialPayment < cartTotal"
+                v-if="saleForm.initialPayment + saleForm.creditApplied < cartTotal"
                 type="info"
                 variant="tonal"
               >
-                Saldo a crédito: {{ formatCurrency(cartTotal - saleForm.initialPayment) }}
+                Saldo a crédito: {{ formatCurrency(cartTotal - saleForm.initialPayment - saleForm.creditApplied) }}
+              </VAlert>
+              <VAlert
+                v-else-if="saleCreditDeposit > 0"
+                color="success"
+                variant="tonal"
+              >
+                Se abonarán {{ formatCurrency(saleCreditDeposit) }} al saldo a favor del atleta.
+              </VAlert>
+              <VAlert
+                v-else-if="saleChange > 0"
+                color="warning"
+                variant="tonal"
+              >
+                Cambio a entregar: {{ formatCurrency(saleChange) }}
               </VAlert>
               <VBtn
                 block
@@ -667,6 +767,118 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
               />
             </div>
           </template>
+        </VCardText>
+      </VCard>
+
+      <VCard
+        class="kronos-card mt-5"
+        rounded="xl"
+      >
+        <VCardItem
+          title="Saldos a favor por atleta"
+          :subtitle="`${creditAccounts.length} cuentas con movimientos`"
+        />
+        <VCardText>
+          <EmptyState
+            v-if="!creditAccounts.length"
+            icon="ri-safe-2-line"
+            title="Sin saldos a favor"
+            description="Los excedentes que un atleta decida conservar aparecerán aquí."
+          />
+          <VTable v-else>
+            <thead>
+              <tr>
+                <th>ATLETA</th><th class="text-right">
+                  SALDO DISPONIBLE
+                </th><th>ÚLTIMO MOVIMIENTO</th><th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="account in creditAccounts"
+                :key="account.athleteId"
+              >
+                <td class="font-weight-bold">
+                  {{ account.athleteName }}
+                </td>
+                <td class="text-right text-success font-weight-bold">
+                  {{ formatCurrency(account.balance) }}
+                </td>
+                <td>{{ account.history[0] ? formatDate(account.history[0].occurredAt) : '—' }}</td>
+                <td class="text-right">
+                  <VMenu>
+                    <template #activator="{ props }">
+                      <VBtn
+                        v-bind="props"
+                        size="small"
+                        variant="tonal"
+                        prepend-icon="ri-history-line"
+                      >
+                        Historial
+                      </VBtn>
+                    </template>
+                    <VList min-width="340">
+                      <VListItem
+                        v-for="entry in account.history"
+                        :key="entry.id"
+                        :title="`${creditEntryLabel(entry)} · ${formatCurrency(entry.amount)}`"
+                        :subtitle="`${formatDate(entry.occurredAt)} · Saldo ${formatCurrency(entry.balanceAfter)}`"
+                        :prepend-icon="entry.type === 'application' ? 'ri-subtract-line' : 'ri-add-line'"
+                      />
+                    </VList>
+                  </VMenu>
+                </td>
+              </tr>
+            </tbody>
+          </VTable>
+        </VCardText>
+      </VCard>
+
+      <VCard
+        class="kronos-card mt-5"
+        rounded="xl"
+      >
+        <VCardItem
+          title="Histórico de abonos en tienda"
+          :subtitle="`${storePaymentHistory.length} movimientos recientes`"
+        />
+        <VCardText>
+          <EmptyState
+            v-if="!storePaymentHistory.length"
+            icon="ri-hand-coin-line"
+            title="Sin abonos registrados"
+            description="Los pagos de ventas aparecerán aquí."
+          />
+          <VTable v-else>
+            <thead>
+              <tr>
+                <th>CLIENTE</th><th>FECHA</th><th>MÉTODO</th><th class="text-right">
+                  ABONO
+                </th><th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="entry in storePaymentHistory"
+                :key="`${entry.sale.id}-${entry.payment.id}`"
+              >
+                <td>{{ customerName(entry.sale) }}</td>
+                <td>{{ formatDate(entry.payment.appliedAt) }}</td>
+                <td>{{ paymentMethodLabel(entry.payment.method) }}</td>
+                <td class="text-right font-weight-bold text-success">
+                  {{ formatCurrency(entry.payment.amountApplied) }}
+                </td>
+                <td class="text-right">
+                  <VBtn
+                    icon="ri-receipt-line"
+                    variant="text"
+                    title="Generar recibo"
+                    @click="showPaymentReceipt(entry.sale, entry.payment)"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </VTable>
         </VCardText>
       </VCard>
     </VWindowItem>
@@ -931,6 +1143,27 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
           label="Efectivo recibido"
           prefix="$"
         />
+        <VSwitch
+          v-if="paymentForm.sale?.athleteId && paymentExcess > 0 && paymentForm.amount >= saleBalance(paymentForm.sale)"
+          v-model="paymentForm.saveExcessAsCredit"
+          color="secondary"
+          hide-details
+          label="Guardar excedente como saldo a favor"
+        />
+        <VAlert
+          v-if="paymentCreditDeposit > 0"
+          color="success"
+          variant="tonal"
+        >
+          Se guardarán {{ formatCurrency(paymentCreditDeposit) }} como saldo a favor.
+        </VAlert>
+        <VAlert
+          v-else-if="paymentChange > 0"
+          color="warning"
+          variant="tonal"
+        >
+          Cambio a entregar: {{ formatCurrency(paymentChange) }}
+        </VAlert>
       </VCardText><VCardActions class="pa-6 pt-0">
         <VSpacer /><VBtn
           variant="text"

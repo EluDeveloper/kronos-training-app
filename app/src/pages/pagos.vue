@@ -5,15 +5,17 @@ import PageHeader from '@/components/kronos/PageHeader.vue'
 import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
+import { useCommerceStore } from '@/stores/commerce'
 import { usePaymentsStore } from '@/stores/payments'
 import { usePlansStore } from '@/stores/plans'
 import { useSessionStore } from '@/stores/session'
 import { useVisitorsStore } from '@/stores/visitors'
-import { currentPeriod, type Payment } from '@/types/domain'
+import { currentPeriod, type MembershipPaymentInstallment, type Payment } from '@/types/domain'
 import { buildMembershipReceipt, buildVisitorVisitReceipt, type ReceiptData } from '@/utils/receipts'
-import { formatCurrency, formatDate, timestampValue } from '@/utils/kronos'
+import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, membershipTotalAmount, timestampValue } from '@/utils/kronos'
 
 const athletes = useAthletesStore()
+const commerce = useCommerceStore()
 const payments = usePaymentsStore()
 const plans = usePlansStore()
 const visitors = useVisitorsStore()
@@ -34,7 +36,7 @@ const perPage = 15
 
 const payerName = (payment: Payment) => payment.visitorId ? visitors.items.find(item => item.id === payment.visitorId)?.name ?? 'Visitante' : athletes.items.find(item => item.id === payment.athleteId)?.profile.name ?? 'Atleta'
 
-const filtered = computed(() => [...payments.paid]
+const filtered = computed(() => [...payments.items]
   .filter(payment => !periodFilter.value || payment.period === periodFilter.value)
   .filter(payment => `${payerName(payment)} ${payment.period} ${payment.method ?? ''}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.appliedAt) - timestampValue(a.appliedAt)))
@@ -44,7 +46,12 @@ const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage
 
 watch([search, periodFilter], () => { page.value = 1 })
 
-function showReceipt(payment: Payment) {
+const paymentAthlete = (payment: Payment) => athletes.items.find(item => item.id === payment.athleteId)
+const totalFor = (payment: Payment) => membershipTotalAmount(payment, paymentAthlete(payment)?.membership.agreedAmount)
+const balanceFor = (payment: Payment) => membershipBalance(payment, paymentAthlete(payment)?.membership.agreedAmount)
+const installmentsFor = (payment: Payment) => membershipInstallments(payment)
+
+function showReceipt(payment: Payment, installment?: MembershipPaymentInstallment) {
   if (payment.visitorId) {
     const visitor = visitors.items.find(item => item.id === payment.visitorId)
     if (visitor) {
@@ -54,7 +61,7 @@ function showReceipt(payment: Payment) {
       return
     }
   }
-  const athlete = athletes.items.find(item => item.id === payment.athleteId)
+  const athlete = paymentAthlete(payment)
 
   if (!athlete) {
     failure('No fue posible relacionar el recibo con el atleta.')
@@ -64,13 +71,13 @@ function showReceipt(payment: Payment) {
 
   const planName = plans.items.find(plan => plan.id === athlete.membership.planId)?.name
 
-  activeReceipt.value = buildMembershipReceipt(payment, athlete, planName)
+  activeReceipt.value = buildMembershipReceipt(payment, athlete, planName, installment)
   receiptDialog.value = true
 }
 
-function openForm(athleteId = '') {
+function openForm(athleteId = '', paymentPeriod = currentPeriod()) {
   selectedAthleteId.value = athleteId || athletes.active[0]?.id || ''
-  selectedPeriod.value = currentPeriod()
+  selectedPeriod.value = paymentPeriod
   dialog.value = true
 }
 
@@ -90,8 +97,8 @@ function openCollectionFromRoute() {
 
 watch([() => route.query.collect, () => athletes.active.length], openCollectionFromRoute, { immediate: true })
 
-onMounted(() => { athletes.subscribe(); visitors.subscribe(); payments.subscribe(); plans.subscribe() })
-onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose(); plans.dispose() })
+onMounted(() => { athletes.subscribe(); visitors.subscribe(); payments.subscribe(); plans.subscribe(); commerce.subscribe() })
+onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose(); plans.dispose(); commerce.dispose() })
 </script>
 
 <template>
@@ -151,15 +158,17 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
       <EmptyState
         v-if="!filtered.length"
         title="Sin pagos aplicados"
-        description="Registra la primera mensualidad o cambia los filtros."
+        description="Registra la primera mensualidad o cambia los filtros. Los abonos pendientes aparecerán con su saldo."
         icon="ri-wallet-line"
       />
       <template v-else>
         <VTable>
           <thead>
             <tr>
-              <th>Cliente</th><th>Periodo</th><th>Método</th><th>Aplicado</th><th class="text-right">
-                Monto
+              <th>Cliente</th><th>Periodo</th><th>Estado</th><th>Último abono</th><th class="text-right">
+                Abonado
+              </th><th class="text-right">
+                Restante
               </th><th />
             </tr>
           </thead>
@@ -177,14 +186,41 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
                 </div>
               </td>
               <td>{{ payment.period }}</td>
-              <td class="text-capitalize">
-                {{ payment.method }}
+              <td>
+                <VChip
+                  :color="balanceFor(payment) > 0 ? 'warning' : 'success'"
+                  variant="tonal"
+                  size="small"
+                >
+                  {{ balanceFor(payment) > 0 ? 'Pendiente' : 'Liquidado' }}
+                </VChip>
               </td>
-              <td>{{ formatDate(payment.appliedAt) }}</td>
+              <td>
+                {{ formatDate(payment.appliedAt) }}
+                <div class="text-caption text-medium-emphasis">
+                  {{ installmentsFor(payment).length }} {{ installmentsFor(payment).length === 1 ? 'abono' : 'abonos' }}
+                </div>
+              </td>
               <td class="text-right text-success font-weight-bold">
-                {{ formatCurrency(payment.amount ?? 0) }}
+                {{ formatCurrency(membershipPaidAmount(payment)) }}
+                <div class="text-caption text-medium-emphasis">
+                  de {{ formatCurrency(totalFor(payment)) }}
+                </div>
+              </td>
+              <td
+                class="text-right font-weight-bold"
+                :class="balanceFor(payment) > 0 ? 'text-warning' : 'text-success'"
+              >
+                {{ formatCurrency(balanceFor(payment)) }}
               </td>
               <td class="text-right">
+                <VBtn
+                  v-if="canManage && !payment.visitorId && balanceFor(payment) > 0"
+                  icon="ri-add-circle-line"
+                  variant="text"
+                  title="Aplicar otro abono"
+                  @click="openForm(payment.athleteId, payment.period)"
+                />
                 <VBtn
                   icon="ri-receipt-line"
                   variant="text"
@@ -212,6 +248,7 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
     v-model="dialog"
     :athlete-id="selectedAthleteId"
     :period="selectedPeriod"
+    :store-sales="commerce.openCredit.filter(sale => sale.athleteId === selectedAthleteId)"
     @saved="showReceipt"
   />
   <ReceiptDialog

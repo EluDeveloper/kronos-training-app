@@ -14,7 +14,7 @@ import { useSessionStore } from '@/stores/session'
 import { useVisitPaymentsStore } from '@/stores/visit-payments'
 import { useVisitorsStore } from '@/stores/visitors'
 import { useVisitsStore } from '@/stores/visits'
-import { currentPeriod, planAccessType, planVisitLimit, planVisitPrice, type Payment, type Visit, type VisitPayment } from '@/types/domain'
+import { currentPeriod, planAccessType, planVisitLimit, planVisitPrice, type MembershipPaymentInstallment, type Payment, type Visit, type VisitPayment } from '@/types/domain'
 import { formatCurrency, formatDate, saleBalance, timestampValue } from '@/utils/kronos'
 import { buildAccumulatedVisitStatement, buildMembershipReceipt, buildRenewalReminder, buildVisitPaymentReceipt, buildVisitStatement, type ReceiptData } from '@/utils/receipts'
 
@@ -337,14 +337,14 @@ function openVisitPayment() {
     memberPaymentDialog.value = true
 }
 
-function showPaymentReceipt(payment: Payment | VisitPayment) {
+function showPaymentReceipt(payment: Payment | VisitPayment, installment?: MembershipPaymentInstallment) {
   if ('visitRefs' in payment) {
     const visitor = visitors.items.find(item => item.id === payment.visitorId)
     if (visitor)
       activeReceipt.value = buildVisitPaymentReceipt(payment, visitor)
   }
   else if (selectedAthlete.value) {
-    activeReceipt.value = buildMembershipReceipt(payment, selectedAthlete.value, selectedPlan.value?.name)
+    activeReceipt.value = buildMembershipReceipt(payment, selectedAthlete.value, selectedPlan.value?.name, installment)
   }
   if (activeReceipt.value)
     receiptDialog.value = true
@@ -779,6 +779,7 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose();
     :amount="paymentAmount"
     :concept="paymentConcept"
     :visit-count="paymentVisitCount"
+    :store-sales="selectedOpenSales"
     title="Cobrar visitas acumuladas"
     subtitle="El pago se registrará en el periodo seleccionado y generará su recibo."
     lock-athlete

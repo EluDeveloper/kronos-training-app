@@ -4,7 +4,7 @@ export type ISOTimestamp = string | number
 
 export type ActiveStatus = 'active' | 'inactive'
 export type PaymentStatus = 'paid' | 'pending' | 'not-applicable'
-export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'other'
+export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'other' | 'store-credit'
 export type SaleStatus = 'paid' | 'credit' | 'cancelled'
 export type ExpenseStatus = 'paid' | 'pending' | 'scheduled'
 export type PlanAccessType = 'unlimited' | 'visit-pack' | 'pay-per-visit'
@@ -66,6 +66,17 @@ export interface Payment extends AuditFields {
   appliedAt?: ISOTimestamp | null
   concept?: string | null
   visitCount?: number | null
+  totalAmount?: number | null
+  balance?: number | null
+  installments?: Record<EntityId, MembershipPaymentInstallment>
+}
+
+export interface MembershipPaymentInstallment {
+  id: EntityId
+  amountApplied: number
+  method: PaymentMethod
+  appliedAt: ISOTimestamp
+  balanceAfter: number
 }
 
 export interface Visit extends AuditFields {
@@ -160,6 +171,25 @@ export interface Sale extends AuditFields {
   payments?: Record<EntityId, SalePayment>
   cancelledAt?: ISOTimestamp | null
   inventoryRestoredAt?: ISOTimestamp | null
+  storeCreditRestoredAt?: ISOTimestamp | null
+}
+
+export type StoreCreditEntryType = 'deposit' | 'application' | 'refund'
+
+export interface StoreCreditEntry {
+  id: EntityId
+  type: StoreCreditEntryType
+  amount: number
+  saleId: EntityId
+  description: string
+  occurredAt: ISOTimestamp
+  balanceAfter: number
+}
+
+export interface StoreCreditAccount extends AuditFields {
+  athleteId: EntityId
+  balance: number
+  entries: Record<EntityId, StoreCreditEntry>
 }
 
 export interface Expense extends AuditFields {
@@ -204,6 +234,7 @@ export const calculateAge = (birthDate?: ISODate | null, referenceDate = new Dat
     return null
 
   let age = referenceDate.getFullYear() - year
+
   const hasNotHadBirthday = referenceDate.getMonth() + 1 < month
     || (referenceDate.getMonth() + 1 === month && referenceDate.getDate() < day)
 

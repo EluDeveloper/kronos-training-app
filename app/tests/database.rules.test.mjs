@@ -55,10 +55,12 @@ beforeEach(async () => {
     await db.ref('v1/users/admin').set(appUser('admin', 'admin'))
     await db.ref('v1/users/reception').set(appUser('reception', 'reception', { store: true, storeSell: true }, true, true))
     await db.ref('v1/users/collector').set(appUser('collector', 'reception', { store: true, storeCollect: true }))
+    await db.ref('v1/users/cashier').set(appUser('cashier', 'reception', { payments: true, paymentsManage: true, store: true, storeCollect: true }))
     await db.ref('v1/users/inventory').set(appUser('inventory', 'reception', { store: true, storeInventory: true }))
     await db.ref('v1/users/canceller').set(appUser('canceller', 'reception', { store: true, storeCancel: true }))
     await db.ref('v1/users/disabled').set(appUser('disabled', 'reception', { dashboard: true }, false))
     await db.ref('v1/products/product-1').set(product(2))
+    await db.ref('v1/athletes/athlete-1').set(athlete)
     await db.ref('v1/sales/sale-credit').set(saleFixture('sale-credit', 'credit'))
     await db.ref('v1/sales/sale-cancel').set(saleFixture('sale-cancel'))
     await db.ref('v1/visitors/visitor-1').set(visitor)
@@ -136,6 +138,121 @@ test('Admin puede aplicar un abono a una venta existente', async () => {
   credit.updatedAt = timestamp
 
   await assertSucceeds(db.ref('v1/sales/sale-credit').set(credit))
+})
+
+test('las mensualidades permiten abonos acumulados sin alterar el historial', async () => {
+  const db = env.authenticatedContext('admin').database()
+  const timestamp = now()
+
+  const first = {
+    athleteId: 'athlete-1',
+    period: '2026-08',
+    status: 'pending',
+    amount: 200,
+    totalAmount: 500,
+    balance: 300,
+    method: 'cash',
+    appliedAt: timestamp,
+    installments: {
+      first: { id: 'first', amountApplied: 200, method: 'cash', appliedAt: timestamp, balanceAfter: 300 },
+    },
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
+
+  await assertSucceeds(db.ref('v1/payments/athlete-1/2026-08').set(first))
+
+  const settled = structuredClone(first)
+
+  settled.status = 'paid'
+  settled.amount = 500
+  settled.balance = 0
+  settled.method = 'transfer'
+  settled.appliedAt = timestamp + 1
+  settled.updatedAt = timestamp + 1
+  settled.installments.second = { id: 'second', amountApplied: 300, method: 'transfer', appliedAt: timestamp + 1, balanceAfter: 0 }
+  await assertSucceeds(db.ref('v1/payments/athlete-1/2026-08').set(settled))
+
+  const tampered = structuredClone(settled)
+
+  tampered.installments.first.amountApplied = 250
+  await assertFails(db.ref('v1/payments/athlete-1/2026-08').set(tampered))
+
+  const overpaid = structuredClone(settled)
+
+  overpaid.amount = 550
+  await assertFails(db.ref('v1/payments/athlete-1/2026-08').set(overpaid))
+})
+
+test('Tienda conserva saldo a favor y permite aplicarlo en una compra futura', async () => {
+  const db = env.authenticatedContext('reception').database()
+  const timestamp = now()
+  const firstSale = saleFixture('sale-favor')
+
+  firstSale.athleteId = 'athlete-1'
+  firstSale.payments = {
+    cash: { id: 'cash', amountApplied: 20, method: 'cash', receivedAmount: 40, changeGiven: 0, creditBalance: 20, appliedAt: timestamp },
+  }
+
+  await assertSucceeds(db.ref('v1').update({
+    'sales/sale-favor': firstSale,
+    'products/product-1/stock': 1,
+    'products/product-1/updatedAt': timestamp,
+    'storeCredits/athlete-1': {
+      athleteId: 'athlete-1',
+      balance: 20,
+      entries: {
+        'deposit-sale-favor': { id: 'deposit-sale-favor', type: 'deposit', amount: 20, saleId: 'sale-favor', description: 'Excedente dejado como saldo a favor', occurredAt: timestamp, balanceAfter: 20 },
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  }))
+
+  const secondSale = saleFixture('sale-credit-use')
+
+  secondSale.athleteId = 'athlete-1'
+  secondSale.payments = {
+    credit: { id: 'credit', amountApplied: 20, method: 'store-credit', receivedAmount: 20, changeGiven: 0, creditBalance: 0, appliedAt: timestamp + 1 },
+  }
+  await assertSucceeds(db.ref('v1').update({
+    'sales/sale-credit-use': secondSale,
+    'products/product-1/stock': 0,
+    'products/product-1/updatedAt': timestamp + 1,
+    'storeCredits/athlete-1/balance': 0,
+    'storeCredits/athlete-1/entries/application-sale-credit-use': { id: 'application-sale-credit-use', type: 'application', amount: 20, saleId: 'sale-credit-use', description: 'Saldo aplicado a compra', occurredAt: timestamp + 1, balanceAfter: 0 },
+    'storeCredits/athlete-1/updatedAt': timestamp + 1,
+  }))
+
+  await assertFails(db.ref('v1/storeCredits/athlete-1/entries/deposit-sale-favor/amount').set(25))
+})
+
+test('un cobro combinado liquida mensualidad y deudas de tienda en una escritura', async () => {
+  const db = env.authenticatedContext('cashier').database()
+  const timestamp = now()
+
+  const monthlyPayment = {
+    athleteId: 'athlete-1',
+    period: '2026-09',
+    status: 'paid',
+    amount: 500,
+    totalAmount: 500,
+    balance: 0,
+    method: 'cash',
+    appliedAt: timestamp,
+    installments: {
+      combined: { id: 'combined', amountApplied: 500, method: 'cash', appliedAt: timestamp, balanceAfter: 0 },
+    },
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
+
+  await assertSucceeds(db.ref('v1').update({
+    'payments/athlete-1/2026-09': monthlyPayment,
+    'sales/sale-credit/payments/combined-store': { id: 'combined-store', amountApplied: 20, method: 'cash', receivedAmount: 20, changeGiven: 0, appliedAt: timestamp },
+    'sales/sale-credit/status': 'paid',
+    'sales/sale-credit/updatedAt': timestamp,
+  }))
 })
 
 test('Recepción con permiso de venta vende pero no administra inventario, abonos ni cancelaciones', async () => {

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import type { Unsubscribe } from 'firebase/database'
-import { paymentsService } from '@/services/payments.service'
-import type { Payment } from '@/types/domain'
+import { paymentsService, type MembershipInstallmentInput } from '@/services/payments.service'
+import type { Payment, Sale } from '@/types/domain'
 
 export const usePaymentsStore = defineStore('payments', () => {
   const items = ref<Payment[]>([])
@@ -24,8 +24,8 @@ export const usePaymentsStore = defineStore('payments', () => {
     })
   }
 
-  const save = (payment: Omit<Payment, 'createdAt' | 'updatedAt'>) => paymentsService.save(payment)
+  const applyInstallment = (input: MembershipInstallmentInput, storeSales: Sale[] = []) => paymentsService.applyInstallment(input, storeSales)
   const dispose = () => { stop?.(); stop = null }
 
-  return { items, paid, loading, error, subscribe, save, dispose }
+  return { items, paid, loading, error, subscribe, applyInstallment, dispose }
 })

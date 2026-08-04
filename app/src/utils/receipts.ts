@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
-import type { Athlete, ISOTimestamp, Payment, PaymentMethod, Sale, SalePayment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
-import { formatCurrency, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
+import type { Athlete, ISOTimestamp, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
+import { formatCurrency, membershipBalance, membershipPaidAmount, membershipTotalAmount, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 
 export type ReceiptKind = 'membership' | 'sale' | 'sale-payment' | 'collection'
 
@@ -23,6 +23,7 @@ export interface ReceiptData {
   total: number
   amountPaid: number
   balance: number
+  creditBalance?: number
 }
 
 type ReceiptCustomer = Athlete | VisitorContact
@@ -34,28 +35,31 @@ const methodLabels: Record<PaymentMethod, string> = {
   transfer: 'Transferencia',
   card: 'Tarjeta',
   other: 'Otro',
+  'store-credit': 'Saldo a favor',
 }
 
 const folioSuffix = (value: string) => value.replace(/[^a-z0-9]/gi, '').slice(-8).toUpperCase().padStart(6, '0')
 
 export const paymentMethodLabel = (method?: PaymentMethod | null) => method ? methodLabels[method] : 'No especificado'
 
-export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planName?: string): ReceiptData {
-  const amount = Number(payment.amount ?? athlete.membership.agreedAmount ?? 0)
-  const description = payment.concept?.trim() || `Membresía ${payment.period}`
+export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planName?: string, installment?: MembershipPaymentInstallment): ReceiptData {
+  const total = membershipTotalAmount(payment, athlete.membership.agreedAmount)
+  const amountPaid = installment?.amountApplied ?? membershipPaidAmount(payment)
+  const balance = installment?.balanceAfter ?? membershipBalance(payment, athlete.membership.agreedAmount)
+  const description = payment.concept?.trim() || `${installment ? 'Abono a mensualidad' : 'Membresía'} ${payment.period}`
 
   return {
     kind: 'membership',
-    folio: `MEM-${payment.period.replace('-', '')}-${folioSuffix(athlete.id)}`,
-    issuedAt: payment.appliedAt ?? payment.updatedAt,
+    folio: `MEM-${payment.period.replace('-', '')}-${folioSuffix(installment?.id ?? athlete.id)}`,
+    issuedAt: installment?.appliedAt ?? payment.appliedAt ?? payment.updatedAt,
     customerName: athlete.profile.name,
     phone: athlete.profile.phone,
     concept: payment.concept?.trim() || `Mensualidad ${payment.period}${planName ? ` - ${planName}` : ''}`,
-    lines: [{ description, ...(payment.visitCount ? { quantity: payment.visitCount, unitPrice: amount / payment.visitCount } : {}), amount }],
-    method: payment.method,
-    total: amount,
-    amountPaid: amount,
-    balance: 0,
+    lines: [{ description, ...(payment.visitCount ? { quantity: payment.visitCount, unitPrice: amountPaid / payment.visitCount } : {}), amount: amountPaid }],
+    method: installment?.method ?? payment.method,
+    total,
+    amountPaid,
+    balance,
   }
 }
 
@@ -159,6 +163,7 @@ export function buildSaleReceipt(sale: Sale, customer?: ReceiptCustomer): Receip
     total: Number(sale.total || 0),
     amountPaid: paid,
     balance: saleBalance(sale),
+    ...(payments.at(-1)?.creditBalance != null ? { creditBalance: payments.at(-1)?.creditBalance } : {}),
   }
 }
 
@@ -168,6 +173,7 @@ export function buildSalePaymentReceipt(sale: Sale, targetPayment: SalePayment, 
 
     return difference || a.id.localeCompare(b.id)
   })
+
   let appliedThroughReceipt = 0
 
   for (const payment of orderedPayments) {
@@ -188,15 +194,18 @@ export function buildSalePaymentReceipt(sale: Sale, targetPayment: SalePayment, 
     total: Number(sale.total || 0),
     amountPaid: Number(targetPayment.amountApplied || 0),
     balance: Math.max(0, Number(sale.total || 0) - appliedThroughReceipt),
+    ...(targetPayment.creditBalance != null ? { creditBalance: targetPayment.creditBalance } : {}),
   }
 }
 
 export function buildCollectionTicket(athlete: Athlete, period: string, openSales: Sale[]): ReceiptData {
   const membershipAmount = Number(athlete.membership.agreedAmount || 0)
+
   const lines: ReceiptLine[] = [
     { description: `Mensualidad ${period}`, amount: membershipAmount },
     ...storeDebtLines(openSales),
   ]
+
   const total = lines.reduce((sum, line) => sum + line.amount, 0)
 
   return {
@@ -216,10 +225,12 @@ export function buildCollectionTicket(athlete: Athlete, period: string, openSale
 
 export function buildVisitStatement(customer: ReceiptCustomer, period: string, visitCount: number, unitPrice: number, openSales: Sale[]): ReceiptData {
   const visitsAmount = visitCount * unitPrice
+
   const lines: ReceiptLine[] = [
     { description: `Visitas acumuladas ${period}`, quantity: visitCount, unitPrice, amount: visitsAmount },
     ...storeDebtLines(openSales),
   ]
+
   const total = lines.reduce((sum, line) => sum + line.amount, 0)
 
   return {
@@ -242,6 +253,7 @@ export function buildAccumulatedVisitStatement(customer: ReceiptCustomer, throug
     ...groupedVisitLines(visits),
     ...storeDebtLines(openSales),
   ]
+
   const total = lines.reduce((sum, line) => sum + line.amount, 0)
 
   return {
@@ -264,6 +276,7 @@ export function buildRenewalReminder(athlete: Athlete, renewalPeriod: string, pl
     { description: `Renovación ${planName} - ${visitLimit} visitas`, amount },
     ...storeDebtLines(openSales),
   ]
+
   const total = lines.reduce((sum, line) => sum + line.amount, 0)
 
   return {
@@ -298,6 +311,7 @@ const loadOfficialLogo = () => {
     })
     .then(blob => new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
+
       reader.onload = () => resolve(String(reader.result))
       reader.onerror = () => reject(reader.error)
       reader.readAsDataURL(blob)
@@ -385,10 +399,13 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
     pdf.setTextColor(35, 38, 34)
     pdf.setFont('helvetica', 'bold')
     pdf.setFontSize(9)
+
     const description = line.quantity && line.unitPrice != null
       ? `${line.quantity} x ${line.description}`
       : line.description
+
     const descriptionLines = pdf.splitTextToSize(description, contentWidth - 38)
+
     pdf.text(descriptionLines, margin + 2, y)
     pdf.text(formatCurrency(line.amount), width - margin - 2, y, { align: 'right' })
     if (line.quantity && line.unitPrice != null) {
@@ -411,12 +428,17 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
     pdf.text('Total', width - margin - 45, y)
     pdf.text(formatCurrency(receipt.total), width - margin, y, { align: 'right' })
     y += 6
-    pdf.text(receipt.kind === 'sale-payment' ? 'Abono recibido' : 'Pagado', width - margin - 45, y)
+    pdf.text(receipt.kind === 'sale-payment' || receipt.balance > 0 ? 'Abono recibido' : 'Pagado', width - margin - 45, y)
     pdf.text(formatCurrency(receipt.amountPaid), width - margin, y, { align: 'right' })
     y += 6
     pdf.text('Saldo', width - margin - 45, y)
     pdf.text(formatCurrency(receipt.balance), width - margin, y, { align: 'right' })
     y += 9
+    if (receipt.creditBalance != null) {
+      pdf.text('Saldo a favor', width - margin - 45, y)
+      pdf.text(formatCurrency(receipt.creditBalance), width - margin, y, { align: 'right' })
+      y += 9
+    }
   }
   else {
     y += 4
@@ -442,6 +464,7 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
   }
 
   const pageHeight = pdf.internal.pageSize.getHeight()
+
   pdf.setTextColor(120, 122, 118)
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7.5)
@@ -479,18 +502,18 @@ const normalizedWhatsAppPhone = (phone?: string | null) => {
 
 const receiptMessage = (receipt: ReceiptData) => receipt.kind === 'collection'
   ? [
-      `Hola ${receipt.customerName}, te compartimos tu recordatorio de pago de Kronos Training.`,
-      ...receipt.lines.map(line => `- ${line.description}: ${formatCurrency(line.amount)}`),
-      `Total a pagar: ${formatCurrency(receipt.total)}`,
-      'Si ya realizaste el pago, puedes ignorar este mensaje.',
-    ].join('\n')
+    `Hola ${receipt.customerName}, te compartimos tu recordatorio de pago de Kronos Training.`,
+    ...receipt.lines.map(line => `- ${line.description}: ${formatCurrency(line.amount)}`),
+    `Total a pagar: ${formatCurrency(receipt.total)}`,
+    'Si ya realizaste el pago, puedes ignorar este mensaje.',
+  ].join('\n')
   : [
-      `Hola ${receipt.customerName}, compartimos tu recibo de Kronos Training.`,
-      `Folio: ${receipt.folio}`,
-      `Concepto: ${receipt.concept}`,
-      `Pago: ${formatCurrency(receipt.amountPaid)}`,
-      receipt.balance > 0 ? `Saldo pendiente: ${formatCurrency(receipt.balance)}` : 'Saldo: pagado',
-    ].join('\n')
+    `Hola ${receipt.customerName}, compartimos tu recibo de Kronos Training.`,
+    `Folio: ${receipt.folio}`,
+    `Concepto: ${receipt.concept}`,
+    `Pago: ${formatCurrency(receipt.amountPaid)}`,
+    receipt.balance > 0 ? `Saldo pendiente: ${formatCurrency(receipt.balance)}` : 'Saldo: pagado',
+  ].join('\n')
 
 export async function shareReceipt(receipt: ReceiptData) {
   const phone = normalizedWhatsAppPhone(receipt.phone)
@@ -499,6 +522,7 @@ export async function shareReceipt(receipt: ReceiptData) {
   const pdfPromise = createReceiptPdf(receipt)
 
   window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
+
   const pdf = await pdfPromise
 
   pdf.save(receiptFilename(receipt))

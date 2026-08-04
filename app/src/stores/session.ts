@@ -15,7 +15,7 @@ import {
 import { isFirebaseConfigured, missingFirebaseConfiguration } from '@/firebase/config'
 import { subscribeToConnection, subscribeToDeviceAuthorization } from '@/firebase/database'
 import { usersService } from '@/services/users.service'
-import { firstAllowedRoute, hasModuleAccess, type AccessModule, type AppUser } from '@/types/access'
+import { firstAllowedRoute, hasActionAccess, hasModuleAccess, type AccessAction, type AccessModule, type AppUser } from '@/types/access'
 
 export type SessionStatus =
   | 'booting'
@@ -52,6 +52,7 @@ export const useSessionStore = defineStore('session', () => {
   const defaultRoute = computed(() => firstAllowedRoute(profile.value))
 
   const canAccess = (module: AccessModule) => hasModuleAccess(profile.value, module)
+  const can = (action: AccessAction) => hasActionAccess(profile.value, action)
 
   function stopIdentitySubscriptions() {
     stopProfile?.()
@@ -293,6 +294,7 @@ export const useSessionStore = defineStore('session', () => {
     isAdmin,
     defaultRoute,
     canAccess,
+    can,
     initialize,
     signIn,
     beginBootstrap,

@@ -7,6 +7,7 @@ import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
 import { usePaymentsStore } from '@/stores/payments'
 import { usePlansStore } from '@/stores/plans'
+import { useSessionStore } from '@/stores/session'
 import { useVisitorsStore } from '@/stores/visitors'
 import { currentPeriod, type Payment } from '@/types/domain'
 import { buildMembershipReceipt, buildVisitorVisitReceipt, type ReceiptData } from '@/utils/receipts'
@@ -16,6 +17,8 @@ const athletes = useAthletesStore()
 const payments = usePaymentsStore()
 const plans = usePlansStore()
 const visitors = useVisitorsStore()
+const session = useSessionStore()
+const canManage = computed(() => session.can('paymentsManage'))
 const { failure } = useNotifications()
 const route = useRoute()
 const router = useRouter()
@@ -30,10 +33,12 @@ const page = ref(1)
 const perPage = 15
 
 const payerName = (payment: Payment) => payment.visitorId ? visitors.items.find(item => item.id === payment.visitorId)?.name ?? 'Visitante' : athletes.items.find(item => item.id === payment.athleteId)?.profile.name ?? 'Atleta'
+
 const filtered = computed(() => [...payments.paid]
   .filter(payment => !periodFilter.value || payment.period === periodFilter.value)
   .filter(payment => `${payerName(payment)} ${payment.period} ${payment.method ?? ''}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.appliedAt) - timestampValue(a.appliedAt)))
+
 const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
 const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
 
@@ -45,6 +50,7 @@ function showReceipt(payment: Payment) {
     if (visitor) {
       activeReceipt.value = buildVisitorVisitReceipt(payment, visitor)
       receiptDialog.value = true
+
       return
     }
   }
@@ -52,10 +58,12 @@ function showReceipt(payment: Payment) {
 
   if (!athlete) {
     failure('No fue posible relacionar el recibo con el atleta.')
+
     return
   }
 
   const planName = plans.items.find(plan => plan.id === athlete.membership.planId)?.name
+
   activeReceipt.value = buildMembershipReceipt(payment, athlete, planName)
   receiptDialog.value = true
 }
@@ -71,7 +79,7 @@ function openCollectionFromRoute() {
   const requestedPeriod = typeof route.query.period === 'string' ? route.query.period : currentPeriod()
   const athlete = athletes.active.find(item => item.id === athleteId)
 
-  if (route.query.collect !== '1' || !athlete)
+  if (route.query.collect !== '1' || !athlete || !canManage.value)
     return
 
   selectedAthleteId.value = athlete.id
@@ -87,41 +95,127 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
 </script>
 
 <template>
-  <PageHeader title="Mensualidades" eyebrow="Cobranza" description="Pagos por periodo, recibos y búsqueda rápida de atletas.">
-    <template #actions><VBtn prepend-icon="ri-add-circle-line" :disabled="!athletes.active.length" @click="openForm()">Aplicar pago</VBtn></template>
+  <PageHeader
+    title="Mensualidades"
+    eyebrow="Cobranza"
+    description="Pagos por periodo, recibos y búsqueda rápida de atletas."
+  >
+    <template
+      v-if="canManage"
+      #actions
+    >
+      <VBtn
+        prepend-icon="ri-add-circle-line"
+        :disabled="!athletes.active.length"
+        @click="openForm"
+      >
+        Aplicar pago
+      </VBtn>
+    </template>
   </PageHeader>
 
-  <VCard class="kronos-card" rounded="xl">
-    <VCardItem title="Historial de pagos" :subtitle="`${filtered.length} registros encontrados`" />
+  <VCard
+    class="kronos-card"
+    rounded="xl"
+  >
+    <VCardItem
+      title="Historial de pagos"
+      :subtitle="`${filtered.length} registros encontrados`"
+    />
     <VCardText>
       <VRow class="mb-2">
-        <VCol cols="12" md="8"><VTextField v-model="search" label="Buscar atleta, periodo o método" prepend-inner-icon="ri-search-line" clearable /></VCol>
-        <VCol cols="12" md="4"><VTextField v-model="periodFilter" type="month" label="Filtrar periodo" clearable /></VCol>
+        <VCol
+          cols="12"
+          md="8"
+        >
+          <VTextField
+            v-model="search"
+            label="Buscar atleta, periodo o método"
+            prepend-inner-icon="ri-search-line"
+            clearable
+          />
+        </VCol>
+        <VCol
+          cols="12"
+          md="4"
+        >
+          <VTextField
+            v-model="periodFilter"
+            type="month"
+            label="Filtrar periodo"
+            clearable
+          />
+        </VCol>
       </VRow>
 
-      <EmptyState v-if="!filtered.length" title="Sin pagos aplicados" description="Registra la primera mensualidad o cambia los filtros." icon="ri-wallet-line" />
+      <EmptyState
+        v-if="!filtered.length"
+        title="Sin pagos aplicados"
+        description="Registra la primera mensualidad o cambia los filtros."
+        icon="ri-wallet-line"
+      />
       <template v-else>
         <VTable>
-          <thead><tr><th>Cliente</th><th>Periodo</th><th>Método</th><th>Aplicado</th><th class="text-right">Monto</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th>Cliente</th><th>Periodo</th><th>Método</th><th>Aplicado</th><th class="text-right">
+                Monto
+              </th><th />
+            </tr>
+          </thead>
           <tbody>
-            <tr v-for="payment in paginated" :key="`${payment.athleteId}-${payment.period}`">
-              <td class="font-weight-bold">{{ payerName(payment) }}<div v-if="payment.visitorId" class="text-caption text-medium-emphasis">Visitante</div></td>
+            <tr
+              v-for="payment in paginated"
+              :key="`${payment.athleteId}-${payment.period}`"
+            >
+              <td class="font-weight-bold">
+                {{ payerName(payment) }}<div
+                  v-if="payment.visitorId"
+                  class="text-caption text-medium-emphasis"
+                >
+                  Visitante
+                </div>
+              </td>
               <td>{{ payment.period }}</td>
-              <td class="text-capitalize">{{ payment.method }}</td>
+              <td class="text-capitalize">
+                {{ payment.method }}
+              </td>
               <td>{{ formatDate(payment.appliedAt) }}</td>
-              <td class="text-right text-success font-weight-bold">{{ formatCurrency(payment.amount ?? 0) }}</td>
-              <td class="text-right"><VBtn icon="ri-receipt-line" variant="text" title="Generar recibo" @click="showReceipt(payment)" /></td>
+              <td class="text-right text-success font-weight-bold">
+                {{ formatCurrency(payment.amount ?? 0) }}
+              </td>
+              <td class="text-right">
+                <VBtn
+                  icon="ri-receipt-line"
+                  variant="text"
+                  title="Generar recibo"
+                  @click="showReceipt(payment)"
+                />
+              </td>
             </tr>
           </tbody>
         </VTable>
         <div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
           <span class="text-caption text-medium-emphasis">Máximo 15 registros por página</span>
-          <VPagination v-model="page" :length="pageCount" :total-visible="5" density="comfortable" />
+          <VPagination
+            v-model="page"
+            :length="pageCount"
+            :total-visible="5"
+            density="comfortable"
+          />
         </div>
       </template>
     </VCardText>
   </VCard>
 
-  <MembershipPaymentDialog v-model="dialog" :athlete-id="selectedAthleteId" :period="selectedPeriod" @saved="showReceipt" />
-  <ReceiptDialog v-model="receiptDialog" :receipt="activeReceipt" />
+  <MembershipPaymentDialog
+    v-model="dialog"
+    :athlete-id="selectedAthleteId"
+    :period="selectedPeriod"
+    @saved="showReceipt"
+  />
+  <ReceiptDialog
+    v-model="receiptDialog"
+    :receipt="activeReceipt"
+  />
 </template>

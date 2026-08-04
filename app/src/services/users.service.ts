@@ -1,7 +1,7 @@
-import { onValue, ref, serverTimestamp, update, type Unsubscribe } from 'firebase/database'
+import { onValue, ref, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
 import { createManagedPasswordUser } from '@/firebase/auth'
 import { BUSINESS_ROOT } from '@/firebase/database'
-import type { AppUser, AuthConfiguration, UserPermissions, UserRole } from '@/types/access'
+import { normalizePermissions, type AppUser, type AuthConfiguration, type UserPermissions, type UserRole } from '@/types/access'
 import { requireDatabase } from './realtime.service'
 
 export interface ManagedUserInput {
@@ -12,17 +12,13 @@ export interface ManagedUserInput {
   permissions: UserPermissions
 }
 
-const normalizedPermissions = (permissions: UserPermissions) => Object.fromEntries(
-  Object.entries(permissions).filter(([, enabled]) => enabled === true),
-) as UserPermissions
-
 const profilePayload = (uid: string, input: ManagedUserInput, createdBy: string, mustChangePassword: boolean) => ({
   uid,
   displayName: input.displayName.trim(),
   email: input.email.trim().toLocaleLowerCase('es'),
   role: input.role,
   enabled: input.enabled,
-  permissions: input.role === 'admin' ? null : normalizedPermissions(input.permissions),
+  permissions: input.role === 'admin' ? null : normalizePermissions(input.permissions),
   mustChangePassword,
   createdBy,
   createdAt: serverTimestamp(),
@@ -87,15 +83,12 @@ export const usersService = {
       displayName: input.displayName.trim(),
       role: input.role,
       enabled: input.enabled,
-      permissions: input.role === 'admin' ? null : normalizedPermissions(input.permissions),
+      permissions: input.role === 'admin' ? null : normalizePermissions(input.permissions),
       updatedAt: serverTimestamp(),
     })
   },
 
   async completePasswordChange(uid: string) {
-    await update(ref(requireDatabase(), `${BUSINESS_ROOT}/users/${uid}`), {
-      mustChangePassword: false,
-      updatedAt: serverTimestamp(),
-    })
+    await set(ref(requireDatabase(), `${BUSINESS_ROOT}/users/${uid}/mustChangePassword`), false)
   },
 }

@@ -5,12 +5,15 @@ import PageHeader from '@/components/kronos/PageHeader.vue'
 import { useAthletesStore } from '@/stores/athletes'
 import { useNotificationsStore } from '@/stores/notifications'
 import { usePerformanceStore } from '@/stores/performance'
+import { useSessionStore } from '@/stores/session'
 import type { PerformanceRecord } from '@/types/domain'
 import { formatDate, timestampValue } from '@/utils/kronos'
 
 const athletesStore = useAthletesStore()
 const performanceStore = usePerformanceStore()
 const notifications = useNotificationsStore()
+const session = useSessionStore()
+const canManage = computed(() => session.can('performanceManage'))
 
 const dialog = ref(false)
 const saving = ref(false)
@@ -30,6 +33,7 @@ const skillName = (id: string) => performanceStore.skills.find(item => item.id =
 
 const athleteSkillItems = computed(() => {
   const usedSkills = new Set(performanceStore.records.filter(record => !selectedAthleteId.value || record.athleteId === selectedAthleteId.value).map(record => record.skillId))
+
   return performanceStore.skills
     .filter(skill => skill.status === 'active' || usedSkills.has(skill.id))
     .map(skill => ({ title: skill.name, value: skill.id, hasRecords: usedSkills.has(skill.id) }))
@@ -39,10 +43,12 @@ const athleteSkillItems = computed(() => {
 const comparisonRecords = computed(() => performanceStore.records
   .filter(record => record.athleteId === selectedAthleteId.value && record.skillId === selectedSkillId.value)
   .sort((a, b) => timestampValue(a.recordedAt) - timestampValue(b.recordedAt)))
+
 const comparisonLatest = computed(() => comparisonRecords.value.at(-1) ?? null)
 const comparisonBest = computed(() => comparisonRecords.value.reduce<PerformanceRecord | null>((best, record) => !best || record.valueLbs > best.valueLbs ? record : best, null))
 const comparisonChange = computed(() => comparisonRecords.value.length > 1 ? Number((comparisonRecords.value.at(-1)!.valueLbs - comparisonRecords.value[0].valueLbs).toFixed(1)) : 0)
 const chartSeries = computed(() => [{ name: selectedSkillId.value ? skillName(selectedSkillId.value) : 'Marca', data: comparisonRecords.value.map(record => record.valueLbs) }])
+
 const chartOptions = computed(() => ({
   chart: { toolbar: { show: false }, background: 'transparent', zoom: { enabled: false } },
   colors: ['#97D5DE'],
@@ -61,6 +67,7 @@ const filtered = computed(() => [...performanceStore.records]
   .filter(record => !selectedSkillId.value || record.skillId === selectedSkillId.value)
   .filter(record => `${athleteName(record.athleteId)} ${skillName(record.skillId)} ${record.type}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.recordedAt) - timestampValue(a.recordedAt)))
+
 const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
 const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
 const personalBests = computed(() => new Set(performanceStore.records.map(record => `${record.athleteId}:${record.skillId}`)).size)
@@ -98,6 +105,7 @@ function openEdit(record: PerformanceRecord) {
 async function save() {
   if (!form.athleteId || !form.skillId || !form.type.trim() || !form.recordedAt || Number(form.valueLbs) <= 0) {
     notifications.show('Completa atleta, skill, tipo, fecha y una marca mayor a cero.', 'warning')
+
     return
   }
   saving.value = true
@@ -128,6 +136,7 @@ async function remove(record: PerformanceRecord) {
     color: 'error',
     icon: 'ri-delete-bin-line',
   })
+
   if (!accepted)
     return
   try {
@@ -144,63 +153,337 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
 </script>
 
 <template>
-  <PageHeader title="Rendimiento" eyebrow="Progreso" description="Marcas personales, edición y evolución comparativa por atleta.">
-    <template #actions><VBtn prepend-icon="ri-add-line" @click="openCreate">Registrar marca</VBtn></template>
+  <PageHeader
+    title="Rendimiento"
+    eyebrow="Progreso"
+    description="Marcas personales, edición y evolución comparativa por atleta."
+  >
+    <template
+      v-if="canManage"
+      #actions
+    >
+      <VBtn
+        prepend-icon="ri-add-line"
+        @click="openCreate"
+      >
+        Registrar marca
+      </VBtn>
+    </template>
   </PageHeader>
 
   <VRow class="mb-2">
-    <VCol cols="12" md="4"><MetricCard label="Registros" :value="performanceStore.records.length" icon="ri-line-chart-line" /></VCol>
-    <VCol cols="12" md="4"><MetricCard label="PR únicos" :value="personalBests" icon="ri-medal-line" color="secondary" /></VCol>
-    <VCol cols="12" md="4"><MetricCard label="Última marca" :value="latest ? `${latest.valueLbs} lb` : '—'" :detail="latest ? athleteName(latest.athleteId) : 'Sin registros'" icon="ri-trophy-line" color="warning" /></VCol>
+    <VCol
+      cols="12"
+      md="4"
+    >
+      <MetricCard
+        label="Registros"
+        :value="performanceStore.records.length"
+        icon="ri-line-chart-line"
+      />
+    </VCol>
+    <VCol
+      cols="12"
+      md="4"
+    >
+      <MetricCard
+        label="PR únicos"
+        :value="personalBests"
+        icon="ri-medal-line"
+        color="secondary"
+      />
+    </VCol>
+    <VCol
+      cols="12"
+      md="4"
+    >
+      <MetricCard
+        label="Última marca"
+        :value="latest ? `${latest.valueLbs} lb` : '—'"
+        :detail="latest ? athleteName(latest.athleteId) : 'Sin registros'"
+        icon="ri-trophy-line"
+        color="warning"
+      />
+    </VCol>
   </VRow>
 
-  <VCard class="kronos-card mb-5" rounded="xl">
-    <VCardItem title="Comparativo de marcas" subtitle="Selecciona atleta y movimiento para revisar su evolución." />
+  <VCard
+    class="kronos-card mb-5"
+    rounded="xl"
+  >
+    <VCardItem
+      title="Comparativo de marcas"
+      subtitle="Selecciona atleta y movimiento para revisar su evolución."
+    />
     <VCardText>
       <VRow class="mb-2">
-        <VCol cols="12" md="7"><VAutocomplete v-model="selectedAthleteId" :items="athleteItems" label="Buscar atleta" prepend-inner-icon="ri-search-line" clearable auto-select-first /></VCol>
-        <VCol cols="12" md="5"><VAutocomplete v-model="selectedSkillId" :items="athleteSkillItems" label="Buscar skill" prepend-inner-icon="ri-search-line" clearable auto-select-first /></VCol>
+        <VCol
+          cols="12"
+          md="7"
+        >
+          <VAutocomplete
+            v-model="selectedAthleteId"
+            :items="athleteItems"
+            label="Buscar atleta"
+            prepend-inner-icon="ri-search-line"
+            clearable
+            auto-select-first
+          />
+        </VCol>
+        <VCol
+          cols="12"
+          md="5"
+        >
+          <VAutocomplete
+            v-model="selectedSkillId"
+            :items="athleteSkillItems"
+            label="Buscar skill"
+            prepend-inner-icon="ri-search-line"
+            clearable
+            auto-select-first
+          />
+        </VCol>
       </VRow>
-      <EmptyState v-if="!comparisonRecords.length" icon="ri-line-chart-line" title="Sin comparativo disponible" description="Este atleta todavía no tiene marcas para el skill seleccionado." />
+      <EmptyState
+        v-if="!comparisonRecords.length"
+        icon="ri-line-chart-line"
+        title="Sin comparativo disponible"
+        description="Este atleta todavía no tiene marcas para el skill seleccionado."
+      />
       <template v-else>
         <VRow class="mb-2">
-          <VCol cols="12" sm="4"><VCard variant="tonal" color="secondary" rounded="lg"><VCardText><div class="text-caption">Última</div><div class="text-h5 font-weight-bold">{{ comparisonLatest?.valueLbs }} lb</div><div>{{ comparisonLatest ? formatDate(comparisonLatest.recordedAt) : '' }}</div></VCardText></VCard></VCol>
-          <VCol cols="12" sm="4"><VCard variant="tonal" color="warning" rounded="lg"><VCardText><div class="text-caption">Mejor marca</div><div class="text-h5 font-weight-bold">{{ comparisonBest?.valueLbs }} lb</div><div>{{ comparisonBest ? formatDate(comparisonBest.recordedAt) : '' }}</div></VCardText></VCard></VCol>
-          <VCol cols="12" sm="4"><VCard variant="tonal" :color="comparisonChange >= 0 ? 'success' : 'error'" rounded="lg"><VCardText><div class="text-caption">Variación total</div><div class="text-h5 font-weight-bold">{{ comparisonChange > 0 ? '+' : '' }}{{ comparisonChange }} lb</div><div>primera vs. última</div></VCardText></VCard></VCol>
+          <VCol
+            cols="12"
+            sm="4"
+          >
+            <VCard
+              variant="tonal"
+              color="secondary"
+              rounded="lg"
+            >
+              <VCardText>
+                <div class="text-caption">
+                  Última
+                </div><div class="text-h5 font-weight-bold">
+                  {{ comparisonLatest?.valueLbs }} lb
+                </div><div>{{ comparisonLatest ? formatDate(comparisonLatest.recordedAt) : '' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol
+            cols="12"
+            sm="4"
+          >
+            <VCard
+              variant="tonal"
+              color="warning"
+              rounded="lg"
+            >
+              <VCardText>
+                <div class="text-caption">
+                  Mejor marca
+                </div><div class="text-h5 font-weight-bold">
+                  {{ comparisonBest?.valueLbs }} lb
+                </div><div>{{ comparisonBest ? formatDate(comparisonBest.recordedAt) : '' }}</div>
+              </VCardText>
+            </VCard>
+          </VCol>
+          <VCol
+            cols="12"
+            sm="4"
+          >
+            <VCard
+              variant="tonal"
+              :color="comparisonChange >= 0 ? 'success' : 'error'"
+              rounded="lg"
+            >
+              <VCardText>
+                <div class="text-caption">
+                  Variación total
+                </div><div class="text-h5 font-weight-bold">
+                  {{ comparisonChange > 0 ? '+' : '' }}{{ comparisonChange }} lb
+                </div><div>primera vs. última</div>
+              </VCardText>
+            </VCard>
+          </VCol>
         </VRow>
-        <VueApexCharts type="line" height="340" :options="chartOptions" :series="chartSeries" />
+        <VueApexCharts
+          type="line"
+          height="340"
+          :options="chartOptions"
+          :series="chartSeries"
+        />
       </template>
     </VCardText>
   </VCard>
 
-  <VCard class="kronos-card" rounded="xl">
-    <VCardItem title="Historial de marcas" :subtitle="`${filtered.length} registros encontrados`" />
+  <VCard
+    class="kronos-card"
+    rounded="xl"
+  >
+    <VCardItem
+      title="Historial de marcas"
+      :subtitle="`${filtered.length} registros encontrados`"
+    />
     <VCardText>
-      <VTextField v-model="search" label="Buscar atleta, skill o tipo" prepend-inner-icon="ri-search-line" clearable class="mb-5" />
-      <EmptyState v-if="!filtered.length" icon="ri-line-chart-line" title="Sin marcas registradas" description="Agrega el primer resultado o cambia los filtros." />
+      <VTextField
+        v-model="search"
+        label="Buscar atleta, skill o tipo"
+        prepend-inner-icon="ri-search-line"
+        clearable
+        class="mb-5"
+      />
+      <EmptyState
+        v-if="!filtered.length"
+        icon="ri-line-chart-line"
+        title="Sin marcas registradas"
+        description="Agrega el primer resultado o cambia los filtros."
+      />
       <template v-else>
         <VTable class="text-no-wrap">
-          <thead><tr><th>FECHA</th><th>ATLETA</th><th>SKILL</th><th>TIPO</th><th>MARCA</th><th></th></tr></thead>
-          <tbody><tr v-for="record in paginated" :key="record.id"><td>{{ formatDate(record.recordedAt) }}</td><td>{{ athleteName(record.athleteId) }}</td><td>{{ skillName(record.skillId) }}</td><td><VChip size="small" color="primary">{{ record.type }}</VChip></td><td><strong>{{ record.valueLbs }} lb</strong><span class="text-caption text-medium-emphasis ms-2">{{ record.valueKg }} kg</span></td><td class="text-end"><VBtn icon="ri-edit-line" size="small" variant="text" title="Editar marca" @click="openEdit(record)" /><VBtn icon="ri-delete-bin-line" size="small" variant="text" color="error" title="Eliminar marca" @click="remove(record)" /></td></tr></tbody>
+          <thead><tr><th>FECHA</th><th>ATLETA</th><th>SKILL</th><th>TIPO</th><th>MARCA</th><th /></tr></thead>
+          <tbody>
+            <tr
+              v-for="record in paginated"
+              :key="record.id"
+            >
+              <td>{{ formatDate(record.recordedAt) }}</td><td>{{ athleteName(record.athleteId) }}</td><td>{{ skillName(record.skillId) }}</td><td>
+                <VChip
+                  size="small"
+                  color="primary"
+                >
+                  {{ record.type }}
+                </VChip>
+              </td><td><strong>{{ record.valueLbs }} lb</strong><span class="text-caption text-medium-emphasis ms-2">{{ record.valueKg }} kg</span></td><td class="text-end">
+                <template v-if="canManage">
+                  <VBtn
+                    icon="ri-edit-line"
+                    size="small"
+                    variant="text"
+                    title="Editar marca"
+                    @click="openEdit(record)"
+                  /><VBtn
+                    icon="ri-delete-bin-line"
+                    size="small"
+                    variant="text"
+                    color="error"
+                    title="Eliminar marca"
+                    @click="remove(record)"
+                  />
+                </template>
+              </td>
+            </tr>
+          </tbody>
         </VTable>
-        <div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5"><span class="text-caption text-medium-emphasis">Máximo 15 registros por página</span><VPagination v-model="page" :length="pageCount" :total-visible="5" /></div>
+        <div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
+          <span class="text-caption text-medium-emphasis">Máximo 15 registros por página</span><VPagination
+            v-model="page"
+            :length="pageCount"
+            :total-visible="5"
+          />
+        </div>
       </template>
     </VCardText>
   </VCard>
 
-  <VDialog v-model="dialog" max-width="620">
-    <VCard class="kronos-card" rounded="xl">
-      <VCardItem class="pa-6 pb-2" :title="editingRecord ? 'Editar marca' : 'Nueva marca'" subtitle="Atleta, movimiento, fecha y resultado registrado." />
+  <VDialog
+    v-model="dialog"
+    max-width="620"
+  >
+    <VCard
+      class="kronos-card"
+      rounded="xl"
+    >
+      <VCardItem
+        class="pa-6 pb-2"
+        :title="editingRecord ? 'Editar marca' : 'Nueva marca'"
+        subtitle="Atleta, movimiento, fecha y resultado registrado."
+      />
       <VForm @submit.prevent="save">
-        <VCardText class="pa-6"><VRow>
-          <VCol cols="12"><VAutocomplete v-model="form.athleteId" :items="athleteItems" label="Buscar atleta" prepend-inner-icon="ri-search-line" auto-select-first :disabled="Boolean(editingRecord)" /></VCol>
-          <VCol cols="12" md="7"><VAutocomplete v-model="form.skillId" :items="skillItems" label="Buscar skill" prepend-inner-icon="ri-search-line" auto-select-first :disabled="Boolean(editingRecord)" /></VCol>
-          <VCol cols="12" md="5"><VCombobox v-model="form.type" :items="['1RM', '3RM', '5RM', 'Tiempo', 'Repeticiones']" label="Tipo de marca" /></VCol>
-          <VCol cols="12" md="6"><VTextField v-model="form.recordedAt" type="date" label="Fecha" /></VCol>
-          <VCol cols="12" md="6"><VTextField v-model.number="form.valueLbs" type="number" min="0.1" step="0.1" label="Marca" suffix="lb" /></VCol>
-          <VCol v-if="editingRecord" cols="12"><VAlert type="info" variant="tonal">Para conservar el historial, atleta y skill permanecen fijos al editar. Puedes corregir tipo, fecha y valor.</VAlert></VCol>
-        </VRow></VCardText>
-        <VCardActions class="pa-6 pt-0"><VSpacer /><VBtn variant="text" @click="dialog = false">Cancelar</VBtn><VBtn type="submit" :loading="saving">{{ editingRecord ? 'Guardar cambios' : 'Guardar marca' }}</VBtn></VCardActions>
+        <VCardText class="pa-6">
+          <VRow>
+            <VCol cols="12">
+              <VAutocomplete
+                v-model="form.athleteId"
+                :items="athleteItems"
+                label="Buscar atleta"
+                prepend-inner-icon="ri-search-line"
+                auto-select-first
+                :disabled="Boolean(editingRecord)"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="7"
+            >
+              <VAutocomplete
+                v-model="form.skillId"
+                :items="skillItems"
+                label="Buscar skill"
+                prepend-inner-icon="ri-search-line"
+                auto-select-first
+                :disabled="Boolean(editingRecord)"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="5"
+            >
+              <VCombobox
+                v-model="form.type"
+                :items="['1RM', '3RM', '5RM', 'Tiempo', 'Repeticiones']"
+                label="Tipo de marca"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VTextField
+                v-model="form.recordedAt"
+                type="date"
+                label="Fecha"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VTextField
+                v-model.number="form.valueLbs"
+                type="number"
+                min="0.1"
+                step="0.1"
+                label="Marca"
+                suffix="lb"
+              />
+            </VCol>
+            <VCol
+              v-if="editingRecord"
+              cols="12"
+            >
+              <VAlert
+                type="info"
+                variant="tonal"
+              >
+                Para conservar el historial, atleta y skill permanecen fijos al editar. Puedes corregir tipo, fecha y valor.
+              </VAlert>
+            </VCol>
+          </VRow>
+        </VCardText>
+        <VCardActions class="pa-6 pt-0">
+          <VSpacer /><VBtn
+            variant="text"
+            @click="dialog = false"
+          >
+            Cancelar
+          </VBtn><VBtn
+            type="submit"
+            :loading="saving"
+          >
+            {{ editingRecord ? 'Guardar cambios' : 'Guardar marca' }}
+          </VBtn>
+        </VCardActions>
       </VForm>
     </VCard>
   </VDialog>

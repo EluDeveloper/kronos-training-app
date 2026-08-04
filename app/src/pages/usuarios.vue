@@ -9,6 +9,7 @@ import {
   accessModules,
   defaultReceptionPermissions,
   roleLabel,
+  type AccessModule,
   type AppUser,
   type UserPermissions,
   type UserRole,
@@ -63,8 +64,19 @@ function generatePassword() {
 }
 
 function resetPermissions(permissions: UserPermissions = {}) {
-  for (const module of accessModules)
+  for (const module of accessModules) {
     form.permissions[module.key] = permissions[module.key] === true
+    for (const action of module.actions)
+      form.permissions[action.key] = permissions[action.key] === true
+  }
+}
+
+function setModuleEnabled(moduleKey: AccessModule, actionKeys: readonly string[], enabled: boolean | null) {
+  form.permissions[moduleKey] = enabled === true
+  if (!enabled) {
+    for (const actionKey of actionKeys)
+      form.permissions[actionKey as keyof UserPermissions] = false
+  }
 }
 
 function openCreate() {
@@ -95,7 +107,11 @@ function permissionSummary(user: AppUser) {
   if (user.role === 'admin')
     return 'Acceso completo'
 
-  const enabled = accessModules.filter(module => user.permissions?.[module.key]).map(module => module.label)
+  const enabled = accessModules.filter(module => user.permissions?.[module.key]).map(module => {
+    const actions = module.actions.filter(action => user.permissions?.[action.key]).length
+
+    return actions ? `${module.label} (${actions})` : module.label
+  })
 
   return enabled.length ? enabled.join(', ') : 'Sin módulos asignados'
 }
@@ -185,7 +201,7 @@ onBeforeUnmount(() => users.dispose())
   <PageHeader
     title="Usuarios y permisos"
     eyebrow="Seguridad"
-    description="Da de alta cuentas y decide qué módulos puede utilizar Recepción."
+    description="Da de alta cuentas y decide qué puede consultar y operar cada persona."
   >
     <template #actions>
       <VBtn
@@ -207,7 +223,7 @@ onBeforeUnmount(() => users.dispose())
         variant="tonal"
         icon="ri-shield-check-line"
       >
-        Admin siempre tiene acceso completo. Las cuentas de Recepción sólo pueden abrir los módulos seleccionados.
+        Admin siempre tiene acceso completo. En Recepción puedes separar consulta, captura y acciones sensibles.
       </VAlert>
     </VCol>
     <VCol
@@ -404,7 +420,7 @@ onBeforeUnmount(() => users.dispose())
         <VCardItem
           class="pa-6 pb-2"
           :title="editingUid ? 'Editar usuario' : 'Nuevo usuario'"
-          subtitle="Administra el perfil y el acceso por módulo."
+          subtitle="Administra el perfil, los módulos y las acciones permitidas."
         />
         <VCardText class="pa-6 d-flex flex-column ga-5">
           <VAlert
@@ -480,10 +496,10 @@ onBeforeUnmount(() => users.dispose())
 
           <div v-if="form.role === 'reception'">
             <p class="font-weight-bold mb-1">
-              Módulos permitidos
+              Permisos detallados
             </p>
             <p class="text-body-2 text-medium-emphasis mb-4">
-              Selecciona únicamente las áreas necesarias para esta persona.
+              Habilita primero el módulo y después únicamente las acciones que esta persona necesita.
             </p>
             <VRow>
               <VCol
@@ -498,6 +514,7 @@ onBeforeUnmount(() => users.dispose())
                     :label="module.label"
                     color="secondary"
                     hide-details
+                    @update:model-value="enabled => setModuleEnabled(module.key, module.actions.map(action => action.key), enabled)"
                   >
                     <template #prepend>
                       <VIcon :icon="module.icon" />
@@ -506,6 +523,23 @@ onBeforeUnmount(() => users.dispose())
                   <p class="text-caption text-medium-emphasis mb-0 mt-2">
                     {{ module.description }}
                   </p>
+                  <div
+                    v-if="module.actions.length"
+                    class="permission-actions mt-3 pt-3"
+                  >
+                    <VSwitch
+                      v-for="action in module.actions"
+                      :key="action.key"
+                      v-model="form.permissions[action.key]"
+                      :label="action.label"
+                      :hint="action.description"
+                      :disabled="!form.permissions[module.key]"
+                      color="primary"
+                      density="compact"
+                      persistent-hint
+                      class="permission-action"
+                    />
+                  </div>
                 </div>
               </VCol>
             </VRow>
@@ -541,4 +575,6 @@ onBeforeUnmount(() => users.dispose())
 <style scoped>
 .permission-cell { max-inline-size: 360px; }
 .permission-option, .credentials { border: 1px solid rgba(151, 213, 222, 0.16); border-radius: 14px; background: rgba(27, 29, 26, 0.36); }
+.permission-actions { border-block-start: 1px solid rgba(151, 213, 222, 0.12); }
+.permission-action + .permission-action { margin-block-start: 8px; }
 </style>

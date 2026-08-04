@@ -33,7 +33,8 @@ Las pruebas de reglas requieren Java 21 o una versión compatible con Firebase E
 ## Acceso y perfiles
 
 - **Admin** tiene acceso total, crea cuentas y asigna permisos desde **Usuarios y permisos**.
-- **Recepción** sólo ve y modifica los módulos que un Admin habilite en su perfil.
+- **Recepción** sólo abre los módulos habilitados y, dentro de cada uno, ejecuta las acciones asignadas por un Admin.
+- Tienda separa **realizar ventas**, **aplicar abonos**, **administrar inventario** y **cancelar ventas**; estos permisos son independientes.
 - Las cuentas nuevas reciben una contraseña temporal y deben cambiarla en el primer acceso.
 - El primer Admin se crea desde un dispositivo anónimo que ya figure como autorizado en `v1/authorizedDevices`.
 

@@ -214,7 +214,15 @@ async function applyPayment() {
 }
 
 async function cancelSale(sale: Sale) {
-  if (!confirm(`¿Cancelar la venta de ${customerName(sale)} y devolver existencias?`)) return
+  const accepted = await notifications.requestConfirmation({
+    title: 'Cancelar venta',
+    message: `¿Deseas cancelar la venta de ${customerName(sale)}?`,
+    detail: 'La venta se marcará como cancelada y las existencias se devolverán automáticamente al inventario.',
+    confirmText: 'Cancelar venta',
+    color: 'error',
+    icon: 'ri-close-circle-line',
+  })
+  if (!accepted) return
   try { await commerce.cancelSale(sale.id); notifications.show('Venta cancelada e inventario restituido.', 'info') }
   catch (error) { notifications.show(error instanceof Error ? error.message : 'No se pudo cancelar.', 'error') }
 }

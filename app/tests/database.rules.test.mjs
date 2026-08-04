@@ -89,3 +89,45 @@ test('un visitante puede registrar visitas y compras sin convertirse en atleta',
   await assertSucceeds(db.ref('v1/sales/sale-visitor').set(sale))
   await assertFails(db.ref('v1/visits/another-visitor/2026-08/visit-visitor').set(visit))
 })
+
+test('un pago acumulado liquida visitas de meses distintos en una sola escritura', async () => {
+  const db = env.authenticatedContext('authorized').database()
+  const now = Date.now()
+  const juneVisit = { id: 'visit-june', visitorId: 'visitor-1', period: '2026-06', visitedAt: now - 2_000, accessType: 'pay-per-visit', unitPrice: 100, note: null, createdAt: now, updatedAt: now }
+  const julyVisit = { id: 'visit-july', visitorId: 'visitor-1', period: '2026-07', visitedAt: now - 1_000, accessType: 'pay-per-visit', unitPrice: 100, note: null, createdAt: now, updatedAt: now }
+
+  await assertSucceeds(db.ref('v1/visits/visitor-1').update({ '2026-06/visit-june': juneVisit, '2026-07/visit-july': julyVisit }))
+
+  const payment = {
+    id: 'visit-payment-1',
+    visitorId: 'visitor-1',
+    customerName: visitor.name,
+    phone: visitor.phone,
+    throughPeriod: '2026-07',
+    amount: 200,
+    method: 'cash',
+    appliedAt: now,
+    visitRefs: {
+      'visit-june': { id: 'visit-june', period: '2026-06', visitedAt: juneVisit.visitedAt, unitPrice: 100 },
+      'visit-july': { id: 'visit-july', period: '2026-07', visitedAt: julyVisit.visitedAt, unitPrice: 100 },
+    },
+    createdAt: now,
+    updatedAt: now,
+  }
+  await assertSucceeds(db.ref('v1').update({
+    'visitPayments/visitor-1/visit-payment-1': payment,
+    'visits/visitor-1/2026-06/visit-june/paidAt': now,
+    'visits/visitor-1/2026-06/visit-june/visitPaymentId': payment.id,
+    'visits/visitor-1/2026-06/visit-june/paymentPeriod': payment.throughPeriod,
+    'visits/visitor-1/2026-06/visit-june/updatedAt': now,
+    'visits/visitor-1/2026-07/visit-july/paidAt': now,
+    'visits/visitor-1/2026-07/visit-july/visitPaymentId': payment.id,
+    'visits/visitor-1/2026-07/visit-july/paymentPeriod': payment.throughPeriod,
+    'visits/visitor-1/2026-07/visit-july/updatedAt': now,
+  }))
+
+  const saved = await db.ref('v1/visits/visitor-1').once('value')
+  assert.equal(saved.child('2026-06/visit-june/visitPaymentId').val(), payment.id)
+  assert.equal(saved.child('2026-07/visit-july/visitPaymentId').val(), payment.id)
+  await assertFails(db.ref('v1/visits/visitor-1/2026-06/visit-june').update({ visitPaymentId: 'another-payment', updatedAt: now + 1 }))
+})

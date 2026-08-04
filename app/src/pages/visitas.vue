@@ -10,11 +10,12 @@ import { useAthletesStore } from '@/stores/athletes'
 import { useCommerceStore } from '@/stores/commerce'
 import { usePaymentsStore } from '@/stores/payments'
 import { usePlansStore } from '@/stores/plans'
+import { useVisitPaymentsStore } from '@/stores/visit-payments'
 import { useVisitorsStore } from '@/stores/visitors'
 import { useVisitsStore } from '@/stores/visits'
-import { currentPeriod, planAccessType, planVisitLimit, planVisitPrice, type Payment, type Visit } from '@/types/domain'
+import { currentPeriod, planAccessType, planVisitLimit, planVisitPrice, type Payment, type Visit, type VisitPayment } from '@/types/domain'
 import { formatCurrency, formatDate, saleBalance, timestampValue } from '@/utils/kronos'
-import { buildMembershipReceipt, buildRenewalReminder, buildVisitorVisitReceipt, buildVisitStatement, type ReceiptData } from '@/utils/receipts'
+import { buildAccumulatedVisitStatement, buildMembershipReceipt, buildRenewalReminder, buildVisitPaymentReceipt, buildVisitStatement, type ReceiptData } from '@/utils/receipts'
 
 const athletes = useAthletesStore()
 const visitors = useVisitorsStore()
@@ -22,8 +23,9 @@ const plans = usePlansStore()
 const visits = useVisitsStore()
 const commerce = useCommerceStore()
 const payments = usePaymentsStore()
+const visitPayments = useVisitPaymentsStore()
 const route = useRoute()
-const { success, failure } = useNotifications()
+const { success, failure, confirmAction } = useNotifications()
 const period = ref(currentPeriod())
 const selectedSubjectKey = ref('')
 const visitDialog = ref(false)
@@ -38,10 +40,14 @@ const paymentAmount = ref(0)
 const paymentConcept = ref('')
 const paymentVisitCount = ref(0)
 
-const localDateTimeValue = (date = new Date()) => {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
-  return local.toISOString().slice(0, 16)
-}
+const today = new Date()
+const monthItems = [
+  { title: 'Enero', value: 1 }, { title: 'Febrero', value: 2 }, { title: 'Marzo', value: 3 },
+  { title: 'Abril', value: 4 }, { title: 'Mayo', value: 5 }, { title: 'Junio', value: 6 },
+  { title: 'Julio', value: 7 }, { title: 'Agosto', value: 8 }, { title: 'Septiembre', value: 9 },
+  { title: 'Octubre', value: 10 }, { title: 'Noviembre', value: 11 }, { title: 'Diciembre', value: 12 },
+]
+const yearItems = Array.from({ length: 12 }, (_, index) => today.getFullYear() + 1 - index)
 
 const form = reactive({
   subjectType: 'athlete' as 'athlete' | 'visitor',
@@ -50,9 +56,13 @@ const form = reactive({
   visitorName: '',
   visitorPhone: '',
   pricePerVisit: 0,
-  visitedAt: localDateTimeValue(),
+  visitDay: today.getDate(),
+  visitMonth: today.getMonth() + 1,
+  visitYear: today.getFullYear(),
+  visitTime: today.toTimeString().slice(0, 5),
   note: '',
 })
+const dayItems = computed(() => Array.from({ length: new Date(form.visitYear, form.visitMonth, 0).getDate() }, (_, index) => index + 1))
 
 const athleteItems = computed(() => athletes.active.map(athlete => ({ title: athlete.profile.name, value: athlete.id, subtitle: plans.items.find(plan => plan.id === athlete.membership.planId)?.name ?? 'Miembro' })))
 const visitorItems = computed(() => visitors.sorted.map(visitor => ({ title: visitor.name, value: visitor.id, subtitle: `${visitor.phone} · ${formatCurrency(visitor.pricePerVisit)} por visita` })))
@@ -74,10 +84,29 @@ const selectedVisits = computed(() => visits.items
   .filter(visit => (selectedVisitorId.value ? visit.visitorId === selectedVisitorId.value : visit.athleteId === selectedAthleteId.value) && visit.period === period.value)
   .sort((a, b) => timestampValue(b.visitedAt) - timestampValue(a.visitedAt)))
 const remainingVisits = computed(() => selectedVisitLimit.value === null ? null : Math.max(0, selectedVisitLimit.value - selectedVisits.value.length))
-const accumulatedAmount = computed(() => selectedVisits.value.length * selectedUnitPrice.value)
+const legacyPaidVisitorPeriods = computed(() => new Set(payments.paid
+  .filter(payment => payment.visitorId === selectedVisitorId.value)
+  .map(payment => payment.period)))
+const unpaidVisitorVisits = computed(() => selectedVisitorId.value
+  ? visits.items
+      .filter(visit => visit.visitorId === selectedVisitorId.value
+        && visit.period <= period.value
+        && !visit.paidAt
+        && !legacyPaidVisitorPeriods.value.has(visit.period))
+      .sort((a, b) => timestampValue(a.visitedAt) - timestampValue(b.visitedAt))
+  : [])
+const accumulatedAmount = computed(() => selectedVisitor.value
+  ? unpaidVisitorVisits.value.reduce((total, visit) => total + Number(visit.unitPrice || 0), 0)
+  : selectedVisits.value.length * selectedUnitPrice.value)
 const selectedOpenSales = computed(() => commerce.openCredit.filter(sale => selectedVisitorId.value ? sale.visitorId === selectedVisitorId.value : sale.athleteId === selectedAthleteId.value))
 const selectedStoreDebt = computed(() => selectedOpenSales.value.reduce((sum, sale) => sum + saleBalance(sale), 0))
 const periodPaid = computed(() => payments.paid.some(payment => payment.athleteId === selectedSubjectId.value && payment.period === period.value && Boolean(payment.visitorId) === Boolean(selectedVisitorId.value)))
+const pendingVisitPeriods = computed(() => {
+  const counts = new Map<string, number>()
+  unpaidVisitorVisits.value.forEach(visit => counts.set(visit.period, (counts.get(visit.period) ?? 0) + 1))
+
+  return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([pendingPeriod, count]) => `${count} de ${pendingPeriod}`).join(' + ')
+})
 const filteredHistory = computed(() => visits.items
   .filter(visit => visit.period === period.value)
   .filter(visit => !selectedSubjectKey.value || (selectedVisitorId.value ? visit.visitorId === selectedVisitorId.value : visit.athleteId === selectedAthleteId.value))
@@ -105,6 +134,9 @@ watch(() => form.visitorId, visitorId => {
   form.visitorPhone = visitor.phone
   form.pricePerVisit = visitor.pricePerVisit
 })
+watch([() => form.visitYear, () => form.visitMonth], () => {
+  form.visitDay = Math.min(form.visitDay, dayItems.value.length)
+})
 
 function nextPeriod(value: string) {
   const [year, month] = value.split('-').map(Number)
@@ -124,7 +156,11 @@ function openVisitForm() {
   form.visitorName = selectedVisitor.value?.name ?? ''
   form.visitorPhone = selectedVisitor.value?.phone ?? ''
   form.pricePerVisit = selectedVisitor.value?.pricePerVisit ?? 0
-  form.visitedAt = localDateTimeValue()
+  const now = new Date()
+  form.visitDay = now.getDate()
+  form.visitMonth = now.getMonth() + 1
+  form.visitYear = now.getFullYear()
+  form.visitTime = now.toTimeString().slice(0, 5)
   form.note = ''
   visitDialog.value = true
 }
@@ -137,9 +173,15 @@ function startNewVisitor() {
 }
 
 async function saveVisit() {
-  const visitedAt = new Date(form.visitedAt)
-  if (Number.isNaN(visitedAt.getTime())) {
-    failure('Selecciona una fecha y hora válidas.')
+  const [hour, minute] = form.visitTime.split(':').map(Number)
+  const visitedAt = new Date(form.visitYear, form.visitMonth - 1, form.visitDay, hour, minute)
+  const validDate = visitedAt.getFullYear() === form.visitYear
+    && visitedAt.getMonth() === form.visitMonth - 1
+    && visitedAt.getDate() === form.visitDay
+    && visitedAt.getHours() === hour
+    && visitedAt.getMinutes() === minute
+  if (!validDate) {
+    failure('Selecciona día, mes, año y hora válidos.')
     return
   }
   const visitPeriod = currentPeriod(visitedAt)
@@ -199,18 +241,33 @@ async function saveVisit() {
 }
 
 async function removeVisit(visit: Visit) {
-  if (!confirm(`¿Eliminar la visita de ${visitSubjectName(visit)}?`))
+  if (visit.paidAt || (visit.visitorId && legacyPaidVisitorPeriods.value.has(visit.period))) {
+    failure('Una visita liquidada no puede eliminarse porque forma parte de un recibo.')
+    return
+  }
+  const accepted = await confirmAction({
+    title: 'Eliminar visita',
+    message: `¿Deseas eliminar la visita de ${visitSubjectName(visit)}?`,
+    detail: 'El conteo de visitas del periodo se actualizará inmediatamente.',
+    confirmText: 'Eliminar visita',
+    color: 'error',
+    icon: 'ri-delete-bin-line',
+  })
+  if (!accepted)
     return
   try { await visits.remove(visit); success('Visita eliminada.') }
   catch (error) { failure(error instanceof Error ? error.message : 'No fue posible eliminar la visita.') }
 }
 
 function showVisitStatement() {
-  if (!selectedCustomer.value || !selectedVisits.value.length) {
-    failure('Registra al menos una visita para generar el estado de cuenta.')
+  const statementVisits = selectedVisitor.value ? unpaidVisitorVisits.value : selectedVisits.value
+  if (!selectedCustomer.value || !statementVisits.length) {
+    failure('No hay visitas pendientes para generar el estado de cuenta.')
     return
   }
-  activeReceipt.value = buildVisitStatement(selectedCustomer.value, period.value, selectedVisits.value.length, selectedUnitPrice.value, selectedOpenSales.value)
+  activeReceipt.value = selectedVisitor.value
+    ? buildAccumulatedVisitStatement(selectedCustomer.value, period.value, statementVisits, selectedOpenSales.value)
+    : buildVisitStatement(selectedCustomer.value, period.value, statementVisits.length, selectedUnitPrice.value, selectedOpenSales.value)
   receiptDialog.value = true
 }
 
@@ -227,19 +284,19 @@ function openVisitPayment() {
     return
   }
   paymentAmount.value = accumulatedAmount.value
-  paymentVisitCount.value = selectedVisits.value.length
-  paymentConcept.value = `${selectedVisits.value.length} visitas acumuladas ${period.value}`
+  paymentVisitCount.value = selectedVisitor.value ? unpaidVisitorVisits.value.length : selectedVisits.value.length
+  paymentConcept.value = `${paymentVisitCount.value} visitas acumuladas hasta ${period.value}`
   if (selectedVisitor.value)
     visitorPaymentDialog.value = true
   else
     memberPaymentDialog.value = true
 }
 
-function showPaymentReceipt(payment: Payment) {
-  if (payment.visitorId) {
+function showPaymentReceipt(payment: Payment | VisitPayment) {
+  if ('visitRefs' in payment) {
     const visitor = visitors.items.find(item => item.id === payment.visitorId)
     if (visitor)
-      activeReceipt.value = buildVisitorVisitReceipt(payment, visitor)
+      activeReceipt.value = buildVisitPaymentReceipt(payment, visitor)
   }
   else if (selectedAthlete.value) {
     activeReceipt.value = buildMembershipReceipt(payment, selectedAthlete.value, selectedPlan.value?.name)
@@ -248,8 +305,8 @@ function showPaymentReceipt(payment: Payment) {
     receiptDialog.value = true
 }
 
-onMounted(() => { athletes.subscribe(); visitors.subscribe(); plans.subscribe(); visits.subscribe(); commerce.subscribe(); payments.subscribe() })
-onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose(); visits.dispose(); commerce.dispose(); payments.dispose() })
+onMounted(() => { athletes.subscribe(); visitors.subscribe(); plans.subscribe(); visits.subscribe(); commerce.subscribe(); payments.subscribe(); visitPayments.subscribe() })
+onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose(); visits.dispose(); commerce.dispose(); payments.dispose(); visitPayments.dispose() })
 </script>
 
 <template>
@@ -263,7 +320,7 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose();
     <VRow class="mb-2">
       <VCol cols="12" sm="6" lg="3"><MetricCard label="Visitas del mes" :value="selectedVisits.length" icon="ri-footprint-line" :detail="selectedVisitor ? 'Visitante externo' : selectedPlan?.name ?? 'Sin plan'" /></VCol>
       <VCol cols="12" sm="6" lg="3"><MetricCard label="Visitas restantes" :value="selectedVisitor ? 'No aplica' : remainingVisits === null ? 'Sin límite' : remainingVisits" icon="ri-coupon-3-line" :color="remainingVisits !== null && remainingVisits <= 2 ? 'warning' : 'secondary'" :detail="selectedVisitor ? 'Cobro por visita' : selectedVisitLimit ? `de ${selectedVisitLimit}` : 'Acceso libre'" /></VCol>
-      <VCol cols="12" sm="6" lg="3"><MetricCard label="Acumulado por visitas" :value="formatCurrency(accumulatedAmount)" icon="ri-hand-coin-line" color="success" :detail="selectedAccessType === 'pay-per-visit' ? `${formatCurrency(selectedUnitPrice)} por visita` : 'No aplica cobro individual'" /></VCol>
+      <VCol cols="12" sm="6" lg="3"><MetricCard label="Pendiente por visitas" :value="formatCurrency(accumulatedAmount)" icon="ri-hand-coin-line" :color="accumulatedAmount > 0 ? 'warning' : 'success'" :detail="selectedVisitor ? `${unpaidVisitorVisits.length} pendientes hasta ${period}` : selectedAccessType === 'pay-per-visit' ? `${formatCurrency(selectedUnitPrice)} por visita` : 'No aplica cobro individual'" /></VCol>
       <VCol cols="12" sm="6" lg="3"><MetricCard label="Adeudo de tienda" :value="formatCurrency(selectedStoreDebt)" icon="ri-shopping-bag-3-line" :color="selectedStoreDebt > 0 ? 'error' : 'success'" detail="Incluido en avisos" /></VCol>
     </VRow>
 
@@ -271,14 +328,14 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose();
 
     <VAlert v-else-if="selectedAccessType === 'unlimited'" color="info" variant="tonal" class="mb-5">Este plan tiene acceso libre. Las visitas se registran como asistencia, sin límite ni cobro individual.</VAlert>
 
-    <VCard v-else class="kronos-card mb-5" rounded="xl"><VCardText class="d-flex flex-wrap align-center justify-space-between ga-4"><div><div class="text-h6 font-weight-bold">{{ selectedVisitor ? 'Visitante sin membresía' : 'Cobro por visitas' }}</div><div class="text-body-2 text-medium-emphasis">{{ selectedVisits.length }} visitas × {{ formatCurrency(selectedUnitPrice) }} = {{ formatCurrency(accumulatedAmount) }}<template v-if="selectedVisitor"> · {{ selectedVisitor.phone }}</template></div></div><div class="d-flex flex-wrap ga-2"><VBtn variant="tonal" prepend-icon="ri-whatsapp-line" :disabled="!selectedVisits.length" @click="showVisitStatement">Enviar estado de cuenta</VBtn><VBtn prepend-icon="ri-wallet-3-line" :disabled="!selectedVisits.length || periodPaid" @click="openVisitPayment">{{ periodPaid ? 'Periodo pagado' : 'Cobrar visitas' }}</VBtn></div></VCardText></VCard>
+    <VCard v-else class="kronos-card mb-5" rounded="xl"><VCardText class="d-flex flex-wrap align-center justify-space-between ga-4"><div><div class="text-h6 font-weight-bold">{{ selectedVisitor ? 'Visitante sin membresía' : 'Cobro por visitas' }}</div><div class="text-body-2 text-medium-emphasis"><template v-if="selectedVisitor">{{ unpaidVisitorVisits.length }} visitas pendientes hasta {{ period }} · {{ pendingVisitPeriods || 'Todo liquidado' }} · {{ selectedVisitor.phone }}</template><template v-else>{{ selectedVisits.length }} visitas × {{ formatCurrency(selectedUnitPrice) }} = {{ formatCurrency(accumulatedAmount) }}</template></div><div v-if="selectedVisitor && unpaidVisitorVisits.some(visit => visit.period < period)" class="text-caption text-warning mt-1">Incluye visitas pendientes de meses anteriores.</div></div><div class="d-flex flex-wrap ga-2"><VBtn variant="tonal" prepend-icon="ri-whatsapp-line" :disabled="selectedVisitor ? !unpaidVisitorVisits.length : !selectedVisits.length" @click="showVisitStatement">Enviar estado de cuenta</VBtn><VBtn prepend-icon="ri-wallet-3-line" :disabled="selectedVisitor ? !unpaidVisitorVisits.length : !selectedVisits.length || periodPaid" @click="openVisitPayment">{{ selectedVisitor ? unpaidVisitorVisits.length ? 'Cobrar pendientes' : 'Todo liquidado' : periodPaid ? 'Periodo pagado' : 'Cobrar visitas' }}</VBtn></div></VCardText></VCard>
   </template>
 
-  <VCard class="kronos-card" rounded="xl"><VCardItem title="Historial de visitas" :subtitle="`${filteredHistory.length} registros en ${period}`" /><VCardText><EmptyState v-if="!filteredHistory.length" title="Sin visitas en este periodo" description="Registra la primera asistencia del cliente." icon="ri-footprint-line" /><template v-else><VTable><thead><tr><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Nota</th><th></th></tr></thead><tbody><tr v-for="visit in paginatedHistory" :key="visit.id"><td>{{ formatDate(visit.visitedAt) }}</td><td class="font-weight-bold">{{ visitSubjectName(visit) }}<div v-if="visit.visitorId" class="text-caption text-medium-emphasis">Visitante</div></td><td><VChip size="small" variant="tonal">{{ visit.accessType === 'visit-pack' ? 'Cuponera' : visit.accessType === 'pay-per-visit' ? 'Por visita' : 'Libre' }}</VChip></td><td>{{ visit.note || '—' }}</td><td class="text-right"><VBtn icon="ri-delete-bin-line" color="error" variant="text" title="Eliminar visita" @click="removeVisit(visit)" /></td></tr></tbody></VTable><VPagination v-if="pageCount > 1" v-model="page" :length="pageCount" :total-visible="5" class="mt-5" /></template></VCardText></VCard>
+  <VCard class="kronos-card" rounded="xl"><VCardItem title="Historial de visitas" :subtitle="`${filteredHistory.length} registros en ${period}`" /><VCardText><EmptyState v-if="!filteredHistory.length" title="Sin visitas en este periodo" description="Registra la primera asistencia del cliente." icon="ri-footprint-line" /><template v-else><VTable><thead><tr><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Estado</th><th>Nota</th><th></th></tr></thead><tbody><tr v-for="visit in paginatedHistory" :key="visit.id"><td>{{ formatDate(visit.visitedAt) }}</td><td class="font-weight-bold">{{ visitSubjectName(visit) }}<div v-if="visit.visitorId" class="text-caption text-medium-emphasis">Visitante</div></td><td><VChip size="small" variant="tonal">{{ visit.accessType === 'visit-pack' ? 'Cuponera' : visit.accessType === 'pay-per-visit' ? 'Por visita' : 'Libre' }}</VChip></td><td><VChip v-if="visit.accessType === 'pay-per-visit'" size="small" variant="tonal" :color="visit.paidAt || (visit.visitorId && legacyPaidVisitorPeriods.has(visit.period)) ? 'success' : 'warning'">{{ visit.paidAt || (visit.visitorId && legacyPaidVisitorPeriods.has(visit.period)) ? 'Pagada' : 'Pendiente' }}</VChip><span v-else>—</span></td><td>{{ visit.note || '—' }}</td><td class="text-right"><VBtn icon="ri-delete-bin-line" color="error" variant="text" title="Eliminar visita" :disabled="Boolean(visit.paidAt || (visit.visitorId && legacyPaidVisitorPeriods.has(visit.period)))" @click="removeVisit(visit)" /></td></tr></tbody></VTable><VPagination v-if="pageCount > 1" v-model="page" :length="pageCount" :total-visible="5" class="mt-5" /></template></VCardText></VCard>
 
-  <VDialog v-model="visitDialog" max-width="700"><VCard class="kronos-card" rounded="xl"><VCardItem class="pa-6 pb-2" title="Registrar visita" subtitle="Selecciona la fecha real y distingue miembros de visitantes sin membresía." /><VCardText class="pa-6 d-flex flex-column ga-5"><VBtnToggle v-model="form.subjectType" mandatory color="secondary" divided><VBtn value="athlete" prepend-icon="ri-team-line">Miembro</VBtn><VBtn value="visitor" prepend-icon="ri-user-line">Visitante</VBtn></VBtnToggle><VAutocomplete v-if="form.subjectType === 'athlete'" v-model="form.athleteId" :items="athleteItems" label="Buscar atleta" prepend-inner-icon="ri-search-line" clearable auto-select-first /><template v-else><div class="d-flex flex-wrap align-center ga-2"><VAutocomplete v-model="form.visitorId" :items="visitorItems" label="Buscar visitante existente" prepend-inner-icon="ri-search-line" clearable auto-select-first class="flex-grow-1" /><VBtn variant="tonal" prepend-icon="ri-user-add-line" @click="startNewVisitor">Nuevo</VBtn></div><VRow><VCol cols="12" md="7"><VTextField v-model="form.visitorName" label="Nombre completo" /></VCol><VCol cols="12" md="5"><VTextField v-model="form.visitorPhone" label="Celular" maxlength="10" inputmode="tel" /></VCol><VCol cols="12"><VTextField v-model.number="form.pricePerVisit" type="number" min="1" label="Tarifa por visita" prefix="$" /></VCol></VRow></template><VTextField v-model="form.visitedAt" type="datetime-local" label="Fecha y hora de la visita" hint="Puedes registrar una visita de una fecha anterior." persistent-hint /><VTextField v-model="form.note" label="Nota (opcional)" /></VCardText><VCardActions class="pa-6 pt-0"><VSpacer /><VBtn variant="text" @click="visitDialog = false">Cancelar</VBtn><VBtn :loading="saving" @click="saveVisit">Registrar visita</VBtn></VCardActions></VCard></VDialog>
+  <VDialog v-model="visitDialog" max-width="700"><VCard class="kronos-card" rounded="xl"><VCardItem class="pa-6 pb-2" title="Registrar visita" subtitle="Selecciona la fecha real y distingue miembros de visitantes sin membresía." /><VCardText class="pa-6 d-flex flex-column ga-5"><div><div class="text-caption text-medium-emphasis mb-2">Tipo de cliente</div><VRow dense><VCol cols="6"><VBtn block height="54" prepend-icon="ri-team-line" :color="form.subjectType === 'athlete' ? 'secondary' : undefined" :variant="form.subjectType === 'athlete' ? 'flat' : 'outlined'" @click="form.subjectType = 'athlete'">Miembro</VBtn></VCol><VCol cols="6"><VBtn block height="54" prepend-icon="ri-user-line" :color="form.subjectType === 'visitor' ? 'secondary' : undefined" :variant="form.subjectType === 'visitor' ? 'flat' : 'outlined'" @click="form.subjectType = 'visitor'">Visitante</VBtn></VCol></VRow></div><VAutocomplete v-if="form.subjectType === 'athlete'" v-model="form.athleteId" :items="athleteItems" label="Buscar atleta" prepend-inner-icon="ri-search-line" clearable auto-select-first /><template v-else><div class="d-flex flex-column flex-sm-row align-sm-center ga-2"><VAutocomplete v-model="form.visitorId" :items="visitorItems" label="Buscar visitante existente" prepend-inner-icon="ri-search-line" clearable auto-select-first class="flex-grow-1" /><VBtn height="56" variant="tonal" prepend-icon="ri-user-add-line" @click="startNewVisitor">Nuevo visitante</VBtn></div><VRow><VCol cols="12" md="7"><VTextField v-model="form.visitorName" label="Nombre completo" /></VCol><VCol cols="12" md="5"><VTextField v-model="form.visitorPhone" label="Celular" maxlength="10" inputmode="tel" /></VCol><VCol cols="12"><VTextField v-model.number="form.pricePerVisit" type="number" min="1" label="Tarifa por visita" prefix="$" /></VCol></VRow></template><div><div class="text-caption text-medium-emphasis mb-2">Fecha de la visita</div><VRow><VCol cols="12" sm="3"><VSelect v-model="form.visitDay" :items="dayItems" label="Día" /></VCol><VCol cols="12" sm="5"><VSelect v-model="form.visitMonth" :items="monthItems" label="Mes" /></VCol><VCol cols="12" sm="4"><VSelect v-model="form.visitYear" :items="yearItems" label="Año" /></VCol><VCol cols="12"><VTextField v-model="form.visitTime" type="time" label="Hora" hint="Puedes registrar una visita de una fecha anterior." persistent-hint /></VCol></VRow></div><VTextField v-model="form.note" label="Nota (opcional)" /></VCardText><VCardActions class="pa-6 pt-0 flex-wrap ga-2"><VSpacer /><VBtn variant="text" @click="visitDialog = false">Cancelar</VBtn><VBtn :loading="saving" @click="saveVisit">Registrar visita</VBtn></VCardActions></VCard></VDialog>
 
   <MembershipPaymentDialog v-model="memberPaymentDialog" :athlete-id="selectedAthleteId" :period="period" :amount="paymentAmount" :concept="paymentConcept" :visit-count="paymentVisitCount" title="Cobrar visitas acumuladas" subtitle="El pago se registrará en el periodo seleccionado y generará su recibo." lock-athlete @saved="showPaymentReceipt" />
-  <VisitorPaymentDialog v-model="visitorPaymentDialog" :visitor-id="selectedVisitorId" :period="period" :amount="paymentAmount" :concept="paymentConcept" :visit-count="paymentVisitCount" @saved="showPaymentReceipt" />
+  <VisitorPaymentDialog v-model="visitorPaymentDialog" :visitor-id="selectedVisitorId" :period="period" :visits="unpaidVisitorVisits" @saved="showPaymentReceipt" />
   <ReceiptDialog v-model="receiptDialog" :receipt="activeReceipt" />
 </template>

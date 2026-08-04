@@ -1,4 +1,5 @@
-import type { Athlete, ISOTimestamp, Payment, PaymentMethod, Sale, SalePayment, VisitorContact } from '@/types/domain'
+import { jsPDF } from 'jspdf'
+import type { Athlete, ISOTimestamp, Payment, PaymentMethod, Sale, SalePayment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
 import { formatCurrency, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 
 export type ReceiptKind = 'membership' | 'sale' | 'sale-payment' | 'collection'
@@ -73,6 +74,52 @@ export function buildVisitorVisitReceipt(payment: Payment, visitor: VisitorConta
     method: payment.method,
     total: amount,
     amountPaid: amount,
+    balance: 0,
+  }
+}
+
+const groupedVisitLines = (visits: Visit[]): ReceiptLine[] => {
+  const groups = new Map<string, { period: string; unitPrice: number; quantity: number }>()
+
+  for (const visit of visits) {
+    const unitPrice = Number(visit.unitPrice || 0)
+    const key = `${visit.period}:${unitPrice}`
+    const group = groups.get(key) ?? { period: visit.period, unitPrice, quantity: 0 }
+
+    group.quantity += 1
+    groups.set(key, group)
+  }
+
+  return [...groups.values()]
+    .sort((a, b) => a.period.localeCompare(b.period) || a.unitPrice - b.unitPrice)
+    .map(group => ({
+      description: `Visitas acumuladas ${group.period}`,
+      quantity: group.quantity,
+      unitPrice: group.unitPrice,
+      amount: group.quantity * group.unitPrice,
+    }))
+}
+
+export function buildVisitPaymentReceipt(payment: VisitPayment, visitor: VisitorContact): ReceiptData {
+  const visits = Object.values(payment.visitRefs).map(reference => ({
+    ...reference,
+    visitorId: payment.visitorId,
+    accessType: 'pay-per-visit' as const,
+    createdAt: payment.createdAt,
+    updatedAt: payment.updatedAt,
+  }))
+
+  return {
+    kind: 'membership',
+    folio: `VIS-${folioSuffix(payment.id)}`,
+    issuedAt: payment.appliedAt,
+    customerName: payment.customerName || visitor.name,
+    phone: payment.phone || visitor.phone,
+    concept: `Pago de visitas pendientes hasta ${payment.throughPeriod}`,
+    lines: groupedVisitLines(visits),
+    method: payment.method,
+    total: payment.amount,
+    amountPaid: payment.amount,
     balance: 0,
   }
 }
@@ -190,6 +237,28 @@ export function buildVisitStatement(customer: ReceiptCustomer, period: string, v
   }
 }
 
+export function buildAccumulatedVisitStatement(customer: ReceiptCustomer, throughPeriod: string, visits: Visit[], openSales: Sale[]): ReceiptData {
+  const lines: ReceiptLine[] = [
+    ...groupedVisitLines(visits),
+    ...storeDebtLines(openSales),
+  ]
+  const total = lines.reduce((sum, line) => sum + line.amount, 0)
+
+  return {
+    kind: 'collection',
+    folio: `VIS-${throughPeriod.replace('-', '')}-${folioSuffix(customer.id)}`,
+    issuedAt: Date.now(),
+    customerName: customerName(customer),
+    phone: customerPhone(customer),
+    concept: `Visitas pendientes hasta ${throughPeriod}`,
+    lines,
+    method: null,
+    total,
+    amountPaid: 0,
+    balance: total,
+  }
+}
+
 export function buildRenewalReminder(athlete: Athlete, renewalPeriod: string, planName: string, visitLimit: number, amount: number, openSales: Sale[]): ReceiptData {
   const lines: ReceiptLine[] = [
     { description: `Renovación ${planName} - ${visitLimit} visitas`, amount },
@@ -239,7 +308,6 @@ const loadOfficialLogo = () => {
 }
 
 export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: string) {
-  const { jsPDF } = await import('jspdf')
   const officialLogo = logoDataUrl ?? await loadOfficialLogo()
   const pdf = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' })
   const width = pdf.internal.pageSize.getWidth()
@@ -425,21 +493,15 @@ const receiptMessage = (receipt: ReceiptData) => receipt.kind === 'collection'
     ].join('\n')
 
 export async function shareReceipt(receipt: ReceiptData) {
-  const pdf = await createReceiptPdf(receipt)
-  const blob = pdf.output('blob')
-  const file = new File([blob], receiptFilename(receipt), { type: 'application/pdf' })
-  const sharePayload = { title: `${receipt.kind === 'collection' ? 'Aviso de pago' : 'Recibo'} ${receipt.folio}`, text: receiptMessage(receipt), files: [file] }
+  const phone = normalizedWhatsAppPhone(receipt.phone)
+  const message = `${receiptMessage(receipt)}\n\nEl PDF fue descargado para adjuntarlo en este chat.`
+  const whatsappUrl = `https://web.whatsapp.com/send?${phone ? `phone=${phone}&` : ''}text=${encodeURIComponent(message)}`
+  const pdfPromise = createReceiptPdf(receipt)
 
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    await navigator.share(sharePayload)
-
-    return 'shared' as const
-  }
+  window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
+  const pdf = await pdfPromise
 
   pdf.save(receiptFilename(receipt))
-  const phone = normalizedWhatsAppPhone(receipt.phone)
-  const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(`${receiptMessage(receipt)}\n\nEl PDF fue descargado para adjuntarlo en este chat.`)}`
-  window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
 
-  return 'downloaded' as const
+  return 'whatsapp-web' as const
 }

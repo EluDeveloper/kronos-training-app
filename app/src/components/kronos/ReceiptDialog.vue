@@ -33,8 +33,8 @@ async function run(action: 'download' | 'print' | 'share') {
       await printReceipt(props.receipt)
     }
     else {
-      const result = await shareReceipt(props.receipt)
-      success(result === 'shared' ? `${documentLabel.value} enviado al menú de compartir.` : 'PDF descargado y WhatsApp abierto.')
+      await shareReceipt(props.receipt)
+      success('PDF descargado y WhatsApp Web abierto.')
     }
   }
   catch (error) {
@@ -100,7 +100,7 @@ async function run(action: 'download' | 'print' | 'share') {
         <VSpacer />
         <VBtn prepend-icon="ri-printer-line" variant="tonal" :disabled="working" @click="run('print')">Imprimir</VBtn>
         <VBtn prepend-icon="ri-download-2-line" variant="tonal" :disabled="working" @click="run('download')">PDF</VBtn>
-        <VBtn prepend-icon="ri-whatsapp-line" color="success" :loading="working" @click="run('share')">WhatsApp</VBtn>
+        <VBtn prepend-icon="ri-whatsapp-line" color="success" :loading="working" @click="run('share')">WhatsApp Web</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

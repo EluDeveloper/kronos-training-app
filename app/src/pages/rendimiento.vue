@@ -120,7 +120,15 @@ async function save() {
 }
 
 async function remove(record: PerformanceRecord) {
-  if (!confirm(`¿Eliminar la marca de ${athleteName(record.athleteId)}?`))
+  const accepted = await notifications.requestConfirmation({
+    title: 'Eliminar marca',
+    message: `¿Deseas eliminar esta marca de ${athleteName(record.athleteId)}?`,
+    detail: 'La gráfica y los indicadores del atleta se recalcularán sin este registro.',
+    confirmText: 'Eliminar marca',
+    color: 'error',
+    icon: 'ri-delete-bin-line',
+  })
+  if (!accepted)
     return
   try {
     await performanceStore.remove(record)

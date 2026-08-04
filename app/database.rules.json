@@ -47,6 +47,20 @@
           }
         }
       },
+      "visitPayments": {
+        ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
+        "$visitorId": {
+          "$paymentId": {
+            ".validate": "!newData.exists() || (newData.hasChildren(['id','visitorId','customerName','phone','throughPeriod','amount','method','appliedAt','visitRefs','createdAt','updatedAt']) && newData.child('id').val() === $paymentId && newData.child('visitorId').val() === $visitorId && root.child('v1/visitors').child($visitorId).exists() && newData.child('customerName').isString() && newData.child('customerName').val().length > 2 && newData.child('phone').isString() && newData.child('phone').val().matches(/^\\d{10}$/) && newData.child('throughPeriod').val().matches(/^\\d{4}-(0[1-9]|1[0-2])$/) && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('method').val() === 'cash' || newData.child('method').val() === 'transfer' || newData.child('method').val() === 'card' || newData.child('method').val() === 'other') && (newData.child('appliedAt').isNumber() || newData.child('appliedAt').isString()) && newData.child('visitRefs').hasChildren())",
+            "visitRefs": {
+              "$visitId": {
+                ".validate": "newData.hasChildren(['id','period','visitedAt','unitPrice']) && newData.child('id').val() === $visitId && newData.child('period').val().matches(/^\\d{4}-(0[1-9]|1[0-2])$/) && (newData.child('visitedAt').isNumber() || newData.child('visitedAt').isString()) && newData.child('unitPrice').isNumber() && newData.child('unitPrice').val() > 0"
+              }
+            }
+          }
+        }
+      },
       "skills": {
         ".read": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
         ".write": "auth != null && root.child('v1/authorizedDevices').child(auth.uid).child('enabled').val() === true",
@@ -111,7 +125,7 @@
         "$subjectId": {
           "$period": {
             "$visitId": {
-              ".validate": "!newData.exists() || (newData.hasChildren(['id','period','visitedAt','accessType','unitPrice','createdAt','updatedAt']) && newData.child('id').val() === $visitId && newData.child('period').val() === $period && $period.matches(/^\\d{4}-(0[1-9]|1[0-2])$/) && (newData.child('visitedAt').isNumber() || newData.child('visitedAt').isString()) && (newData.child('accessType').val() === 'unlimited' || newData.child('accessType').val() === 'visit-pack' || newData.child('accessType').val() === 'pay-per-visit') && newData.child('unitPrice').isNumber() && newData.child('unitPrice').val() >= 0 && ((!newData.child('visitorId').exists() && newData.child('athleteId').val() === $subjectId && newData.child('planId').isString()) || (!newData.child('athleteId').exists() && newData.child('visitorId').val() === $subjectId && newData.child('accessType').val() === 'pay-per-visit' && root.child('v1/visitors').child($subjectId).exists())))"
+              ".validate": "!newData.exists() || (newData.hasChildren(['id','period','visitedAt','accessType','unitPrice','createdAt','updatedAt']) && newData.child('id').val() === $visitId && newData.child('period').val() === $period && $period.matches(/^\\d{4}-(0[1-9]|1[0-2])$/) && (newData.child('visitedAt').isNumber() || newData.child('visitedAt').isString()) && (newData.child('accessType').val() === 'unlimited' || newData.child('accessType').val() === 'visit-pack' || newData.child('accessType').val() === 'pay-per-visit') && newData.child('unitPrice').isNumber() && newData.child('unitPrice').val() >= 0 && ((!newData.child('visitorId').exists() && newData.child('athleteId').val() === $subjectId && newData.child('planId').isString()) || (!newData.child('athleteId').exists() && newData.child('visitorId').val() === $subjectId && newData.child('accessType').val() === 'pay-per-visit' && root.child('v1/visitors').child($subjectId).exists())) && (!newData.child('paidAt').exists() || newData.child('paidAt').isNumber() || newData.child('paidAt').isString()) && (!newData.child('visitPaymentId').exists() || (newData.child('visitPaymentId').isString() && newData.child('paidAt').exists() && newData.child('paymentPeriod').val().matches(/^\\d{4}-(0[1-9]|1[0-2])$/))) && (!data.child('visitPaymentId').exists() || newData.child('visitPaymentId').val() === data.child('visitPaymentId').val()))"
             }
           }
         }

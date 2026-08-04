@@ -78,6 +78,28 @@ export interface Visit extends AuditFields {
   accessType: PlanAccessType
   unitPrice: number
   note?: string | null
+  paidAt?: ISOTimestamp | null
+  visitPaymentId?: EntityId | null
+  paymentPeriod?: string | null
+}
+
+export interface VisitPaymentReference {
+  id: EntityId
+  period: string
+  visitedAt: ISOTimestamp
+  unitPrice: number
+}
+
+export interface VisitPayment extends AuditFields {
+  id: EntityId
+  visitorId: EntityId
+  customerName: string
+  phone: string
+  throughPeriod: string
+  amount: number
+  method: PaymentMethod
+  appliedAt: ISOTimestamp
+  visitRefs: Record<EntityId, VisitPaymentReference>
 }
 
 export interface Skill {

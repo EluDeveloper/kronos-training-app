@@ -47,7 +47,15 @@ async function save() {
   finally { saving.value = false }
 }
 async function remove(workout: Workout) {
-  if (!confirm(`¿Eliminar la programación del ${formatDate(workout.date)}?`)) return
+  const accepted = await notifications.requestConfirmation({
+    title: 'Eliminar programación',
+    message: `¿Deseas eliminar la programación del ${formatDate(workout.date)}?`,
+    detail: 'Los bloques de entrenamiento de ese día se eliminarán para todos los dispositivos.',
+    confirmText: 'Eliminar programación',
+    color: 'error',
+    icon: 'ri-calendar-close-line',
+  })
+  if (!accepted) return
   try { await workouts.remove(workout.date); notifications.show('Programación eliminada.', 'info') }
   catch (error) { notifications.show(error instanceof Error ? error.message : 'No se pudo eliminar.', 'error') }
 }

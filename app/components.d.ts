@@ -15,7 +15,7 @@ declare module 'vue' {
     DevicePending: typeof import('./src/components/kronos/DevicePending.vue')['default']
     EmptyState: typeof import('./src/components/kronos/EmptyState.vue')['default']
     ErrorHeader: typeof import('./src/components/ErrorHeader.vue')['default']
-    GlobalSnackbar: typeof import('./src/components/kronos/GlobalSnackbar.vue')['default']
+    GlobalAlertCenter: typeof import('./src/components/kronos/GlobalAlertCenter.vue')['default']
     KronosLogo: typeof import('./src/components/kronos/KronosLogo.vue')['default']
     MembershipPaymentDialog: typeof import('./src/components/kronos/MembershipPaymentDialog.vue')['default']
     MetricCard: typeof import('./src/components/kronos/MetricCard.vue')['default']

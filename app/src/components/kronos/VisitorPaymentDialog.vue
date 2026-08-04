@@ -1,29 +1,39 @@
 <script setup lang="ts">
 import { useNotifications } from '@/composables/useNotifications'
-import { usePaymentsStore } from '@/stores/payments'
+import { useVisitPaymentsStore } from '@/stores/visit-payments'
 import { useVisitorsStore } from '@/stores/visitors'
-import { currentPeriod, type Payment, type PaymentMethod } from '@/types/domain'
+import { currentPeriod, type PaymentMethod, type Visit, type VisitPayment } from '@/types/domain'
+import { formatCurrency } from '@/utils/kronos'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
   visitorId?: string
   period?: string
-  amount?: number
-  concept?: string
-  visitCount?: number
-}>(), { visitorId: '', period: '', amount: 0, concept: '', visitCount: 0 })
+  visits?: Visit[]
+}>(), { visitorId: '', period: '', visits: () => [] })
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'saved': [payment: Payment]
+  'saved': [payment: VisitPayment]
 }>()
 
 const visitors = useVisitorsStore()
-const payments = usePaymentsStore()
+const visitPayments = useVisitPaymentsStore()
 const { success, failure } = useNotifications()
 const saving = ref(false)
-const form = reactive({ method: 'cash' as PaymentMethod, amount: 0, period: currentPeriod() })
+const form = reactive({ method: 'cash' as PaymentMethod, period: currentPeriod() })
 const visitor = computed(() => visitors.items.find(item => item.id === props.visitorId) ?? null)
+const amount = computed(() => props.visits.reduce((total, visit) => total + Number(visit.unitPrice || 0), 0))
+const periodSummary = computed(() => {
+  const counts = new Map<string, number>()
+
+  props.visits.forEach(visit => counts.set(visit.period, (counts.get(visit.period) ?? 0) + 1))
+
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, count]) => `${count} de ${period}`)
+    .join(' + ')
+})
 const paymentMethods = [
   { title: 'Efectivo', value: 'cash' },
   { title: 'Transferencia', value: 'transfer' },
@@ -35,33 +45,25 @@ watch(() => props.modelValue, open => {
   if (!open)
     return
   form.method = 'cash'
-  form.amount = Number(props.amount || 0)
   form.period = /^\d{4}-\d{2}$/.test(props.period) ? props.period : currentPeriod()
 })
 
 async function save() {
-  if (!visitor.value || Number(form.amount) <= 0 || !/^\d{4}-\d{2}$/.test(form.period)) {
-    failure('Revisa visitante, periodo y monto.')
+  if (!visitor.value || amount.value <= 0 || !props.visits.length || !/^\d{4}-\d{2}$/.test(form.period)) {
+    failure('Revisa visitante, periodo y visitas pendientes.')
     return
   }
   saving.value = true
   try {
-    const appliedAt = Date.now()
-    const payment: Payment = {
-      athleteId: visitor.value.id,
+    const payment = await visitPayments.create({
       visitorId: visitor.value.id,
-      period: form.period,
-      amount: Number(form.amount),
+      customerName: visitor.value.name,
+      phone: visitor.value.phone,
+      throughPeriod: form.period,
       method: form.method,
-      status: 'paid',
-      appliedAt,
-      createdAt: appliedAt,
-      updatedAt: appliedAt,
-      concept: props.concept || `${props.visitCount} visitas acumuladas ${form.period}`,
-      visitCount: props.visitCount,
-    }
-    await payments.save(payment)
-    success('Pago de visitas aplicado.')
+      visits: props.visits,
+    })
+    success('Pago acumulado de visitas aplicado.')
     emit('update:modelValue', false)
     emit('saved', payment)
   }
@@ -75,13 +77,20 @@ async function save() {
 <template>
   <VDialog :model-value="modelValue" max-width="560" @update:model-value="emit('update:modelValue', $event)">
     <VCard class="kronos-card" rounded="xl">
-      <VCardItem class="pa-6 pb-2" title="Cobrar visitas acumuladas" :subtitle="visitor?.name ?? 'Visitante externo'" />
+      <VCardItem class="pa-6 pb-2" title="Cobrar visitas pendientes" :subtitle="visitor?.name ?? 'Visitante externo'" />
       <VForm @submit.prevent="save">
         <VCardText class="pa-6 d-flex flex-column ga-5">
-          <VAlert color="info" variant="tonal">El pago corresponde a un visitante sin membresía y generará su recibo con celular.</VAlert>
+          <VAlert color="info" variant="tonal">
+            Se liquidarán exactamente {{ visits.length }} visitas. El recibo conservará el desglose por mes.
+          </VAlert>
+          <div class="rounded-lg border pa-4">
+            <div class="text-caption text-medium-emphasis">Visitas incluidas</div>
+            <div class="font-weight-bold">{{ periodSummary }}</div>
+            <div class="text-h5 font-weight-bold text-success mt-2">{{ formatCurrency(amount) }}</div>
+          </div>
           <VRow>
-            <VCol cols="12" sm="6"><VTextField v-model="form.period" type="month" label="Periodo" /></VCol>
-            <VCol cols="12" sm="6"><VTextField v-model.number="form.amount" type="number" min="1" label="Monto" prefix="$" /></VCol>
+            <VCol cols="12" sm="6"><VTextField v-model="form.period" type="month" label="Corte del cobro" readonly /></VCol>
+            <VCol cols="12" sm="6"><VTextField :model-value="formatCurrency(amount)" label="Monto calculado" readonly /></VCol>
           </VRow>
           <VSelect v-model="form.method" :items="paymentMethods" label="Método de pago" />
         </VCardText>

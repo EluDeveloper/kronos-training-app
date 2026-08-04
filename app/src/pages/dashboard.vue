@@ -10,6 +10,7 @@ import { useCommerceStore } from '@/stores/commerce'
 import { useExpensesStore } from '@/stores/expenses'
 import { usePaymentsStore } from '@/stores/payments'
 import { usePlansStore } from '@/stores/plans'
+import { useVisitPaymentsStore } from '@/stores/visit-payments'
 import { useVisitsStore } from '@/stores/visits'
 import { useVisitorsStore } from '@/stores/visitors'
 import { currentPeriod, planAccessType, planVisitLimit, type Payment } from '@/types/domain'
@@ -23,6 +24,7 @@ const expenses = useExpensesStore()
 const plans = usePlansStore()
 const visits = useVisitsStore()
 const visitors = useVisitorsStore()
+const visitPayments = useVisitPaymentsStore()
 const { failure } = useNotifications()
 const router = useRouter()
 const tab = ref('month')
@@ -43,7 +45,10 @@ const paymentAccountingPeriod = (payment: Payment) => {
 
 const membershipIncome = computed(() => payments.paid
   .filter(payment => paymentAccountingPeriod(payment) === period)
-  .reduce((total, payment) => total + Number(payment.amount ?? 0), 0))
+  .reduce((total, payment) => total + Number(payment.amount ?? 0), 0)
+  + visitPayments.items
+    .filter(payment => currentPeriod(new Date(timestampValue(payment.appliedAt))) === period)
+    .reduce((total, payment) => total + Number(payment.amount || 0), 0))
 
 const shopIncome = computed(() => commerce.sales
   .filter(sale => sale.status !== 'cancelled')
@@ -103,6 +108,7 @@ const storeDebtForAthlete = (athleteId: string) => commerce.openCredit
 const availableYears = computed(() => {
   const years = new Set<number>([today.getFullYear()])
   payments.paid.forEach(payment => years.add(Number(paymentAccountingPeriod(payment).slice(0, 4))))
+  visitPayments.items.forEach(payment => years.add(new Date(timestampValue(payment.appliedAt)).getFullYear()))
   commerce.sales.forEach(sale => Object.values(sale.payments ?? {}).forEach(payment => years.add(new Date(payment.appliedAt).getFullYear())))
   expenses.items.forEach(expense => years.add(Number(expense.date.slice(0, 4))))
 
@@ -114,6 +120,9 @@ const annualRows = computed(() => Array.from({ length: 12 }, (_, monthIndex) => 
   const memberships = payments.paid
     .filter(payment => paymentAccountingPeriod(payment) === rowPeriod)
     .reduce((total, payment) => total + Number(payment.amount ?? 0), 0)
+    + visitPayments.items
+      .filter(payment => currentPeriod(new Date(timestampValue(payment.appliedAt))) === rowPeriod)
+      .reduce((total, payment) => total + Number(payment.amount || 0), 0)
   const shop = commerce.sales
     .filter(sale => sale.status !== 'cancelled')
     .flatMap(sale => Object.values(sale.payments ?? {}))
@@ -201,6 +210,7 @@ onMounted(() => {
   plans.subscribe()
   visits.subscribe()
   visitors.subscribe()
+  visitPayments.subscribe()
 })
 
 onBeforeUnmount(() => {
@@ -211,6 +221,7 @@ onBeforeUnmount(() => {
   plans.dispose()
   visits.dispose()
   visitors.dispose()
+  visitPayments.dispose()
 })
 </script>
 

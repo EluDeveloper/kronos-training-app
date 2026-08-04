@@ -535,6 +535,52 @@ Verificación de liberación:
 - El recibo PDF se renderizó con logo oficial, nombre, celular, siete visitas, tarifa unitaria, total pagado y saldo cero, sin cortes ni duplicación de conceptos.
 - En producción se abrió el formulario de visitante y se verificaron búsqueda, nombre, celular, tarifa y fecha/hora; la prueba se cerró sin crear datos reales.
 - En Tienda se verificó el selector combinado `Buscar miembro o visitante (opcional)` sin completar ventas reales.
+- El selector Miembro/Visitante se sustituyó por dos botones responsivos de ancho uniforme después de detectar recorte y superposición en el diseño; la corrección se validó visualmente en producción.
+- La fecha de registro se dividió en selectores explícitos de Día, Mes y Año, más Hora; los días disponibles se recalculan según el mes y los años bisiestos para impedir fechas inválidas.
+
+### Fase 10 — Cobro acumulado multimes de visitas — LIBERADA 2026-08-03
+
+- [x] Sustituir la carga diferida de jsPDF por una dependencia disponible desde la carga del módulo de recibos.
+- [x] Recargar de forma controlada una pestaña si Vite detecta un recurso versionado obsoleto después de un despliegue.
+- [x] Identificar visitas pendientes de un visitante hasta el periodo seleccionado, incluyendo meses anteriores.
+- [x] Calcular el adeudo con la tarifa guardada en cada visita para conservar cambios históricos de precio.
+- [x] Crear un pago de visitas independiente con desglose por periodo.
+- [x] Marcar el pago y todas las visitas incluidas como liquidadas mediante una sola actualización atómica en Realtime Database.
+- [x] Impedir la eliminación de visitas que ya pertenecen a un recibo.
+- [x] Mostrar el estado Pagada/Pendiente en el historial y el resumen de meses incluidos antes de cobrar.
+- [x] Incluir estos cobros en los indicadores del mes actual y en el reporte anual según su fecha real de aplicación.
+- [x] Actualizar reglas y añadir la prueba de liquidación de visitas de junio y julio en una sola operación.
+- [x] Ejecutar typecheck, diez pruebas de reglas y build de producción.
+- [x] Renderizar y revisar visualmente un recibo con dos visitas de junio y tres de julio.
+- [x] Desplegar reglas y Hosting, y validar la versión oficial.
+
+Verificación disponible antes del despliegue:
+
+- El recibo consolidado separa `2 x Visitas acumuladas 2026-06` y `3 x Visitas acumuladas 2026-07`, muestra total/pagado de $400 y saldo $0.
+- Las 10 pruebas del Realtime Database Emulator pasan; la nueva prueba escribe el pago y las marcas de liquidación de ambos meses en una sola actualización.
+- El JRE requerido por el emulador se descargó en la carpeta temporal del sistema y se eliminó al terminar; no se agregaron binarios al repositorio.
+- Reglas y Hosting se publicaron correctamente en `kronos-training-fd5e5`.
+- En producción, Cristian Castillo mostró una visita pendiente de junio al consultar agosto, además de $25 de adeudo en tienda; el aviso generado desglosó ambos conceptos y totalizó $105.
+- El botón PDF funcionó en producción sin `Failed to fetch dynamically imported module`. La apertura automatizada de la pestaña de impresión fue bloqueada por la política del navegador integrado, pero el generador compartido fue validado mediante descarga y renderizado visual del PDF.
+
+### Fase 11 — Centro de alertas y WhatsApp Web — LIBERADA 2026-08-03
+
+- [x] Centralizar notificaciones y confirmaciones en un único componente global con el diseño de Kronos.
+- [x] Sustituir todas las llamadas nativas a `confirm`, `alert` y `prompt` en el código operativo.
+- [x] Añadir título, icono, explicación del impacto y acciones explícitas a cada confirmación destructiva.
+- [x] Aplicar el nuevo diálogo a cancelación de ventas y eliminación de egresos, marcas, programaciones y visitas.
+- [x] Mejorar las notificaciones de éxito, error, advertencia e información con tarjeta, icono y cierre uniforme.
+- [x] Sustituir `wa.me` y el menú de compartir del dispositivo por `web.whatsapp.com` en todos los comprobantes.
+- [x] Descargar el PDF para adjuntarlo y abrir WhatsApp Web con teléfono y mensaje preparados.
+- [x] Ejecutar búsqueda global, typecheck, build, despliegue oficial y validación visual en producción.
+
+Verificación de liberación:
+
+- La búsqueda en `src/` no encuentra llamadas nativas a `confirm`, `alert` o `prompt`, ni enlaces `wa.me` o `api.whatsapp`.
+- El diálogo de cancelación de venta se revisó visualmente en producción: usa la paleta Kronos, explica la restitución de inventario y separa claramente Cancelar de Cancelar venta.
+- La prueba se cerró con Cancelar; no se modificaron ventas ni inventario reales.
+- Un recibo real de tienda mostró el botón `WhatsApp Web`, y la generación de PDF activó la nueva notificación global `Acción completada · Recibo descargado`.
+- Hosting se publicó correctamente en `https://kronos-training-fd5e5.web.app`.
 
 Riesgo de dependencias pendiente:
 
@@ -621,4 +667,5 @@ El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de 
 - Build, typecheck, Emulator Suite y pruebas responsivas completados.
 - Aplicación oficial disponible en `https://kronos-training-fd5e5.web.app`.
 - Dashboard anual, acciones de cobranza y recibos PDF/WhatsApp disponibles en producción.
+- Cobro acumulado multimes de visitantes, liquidación atómica y recibos desglosados disponibles en producción.
 - Siguiente paso recomendado: priorizar el mantenimiento de dependencias señalado en este documento y definir el siguiente módulo operativo.

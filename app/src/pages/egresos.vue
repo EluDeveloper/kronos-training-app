@@ -67,7 +67,15 @@ async function save() {
   finally { saving.value = false }
 }
 async function remove(expense: Expense) {
-  if (!confirm(`¿Eliminar el egreso “${expense.description}”?`)) return
+  const accepted = await notifications.requestConfirmation({
+    title: 'Eliminar egreso',
+    message: `¿Deseas eliminar “${expense.description}”?`,
+    detail: 'Este movimiento dejará de aparecer en los reportes financieros.',
+    confirmText: 'Eliminar egreso',
+    color: 'error',
+    icon: 'ri-delete-bin-line',
+  })
+  if (!accepted) return
   try { await expenses.remove(expense.id); notifications.show('Egreso eliminado.', 'info') }
   catch (error) { notifications.show(error instanceof Error ? error.message : 'No se pudo eliminar.', 'error') }
 }

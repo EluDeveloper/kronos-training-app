@@ -2,9 +2,11 @@ import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
   deleteUser,
+  EmailAuthProvider,
   getAuth,
   inMemoryPersistence,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   sendPasswordResetEmail,
   setPersistence,
   signInAnonymously,
@@ -91,6 +93,34 @@ export async function changeCurrentPassword(password: string) {
     throw new Error('No hay una cuenta activa para cambiar la contraseña.')
 
   await updatePassword(firebaseAuth.currentUser, password)
+}
+
+export async function verifyCurrentPassword(password: string) {
+  const user = firebaseAuth?.currentUser
+  if (!user || user.isAnonymous || !user.email)
+    throw new Error('No hay una cuenta administrativa activa.')
+
+  await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password))
+}
+
+export async function verifyPasswordCredentials(email: string, password: string) {
+  if (!email.trim() || !password)
+    throw new Error('Captura el correo y la contraseña del Admin.')
+
+  const appName = `kronos-admin-verification-${crypto.randomUUID()}`
+  const secondaryApp = initializeApp(firebaseOptions, appName)
+  const secondaryAuth = getAuth(secondaryApp)
+
+  try {
+    await setPersistence(secondaryAuth, inMemoryPersistence)
+
+    const credential = await signInWithEmailAndPassword(secondaryAuth, email.trim().toLocaleLowerCase('es'), password)
+
+    return credential.user.uid
+  }
+  finally {
+    await deleteApp(secondaryApp)
+  }
 }
 
 export async function createManagedPasswordUser<T>(

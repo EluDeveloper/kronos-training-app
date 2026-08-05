@@ -148,10 +148,6 @@ watch([() => athletes.active.length, () => visitors.items.length], () => {
   const requestedAthlete = typeof route.query.athlete === 'string' ? route.query.athlete : ''
   if (athletes.active.some(athlete => athlete.id === requestedAthlete))
     selectedSubjectKey.value = `athlete:${requestedAthlete}`
-  else if (athletes.active[0])
-    selectedSubjectKey.value = `athlete:${athletes.active[0].id}`
-  else if (visitors.sorted[0])
-    selectedSubjectKey.value = `visitor:${visitors.sorted[0].id}`
 }, { immediate: true })
 watch([selectedSubjectKey, period], () => { page.value = 1 })
 watch(() => form.visitorId, visitorId => {
@@ -181,7 +177,7 @@ function visitSubjectName(visit: Visit) {
 
 function openVisitForm() {
   form.subjectType = selectedVisitor.value ? 'visitor' : 'athlete'
-  form.athleteId = selectedAthleteId.value || athletes.active[0]?.id || ''
+  form.athleteId = selectedAthleteId.value
   form.visitorId = selectedVisitorId.value
   form.visitorName = selectedVisitor.value?.name ?? ''
   form.visitorPhone = selectedVisitor.value?.phone ?? ''
@@ -389,7 +385,6 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose();
             label="Buscar miembro o visitante"
             prepend-inner-icon="ri-search-line"
             clearable
-            auto-select-first
           />
         </VCol><VCol
           cols="12"
@@ -663,7 +658,6 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose();
           label="Buscar atleta"
           prepend-inner-icon="ri-search-line"
           clearable
-          auto-select-first
         /><template v-else>
           <div class="d-flex flex-column flex-sm-row align-sm-center ga-2">
             <VAutocomplete
@@ -672,7 +666,6 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose();
               label="Buscar visitante existente"
               prepend-inner-icon="ri-search-line"
               clearable
-              auto-select-first
               class="flex-grow-1"
             /><VBtn
               height="56"

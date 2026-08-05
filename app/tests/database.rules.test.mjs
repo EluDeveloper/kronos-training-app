@@ -21,8 +21,8 @@ const appUser = (uid, role = 'reception', permissions = {}, enabled = true, must
   updatedAt: now(),
 })
 
-const product = stock => ({ id: 'product-1', name: 'Producto de prueba', category: 'Prueba', size: null, stock, alertLevel: 1, unitCost: 10, salePrice: 20, status: 'active', createdAt: now(), updatedAt: now() })
-const athlete = { id: 'athlete-1', profile: { name: 'Atleta de prueba', phone: '0000000000', birthDate: '2000-01-01' }, membership: { schedule: 'Matutino', planId: 'plan-1', agreedAmount: 500, paymentDay: 5, registrationDate: '2026-01-01' }, status: 'active', createdAt: now(), updatedAt: now() }
+const product = stock => ({ id: 'product-1', name: 'Producto de prueba', category: 'Prueba', barcode: '7501234567890', barcodes: { 'KR-00000001': true }, size: null, stock, alertLevel: 1, unitCost: 10, salePrice: 20, status: 'active', createdAt: now(), updatedAt: now() })
+const athlete = { id: 'athlete-1', profile: { name: 'Atleta de prueba', phone: '0000000000', birthDate: '2000-01-01' }, membership: { schedule: 'Matutino', planId: 'plan-1', agreedAmount: 500, paymentDay: 5, registrationDate: '2026-01-01' }, kioskCode: '123456', status: 'active', createdAt: now(), updatedAt: now() }
 const visitor = { id: 'visitor-1', name: 'Visitante de prueba', phone: '5512345678', pricePerVisit: 100, createdAt: now(), updatedAt: now() }
 
 const saleFixture = (id, status = 'paid', payments = {}) => ({
@@ -117,6 +117,38 @@ test('Admin puede leer el negocio y administrar perfiles válidos', async () => 
   await assertSucceeds(db.ref('v1/users').once('value'))
   await assertSucceeds(db.ref('v1/athletes/athlete-1').set(athlete))
   await assertSucceeds(db.ref('v1/users/new-reception').set(appUser('new-reception', 'reception', { visits: true })))
+})
+
+test('los códigos personales y de barras deben tener un formato válido', async () => {
+  const db = env.authenticatedContext('admin').database()
+  const invalidAthlete = structuredClone(athlete)
+  const invalidProduct = product(2)
+
+  invalidAthlete.kioskCode = '1234'
+  invalidProduct.barcode = 'código con espacios'
+
+  await assertSucceeds(db.ref('v1/athletes/athlete-1/kioskCode').set('654321'))
+  await assertFails(db.ref('v1/athletes/athlete-1').set(invalidAthlete))
+  await assertSucceeds(db.ref('v1/products/product-1/barcode').set('012345678905'))
+  await assertSucceeds(db.ref('v1/products/product-1/barcodes/7501234567891').set(true))
+  await assertFails(db.ref('v1/products/product-1/barcodes/7501234567892').set(false))
+  await assertFails(db.ref('v1/products/product-1/barcodes/codigo con espacios').set(true))
+  await assertFails(db.ref('v1/products/product-1').set(invalidProduct))
+})
+
+test('Admin puede registrar desde kiosco una compra pendiente y descontar inventario', async () => {
+  const db = env.authenticatedContext('admin').database()
+  const timestamp = now()
+  const kioskSale = saleFixture('sale-kiosk', 'credit')
+
+  kioskSale.athleteId = 'athlete-1'
+  kioskSale.source = 'kiosk'
+
+  await assertSucceeds(db.ref('v1').update({
+    'sales/sale-kiosk': kioskSale,
+    'products/product-1/stock': 1,
+    'products/product-1/updatedAt': timestamp,
+  }))
 })
 
 test('Admin puede aplicar un abono a una venta existente', async () => {

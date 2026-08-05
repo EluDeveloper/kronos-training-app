@@ -11,6 +11,7 @@ import {
   signInWithPassword,
   signOutCurrentUser,
   startAnonymousSession,
+  verifyPasswordCredentials,
 } from '@/firebase/auth'
 import { isFirebaseConfigured, missingFirebaseConfiguration } from '@/firebase/config'
 import { subscribeToConnection, subscribeToDeviceAuthorization } from '@/firebase/database'
@@ -268,6 +269,21 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  async function verifyAdminCredentials(email: string, password: string) {
+    try {
+      const verifiedUid = await verifyPasswordCredentials(email, password)
+      const verifiedProfile = await usersService.getProfile(verifiedUid)
+
+      if (!verifiedProfile || verifiedProfile.role !== 'admin' || !verifiedProfile.enabled)
+        throw new Error('La cuenta es válida, pero no tiene autorización de Admin.')
+
+      return verifiedUid
+    }
+    catch (passwordError) {
+      throw new Error(authErrorMessage(passwordError))
+    }
+  }
+
   async function logout() {
     await signOutCurrentUser()
   }
@@ -301,6 +317,7 @@ export const useSessionStore = defineStore('session', () => {
     bootstrapAdmin,
     changePassword,
     sendPasswordReset,
+    verifyAdminCredentials,
     logout,
     dispose,
   }

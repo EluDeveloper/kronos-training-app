@@ -82,6 +82,12 @@ export const routes = [
     component: () => import('@/layouts/blank.vue'),
     children: [
       {
+        path: 'kiosco',
+        name: 'kiosk',
+        meta: { adminOnly: true },
+        component: () => import('@/pages/kiosco.vue'),
+      },
+      {
         path: '/:pathMatch(.*)*',
         component: () => import('@/pages/[...error].vue'),
       },

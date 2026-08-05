@@ -58,6 +58,10 @@ function openForm(plan?: MembershipPlan) {
   dialog.value = true
 }
 
+function openCreateForm() {
+  openForm()
+}
+
 async function save() {
   if (!form.name.trim() || form.price <= 0 || (form.accessType === 'visit-pack' && form.visitLimit < 1)) {
     failure('Captura nombre, precio y configuración de visitas válidos.')
@@ -107,7 +111,7 @@ onBeforeUnmount(() => plans.dispose())
     >
       <VBtn
         prepend-icon="ri-add-line"
-        @click="openForm"
+        @click="openCreateForm"
       >
         Nuevo plan
       </VBtn>

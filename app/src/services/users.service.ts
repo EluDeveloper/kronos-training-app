@@ -1,4 +1,4 @@
-import { onValue, ref, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
+import { get, onValue, ref, serverTimestamp, set, update, type Unsubscribe } from 'firebase/database'
 import { createManagedPasswordUser } from '@/firebase/auth'
 import { BUSINESS_ROOT } from '@/firebase/database'
 import { normalizePermissions, type AppUser, type AuthConfiguration, type UserPermissions, type UserRole } from '@/types/access'
@@ -26,6 +26,12 @@ const profilePayload = (uid: string, input: ManagedUserInput, createdBy: string,
 })
 
 export const usersService = {
+  async getProfile(uid: string) {
+    const snapshot = await get(ref(requireDatabase(), `${BUSINESS_ROOT}/users/${uid}`))
+
+    return snapshot.exists() ? snapshot.val() as AppUser : null
+  },
+
   subscribeAuthConfiguration(onChange: (configuration: AuthConfiguration | null) => void, onError: (error: Error) => void): Unsubscribe {
     return onValue(
       ref(requireDatabase(), `${BUSINESS_ROOT}/authConfig`),

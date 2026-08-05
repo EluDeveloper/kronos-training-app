@@ -33,6 +33,7 @@ export interface Athlete extends AuditFields {
   profile: AthleteProfile
   membership: Membership
   status: ActiveStatus
+  kioskCode?: string | null
   inactiveAt?: ISODate | null
   inactiveReason?: string | null
   migrationNeedsReview?: boolean
@@ -133,6 +134,8 @@ export interface Product extends AuditFields {
   id: EntityId
   name: string
   category: string
+  barcode?: string | null
+  barcodes?: Record<string, true> | null
   size?: string | null
   stock: number
   alertLevel: number
@@ -168,6 +171,8 @@ export interface Sale extends AuditFields {
   items: Record<EntityId, SaleItem>
   total: number
   status: SaleStatus
+  source?: 'pos' | 'kiosk'
+  approvedBy?: EntityId | null
   payments?: Record<EntityId, SalePayment>
   cancelledAt?: ISOTimestamp | null
   inventoryRestoredAt?: ISOTimestamp | null

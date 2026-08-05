@@ -3,6 +3,8 @@ import PageHeader from '@/components/kronos/PageHeader.vue'
 import MetricCard from '@/components/kronos/MetricCard.vue'
 import EmptyState from '@/components/kronos/EmptyState.vue'
 import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
+import BarcodeScanner from '@/components/kronos/BarcodeScanner.vue'
+import ProductBarcodeLabelDialog from '@/components/kronos/ProductBarcodeLabelDialog.vue'
 import { useCommerceStore } from '@/stores/commerce'
 import { useAthletesStore } from '@/stores/athletes'
 import { useVisitorsStore } from '@/stores/visitors'
@@ -11,6 +13,7 @@ import { useSessionStore } from '@/stores/session'
 import type { PaymentMethod, Product, Sale, SaleItem, SalePayment, StoreCreditEntry } from '@/types/domain'
 import { buildSalePaymentReceipt, buildSaleReceipt, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
+import { generateInternalBarcode, normalizeProductBarcode, productBarcodes } from '@/utils/product-barcodes'
 
 const commerce = useCommerceStore()
 const athletes = useAthletesStore()
@@ -18,6 +21,7 @@ const visitors = useVisitorsStore()
 const notifications = useNotificationsStore()
 const session = useSessionStore()
 const route = useRoute()
+const router = useRouter()
 const canSell = computed(() => session.can('storeSell'))
 const canCollect = computed(() => session.can('storeCollect'))
 const canManageInventory = computed(() => session.can('storeInventory'))
@@ -25,6 +29,8 @@ const canCancelSales = computed(() => session.can('storeCancel'))
 const tab = ref(canSell.value ? 'pos' : 'inventory')
 const saving = ref(false)
 const productDialog = ref(false)
+const barcodeDialog = ref(false)
+const barcodeLabelDialog = ref(false)
 const stockDialog = ref(false)
 const paymentDialog = ref(false)
 const receiptDialog = ref(false)
@@ -44,7 +50,10 @@ const salesPage = ref(1)
 const perPage = 15
 const cart = ref<Record<string, SaleItem>>({})
 const saleForm = reactive({ customerKey: '', customerName: '', method: 'cash' as PaymentMethod, initialPayment: 0, received: 0, creditApplied: 0, saveExcessAsCredit: false })
-const productForm = reactive({ name: '', category: '', size: '', stock: 0, alertLevel: 2, unitCost: 0, salePrice: 0, status: 'active' as const })
+const productForm = reactive({ name: '', category: '', barcode: '', alternativeBarcodes: [] as string[], size: '', stock: 0, alertLevel: 2, unitCost: 0, salePrice: 0, status: 'active' as const })
+const alternativeBarcodeInput = ref('')
+const barcodeScanTarget = ref<'primary' | 'alternative'>('primary')
+const barcodeLabel = reactive({ name: '', variant: '', price: 0, code: '' })
 const stockForm = reactive({ product: null as Product | null, quantity: 1 })
 const paymentForm = reactive({ sale: null as Sale | null, amount: 0, method: 'cash' as PaymentMethod, received: 0, saveExcessAsCredit: false })
 
@@ -69,6 +78,8 @@ const saleChange = computed(() => Math.max(0, cashExcess.value - saleCreditDepos
 const paymentExcess = computed(() => paymentForm.method === 'cash' ? Math.max(0, Number(paymentForm.received || 0) - Number(paymentForm.amount || 0)) : 0)
 const paymentCreditDeposit = computed(() => paymentForm.saveExcessAsCredit && paymentForm.sale?.athleteId && Number(paymentForm.amount) >= saleBalance(paymentForm.sale) ? paymentExcess.value : 0)
 const paymentChange = computed(() => Math.max(0, paymentExcess.value - paymentCreditDeposit.value))
+const paymentBalance = computed(() => paymentForm.sale ? saleBalance(paymentForm.sale) : 0)
+const paymentRemaining = computed(() => Math.max(0, paymentBalance.value - Number(paymentForm.amount || 0)))
 
 const creditAccounts = computed(() => commerce.storeCredits
   .filter(account => account.balance > 0 || Object.keys(account.entries ?? {}).length)
@@ -94,7 +105,7 @@ const filteredInventory = computed(() => commerce.products
 
     return true
   })
-  .filter(product => `${product.name} ${product.category} ${product.size ?? ''}`.toLocaleLowerCase('es').includes(inventorySearch.value.toLocaleLowerCase('es'))))
+  .filter(product => `${product.name} ${product.category} ${productBarcodes(product).join(' ')} ${product.size ?? ''}`.toLocaleLowerCase('es').includes(inventorySearch.value.toLocaleLowerCase('es'))))
 
 const inventoryPageCount = computed(() => Math.max(1, Math.ceil(filteredInventory.value.length / perPage)))
 const paginatedInventory = computed(() => filteredInventory.value.slice((inventoryPage.value - 1) * perPage, inventoryPage.value * perPage))
@@ -137,6 +148,8 @@ watch(() => saleForm.customerKey, key => {
     saleForm.customerName = visitors.items.find(item => item.id === key.slice(8))?.name ?? ''
   else if (key.startsWith('athlete:'))
     saleForm.customerName = athletes.items.find(item => item.id === key.slice(8))?.profile.name ?? ''
+  else if (!key)
+    saleForm.customerName = ''
 
   saleForm.creditApplied = 0
   saleForm.saveExcessAsCredit = false
@@ -157,6 +170,15 @@ watch(() => saleForm.method, method => {
 watch(() => saleForm.initialPayment, value => {
   if (saleForm.method === 'cash' && Number(saleForm.received || 0) < Number(value || 0))
     saleForm.received = Number(value || 0)
+})
+watch(() => paymentForm.amount, (amount, previousAmount) => {
+  if (paymentForm.method === 'cash' && Number(paymentForm.received || 0) === Number(previousAmount || 0))
+    paymentForm.received = Number(amount || 0)
+})
+watch(() => paymentForm.method, method => {
+  paymentForm.received = Number(paymentForm.amount || 0)
+  if (method !== 'cash')
+    paymentForm.saveExcessAsCredit = false
 })
 watch(() => cartItems.value.length, () => { cartPage.value = Math.min(cartPage.value, cartPageCount.value) })
 watch([inventorySearch, inventoryStockFilter], () => { inventoryPage.value = 1 })
@@ -246,22 +268,54 @@ function openProduct(product?: Product) {
     return notifications.show('No tienes permiso para administrar inventario.', 'warning')
 
   editingProduct.value = product ?? null
-  Object.assign(productForm, product ? { name: product.name, category: product.category, size: product.size ?? '', stock: product.stock, alertLevel: product.alertLevel, unitCost: product.unitCost, salePrice: product.salePrice, status: product.status } : { name: '', category: '', size: '', stock: 0, alertLevel: 2, unitCost: 0, salePrice: 0, status: 'active' })
+
+  const primaryBarcode = normalizeProductBarcode(product?.barcode)
+
+  Object.assign(productForm, product ? { name: product.name, category: product.category, barcode: primaryBarcode, alternativeBarcodes: productBarcodes(product).filter(code => code !== primaryBarcode), size: product.size ?? '', stock: product.stock, alertLevel: product.alertLevel, unitCost: product.unitCost, salePrice: product.salePrice, status: product.status } : { name: '', category: '', barcode: '', alternativeBarcodes: [], size: '', stock: 0, alertLevel: 2, unitCost: 0, salePrice: 0, status: 'active' })
+  alternativeBarcodeInput.value = ''
+  barcodeScanTarget.value = 'primary'
   productDialog.value = true
+}
+
+function openNewProduct() {
+  openProduct()
 }
 
 async function saveProduct() {
   if (!canManageInventory.value)
     return notifications.show('No tienes permiso para administrar inventario.', 'warning')
 
-  if (!productForm.name.trim() || !productForm.category.trim() || productForm.stock < 0 || productForm.unitCost < 0 || productForm.salePrice < 0) {
+  const barcode = normalizeProductBarcode(productForm.barcode)
+  const alternativeBarcodes = [...new Set(productForm.alternativeBarcodes.map(normalizeProductBarcode).filter(code => code && code !== barcode))]
+  const allBarcodes = [barcode, ...alternativeBarcodes].filter(Boolean)
+  if (!productForm.name.trim() || !productForm.category.trim() || productForm.stock < 0 || productForm.unitCost < 0 || productForm.salePrice < 0 || allBarcodes.some(code => !/^[a-z0-9-]{4,64}$/i.test(code))) {
     notifications.show('Completa los datos del producto con valores válidos.', 'warning')
 
     return
   }
+
+  const codesUsedByOtherProducts = new Set(commerce.products
+    .filter(product => product.id !== editingProduct.value?.id)
+    .flatMap(productBarcodes))
+
+  if (allBarcodes.some(code => codesUsedByOtherProducts.has(code)))
+    return notifications.show('Uno de los códigos ya pertenece a otro producto. Cada código debe identificar una sola variante y precio.', 'warning')
+
   saving.value = true
   try {
-    const payload = { ...productForm, name: productForm.name.trim(), category: productForm.category.trim(), size: productForm.size.trim() || null, stock: Number(productForm.stock), alertLevel: Number(productForm.alertLevel), unitCost: Number(productForm.unitCost), salePrice: Number(productForm.salePrice) }
+    const payload = {
+      name: productForm.name.trim(),
+      category: productForm.category.trim(),
+      barcode: barcode || null,
+      barcodes: alternativeBarcodes.length ? Object.fromEntries(alternativeBarcodes.map(code => [code, true as const])) as Record<string, true> : null,
+      size: productForm.size.trim() || null,
+      stock: Number(productForm.stock),
+      alertLevel: Number(productForm.alertLevel),
+      unitCost: Number(productForm.unitCost),
+      salePrice: Number(productForm.salePrice),
+      status: productForm.status,
+    }
+
     if (editingProduct.value)
       await commerce.updateProduct(editingProduct.value.id, payload)
     else
@@ -271,6 +325,74 @@ async function saveProduct() {
   }
   catch (error) { notifications.show(error instanceof Error ? error.message : 'No se pudo guardar.', 'error') }
   finally { saving.value = false }
+}
+
+function openBarcodeScanner(target: 'primary' | 'alternative') {
+  barcodeScanTarget.value = target
+  barcodeDialog.value = true
+}
+
+function addAlternativeBarcode(value = alternativeBarcodeInput.value) {
+  const code = normalizeProductBarcode(value)
+  const primary = normalizeProductBarcode(productForm.barcode)
+  if (!code || !/^[a-z0-9-]{4,64}$/i.test(code))
+    return notifications.show('El código debe contener entre 4 y 64 letras, números o guiones.', 'warning')
+  if (code === primary || productForm.alternativeBarcodes.includes(code))
+    return notifications.show('Ese código ya está agregado a este producto.', 'warning')
+  if (commerce.products.some(product => product.id !== editingProduct.value?.id && productBarcodes(product).includes(code)))
+    return notifications.show('Ese código ya pertenece a otro producto.', 'warning')
+
+  productForm.alternativeBarcodes.push(code)
+  alternativeBarcodeInput.value = ''
+}
+
+function removeAlternativeBarcode(code: string) {
+  productForm.alternativeBarcodes = productForm.alternativeBarcodes.filter(item => item !== code)
+}
+
+function useScannedBarcode(code: string) {
+  const normalizedCode = normalizeProductBarcode(code)
+
+  if (barcodeScanTarget.value === 'alternative')
+    addAlternativeBarcode(normalizedCode)
+  else
+    productForm.barcode = normalizedCode
+  barcodeDialog.value = false
+  notifications.show('Código de barras capturado.')
+}
+
+function createInternalBarcode() {
+  const formBarcodes = Object.fromEntries(productForm.alternativeBarcodes.map(code => [code, true])) as Record<string, true>
+  const code = generateInternalBarcode([...commerce.products, { barcode: productForm.barcode, barcodes: formBarcodes }])
+
+  if (!normalizeProductBarcode(productForm.barcode))
+    productForm.barcode = code
+  else
+    productForm.alternativeBarcodes.push(code)
+  openBarcodeLabel(code)
+  notifications.show('Código interno generado. Guarda el producto para activarlo.')
+}
+
+function openBarcodeLabel(code: string, product?: Product) {
+  Object.assign(barcodeLabel, {
+    name: product?.name ?? (productForm.name.trim() || 'Producto'),
+    variant: product?.size ?? productForm.size.trim(),
+    price: product?.salePrice ?? Number(productForm.salePrice || 0),
+    code,
+  })
+  barcodeLabelDialog.value = true
+}
+
+async function openKiosk() {
+  try {
+    if (document.fullscreenEnabled && !document.fullscreenElement)
+      await document.documentElement.requestFullscreen()
+  }
+  catch {
+    // El modo de página completa mantiene el panel oculto aunque iPadOS no conceda Fullscreen API.
+  }
+
+  await router.push('/kiosco')
 }
 
 function openStock(product: Product) {
@@ -311,8 +433,12 @@ async function applyPayment() {
   const sale = paymentForm.sale
   const amount = Number(paymentForm.amount)
   const received = paymentForm.method === 'cash' ? Number(paymentForm.received || 0) : amount
-  if (!sale || amount <= 0 || amount > saleBalance(sale) || received < amount)
-    return notifications.show('El abono excede el saldo o no es válido.', 'warning')
+  if (!sale)
+    return notifications.show('No se encontró la venta pendiente.', 'warning')
+  if (!Number.isFinite(amount) || amount <= 0 || amount > saleBalance(sale))
+    return notifications.show(`El abono debe ser mayor a $0 y no superar ${formatCurrency(saleBalance(sale))}.`, 'warning')
+  if (!Number.isFinite(received) || received < amount)
+    return notifications.show(`El efectivo recibido (${formatCurrency(received)}) es menor que el abono (${formatCurrency(amount)}).`, 'warning')
   saving.value = true
   try {
     const result = await commerce.addPayment(sale.id, amount, paymentForm.method, received, paymentChange.value, paymentCreditDeposit.value)
@@ -354,13 +480,21 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
     description="Punto de venta, inventario y cuentas por cobrar sin duplicar ingresos."
   >
     <template
-      v-if="canManageInventory"
+      v-if="canManageInventory || session.isAdmin"
       #actions
     >
       <VBtn
+        v-if="session.isAdmin"
+        prepend-icon="ri-scan-2-line"
+        @click="openKiosk"
+      >
+        Abrir kiosco
+      </VBtn>
+      <VBtn
+        v-if="canManageInventory"
         variant="tonal"
         prepend-icon="ri-add-box-line"
-        @click="openProduct"
+        @click="openNewProduct"
       >
         Nuevo producto
       </VBtn>
@@ -533,7 +667,6 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                 label="Buscar miembro o visitante (opcional)"
                 prepend-inner-icon="ri-search-line"
                 clearable
-                auto-select-first
               />
               <VTextField
                 v-model="saleForm.customerName"
@@ -632,7 +765,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
             >
               <VTextField
                 v-model="inventorySearch"
-                label="Buscar producto, categoría o talla"
+                label="Buscar producto, código, categoría o talla"
                 prepend-inner-icon="ri-search-line"
                 clearable
               />
@@ -654,7 +787,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
             description="Crea el primer producto o cambia los filtros."
           /><template v-else>
             <VTable class="text-no-wrap">
-              <thead><tr><th>PRODUCTO</th><th>CATEGORÍA</th><th>STOCK</th><th>COSTO</th><th>PRECIO</th><th v-if="canManageInventory" /></tr></thead><tbody>
+              <thead><tr><th>PRODUCTO</th><th>CÓDIGO</th><th>CATEGORÍA</th><th>STOCK</th><th>COSTO</th><th>PRECIO</th><th v-if="canManageInventory" /></tr></thead><tbody>
                 <tr
                   v-for="product in paginatedInventory"
                   :key="product.id"
@@ -662,6 +795,18 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                   <td>
                     <strong>{{ product.name }}</strong><div class="text-caption text-medium-emphasis">
                       {{ product.size || 'Sin talla' }}
+                    </div>
+                  </td><td>
+                    <div class="d-flex align-center ga-1">
+                      <span class="text-caption">{{ product.barcode || 'Sin código' }}</span>
+                      <VChip
+                        v-if="productBarcodes(product).length > (product.barcode ? 1 : 0)"
+                        size="x-small"
+                        color="secondary"
+                        variant="tonal"
+                      >
+                        +{{ productBarcodes(product).length - (product.barcode ? 1 : 0) }}
+                      </VChip>
                     </div>
                   </td><td>{{ product.category }}</td><td>
                     <VChip
@@ -923,7 +1068,19 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                   v-for="sale in paginatedSales"
                   :key="sale.id"
                 >
-                  <td>{{ formatDate(sale.createdAt) }}</td><td>{{ customerName(sale) }}</td><td>{{ formatCurrency(sale.total) }}</td><td>
+                  <td>{{ formatDate(sale.createdAt) }}</td><td>
+                    {{ customerName(sale) }}
+                    <div v-if="sale.source === 'kiosk'">
+                      <VChip
+                        class="mt-1"
+                        size="x-small"
+                        color="secondary"
+                        variant="tonal"
+                      >
+                        Kiosco
+                      </VChip>
+                    </div>
+                  </td><td>{{ formatCurrency(sale.total) }}</td><td>
                     <VChip
                       size="small"
                       :color="sale.status === 'paid' ? 'success' : sale.status === 'credit' ? 'warning' : 'error'"
@@ -979,7 +1136,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
 
   <VDialog
     v-model="productDialog"
-    max-width="680"
+    max-width="820"
   >
     <VCard
       class="kronos-card"
@@ -1007,6 +1164,95 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
               v-model="productForm.category"
               label="Categoría"
             />
+          </VCol><VCol cols="12">
+            <VTextField
+              v-model="productForm.barcode"
+              label="Código principal"
+              hint="Debe corresponder exactamente a esta variante y precio."
+              persistent-hint
+              prepend-inner-icon="ri-barcode-line"
+            >
+              <template #append>
+                <VBtn
+                  icon="ri-camera-line"
+                  variant="text"
+                  aria-label="Escanear código de barras"
+                  @click="openBarcodeScanner('primary')"
+                />
+                <VBtn
+                  v-if="productForm.barcode"
+                  icon="ri-printer-line"
+                  variant="text"
+                  aria-label="Imprimir etiqueta del código principal"
+                  @click="openBarcodeLabel(normalizeProductBarcode(productForm.barcode))"
+                />
+              </template>
+            </VTextField>
+          </VCol><VCol cols="12">
+            <VAlert
+              color="secondary"
+              variant="tonal"
+              class="mb-4"
+            >
+              Usa varios códigos únicamente cuando todos representan el mismo producto, variante, precio e inventario. Para otro tamaño o precio, crea otro producto.
+            </VAlert>
+            <div class="d-flex flex-wrap ga-3 align-start">
+              <VTextField
+                v-model="alternativeBarcodeInput"
+                class="flex-grow-1"
+                label="Código alternativo"
+                hint="Ejemplo: otro empaque del mismo producto exacto"
+                persistent-hint
+                prepend-inner-icon="ri-barcode-line"
+                @keyup.enter="addAlternativeBarcode"
+              />
+              <VBtn
+                height="56"
+                variant="tonal"
+                icon="ri-camera-line"
+                aria-label="Escanear código alternativo"
+                @click="openBarcodeScanner('alternative')"
+              />
+              <VBtn
+                height="56"
+                variant="tonal"
+                prepend-icon="ri-add-line"
+                @click="addAlternativeBarcode"
+              >
+                Agregar
+              </VBtn>
+            </div>
+            <div
+              v-if="productForm.alternativeBarcodes.length"
+              class="d-flex flex-wrap ga-2 mt-2"
+            >
+              <VChip
+                v-for="code in productForm.alternativeBarcodes"
+                :key="code"
+                closable
+                color="secondary"
+                variant="tonal"
+                @click:close="removeAlternativeBarcode(code)"
+              >
+                {{ code }}
+                <VBtn
+                  class="ms-1"
+                  icon="ri-printer-line"
+                  size="x-small"
+                  variant="text"
+                  aria-label="Imprimir etiqueta"
+                  @click.stop="openBarcodeLabel(code)"
+                />
+              </VChip>
+            </div>
+            <VBtn
+              class="mt-4"
+              variant="outlined"
+              prepend-icon="ri-barcode-box-line"
+              @click="createInternalBarcode"
+            >
+              Generar código interno y etiqueta
+            </VBtn>
           </VCol><VCol
             cols="12"
             md="4"
@@ -1077,6 +1323,36 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
     </VCard>
   </VDialog>
   <VDialog
+    v-model="barcodeDialog"
+    max-width="680"
+  >
+    <VCard
+      class="kronos-card"
+      rounded="xl"
+    >
+      <VCardItem
+        class="pa-6 pb-2"
+        title="Escanear código de barras"
+        subtitle="Centra el código dentro del recuadro."
+      />
+      <VCardText class="pa-6">
+        <BarcodeScanner
+          :active="barcodeDialog"
+          @detected="useScannedBarcode"
+        />
+      </VCardText>
+      <VCardActions class="pa-6 pt-0">
+        <VSpacer />
+        <VBtn
+          variant="text"
+          @click="barcodeDialog = false"
+        >
+          Cancelar
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+  <VDialog
     v-model="stockDialog"
     max-width="430"
   >
@@ -1119,30 +1395,48 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
         class="pa-6 pb-2"
         title="Aplicar abono"
         :subtitle="paymentForm.sale ? customerName(paymentForm.sale) : 'Venta pendiente'"
-      /><VCardText class="pa-6 d-flex flex-column ga-5">
+      />
+      <VCardText class="pa-6 d-flex flex-column ga-5">
         <VAlert
           type="info"
           variant="tonal"
         >
-          Saldo actual: {{ formatCurrency(paymentForm.sale ? saleBalance(paymentForm.sale) : 0) }}
-        </VAlert><VTextField
+          Saldo actual: {{ formatCurrency(paymentBalance) }}
+        </VAlert>
+        <VTextField
           v-model.number="paymentForm.amount"
           type="number"
-          min="0"
-          label="Monto aplicado"
+          min="0.01"
+          :max="paymentBalance"
+          step="0.01"
+          label="Abono que se aplicará"
           prefix="$"
-        /><VSelect
+          hint="Este monto se descontará del saldo pendiente."
+          persistent-hint
+        />
+        <VSelect
           v-model="paymentForm.method"
           :items="[{title:'Efectivo',value:'cash'},{title:'Transferencia',value:'transfer'},{title:'Tarjeta',value:'card'},{title:'Otro',value:'other'}]"
           label="Método"
-        /><VTextField
+        />
+        <VTextField
           v-if="paymentForm.method === 'cash'"
           v-model.number="paymentForm.received"
           type="number"
           min="0"
+          step="0.01"
           label="Efectivo recibido"
           prefix="$"
+          hint="Monto que entregó el cliente; debe ser igual o mayor al abono."
+          persistent-hint
         />
+        <VAlert
+          v-if="paymentForm.amount > 0 && paymentForm.amount <= paymentBalance && (paymentForm.method !== 'cash' || paymentForm.received >= paymentForm.amount)"
+          color="secondary"
+          variant="tonal"
+        >
+          Después del abono quedarán {{ formatCurrency(paymentRemaining) }} pendientes.
+        </VAlert>
         <VSwitch
           v-if="paymentForm.sale?.athleteId && paymentExcess > 0 && paymentForm.amount >= saleBalance(paymentForm.sale)"
           v-model="paymentForm.saveExcessAsCredit"
@@ -1164,7 +1458,8 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
         >
           Cambio a entregar: {{ formatCurrency(paymentChange) }}
         </VAlert>
-      </VCardText><VCardActions class="pa-6 pt-0">
+      </VCardText>
+      <VCardActions class="pa-6 pt-0">
         <VSpacer /><VBtn
           variant="text"
           @click="paymentDialog=false"
@@ -1174,7 +1469,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
           :loading="saving"
           @click="applyPayment"
         >
-          Aplicar
+          Aplicar abono
         </VBtn>
       </VCardActions>
     </VCard>
@@ -1182,5 +1477,13 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
   <ReceiptDialog
     v-model="receiptDialog"
     :receipt="activeReceipt"
+  />
+  <ProductBarcodeLabelDialog
+    v-model="barcodeLabelDialog"
+    :name="barcodeLabel.name"
+    :variant="barcodeLabel.variant"
+    :price="barcodeLabel.price"
+    :code="barcodeLabel.code"
+    @error="notifications.show($event, 'error')"
   />
 </template>

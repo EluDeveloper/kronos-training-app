@@ -76,9 +76,13 @@ function showReceipt(payment: Payment, installment?: MembershipPaymentInstallmen
 }
 
 function openForm(athleteId = '', paymentPeriod = currentPeriod()) {
-  selectedAthleteId.value = athleteId || athletes.active[0]?.id || ''
+  selectedAthleteId.value = athletes.active.some(athlete => athlete.id === athleteId) ? athleteId : ''
   selectedPeriod.value = paymentPeriod
   dialog.value = true
+}
+
+function openEmptyForm() {
+  openForm()
 }
 
 function openCollectionFromRoute() {
@@ -114,7 +118,7 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
       <VBtn
         prepend-icon="ri-add-circle-line"
         :disabled="!athletes.active.length"
-        @click="openForm"
+        @click="openEmptyForm"
       >
         Aplicar pago
       </VBtn>

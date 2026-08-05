@@ -74,11 +74,13 @@ const personalBests = computed(() => new Set(performanceStore.records.map(record
 const latest = computed(() => [...performanceStore.records].sort((a, b) => timestampValue(b.recordedAt) - timestampValue(a.recordedAt))[0])
 
 watch([search, selectedAthleteId, selectedSkillId], () => { page.value = 1 })
-watch([() => athletesStore.items.length, () => performanceStore.records.length], () => {
-  if (!selectedAthleteId.value)
-    selectedAthleteId.value = performanceStore.records[0]?.athleteId ?? athletesStore.active[0]?.id ?? null
-}, { immediate: true })
 watch([selectedAthleteId, () => performanceStore.records.length], () => {
+  if (!selectedAthleteId.value) {
+    selectedSkillId.value = null
+
+    return
+  }
+
   const available = selectedSkillId.value && performanceStore.records.some(record => record.athleteId === selectedAthleteId.value && record.skillId === selectedSkillId.value)
   if (!available)
     selectedSkillId.value = performanceStore.records.find(record => record.athleteId === selectedAthleteId.value)?.skillId ?? athleteSkillItems.value[0]?.value ?? null
@@ -87,7 +89,7 @@ watch([selectedAthleteId, () => performanceStore.records.length], () => {
 function openCreate() {
   editingRecord.value = null
   Object.assign(form, {
-    athleteId: selectedAthleteId.value ?? athletesStore.active[0]?.id ?? '',
+    athleteId: selectedAthleteId.value ?? '',
     skillId: selectedSkillId.value ?? activeSkills.value[0]?.id ?? '',
     type: '1RM',
     recordedAt: new Date().toISOString().slice(0, 10),
@@ -227,7 +229,6 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
             label="Buscar atleta"
             prepend-inner-icon="ri-search-line"
             clearable
-            auto-select-first
           />
         </VCol>
         <VCol
@@ -408,7 +409,6 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
                 :items="athleteItems"
                 label="Buscar atleta"
                 prepend-inner-icon="ri-search-line"
-                auto-select-first
                 :disabled="Boolean(editingRecord)"
               />
             </VCol>

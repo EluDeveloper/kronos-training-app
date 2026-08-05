@@ -76,7 +76,7 @@ function initialize() {
   if (!props.modelValue)
     return
 
-  const athlete = athletes.active.find(item => item.id === props.athleteId) ?? athletes.active[0]
+  const athlete = athletes.active.find(item => item.id === props.athleteId)
 
   form.athleteId = athlete?.id ?? ''
   form.period = /^\d{4}-\d{2}$/.test(props.period) ? props.period : currentPeriod()
@@ -154,7 +154,6 @@ async function save() {
             placeholder="Escribe un nombre"
             prepend-inner-icon="ri-search-line"
             clearable
-            auto-select-first
             :disabled="lockAthlete"
           />
 

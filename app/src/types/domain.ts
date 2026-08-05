@@ -161,6 +161,8 @@ export interface SalePayment {
   changeGiven?: number
   creditBalance?: number
   appliedAt: ISOTimestamp
+  membershipPeriod?: string | null
+  membershipInstallmentId?: EntityId | null
 }
 
 export interface Sale extends AuditFields {
@@ -177,6 +179,11 @@ export interface Sale extends AuditFields {
   cancelledAt?: ISOTimestamp | null
   inventoryRestoredAt?: ISOTimestamp | null
   storeCreditRestoredAt?: ISOTimestamp | null
+}
+
+export interface CombinedStorePayment {
+  sale: Sale
+  payment: SalePayment
 }
 
 export type StoreCreditEntryType = 'deposit' | 'application' | 'refund'

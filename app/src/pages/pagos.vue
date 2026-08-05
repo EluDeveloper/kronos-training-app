@@ -10,8 +10,8 @@ import { usePaymentsStore } from '@/stores/payments'
 import { usePlansStore } from '@/stores/plans'
 import { useSessionStore } from '@/stores/session'
 import { useVisitorsStore } from '@/stores/visitors'
-import { currentPeriod, type MembershipPaymentInstallment, type Payment } from '@/types/domain'
-import { buildMembershipReceipt, buildVisitorVisitReceipt, type ReceiptData } from '@/utils/receipts'
+import { currentPeriod, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment } from '@/types/domain'
+import { buildMembershipReceipt, buildVisitorVisitReceipt, combinedStorePaymentsForInstallment, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, membershipTotalAmount, timestampValue } from '@/utils/kronos'
 
 const athletes = useAthletesStore()
@@ -51,7 +51,7 @@ const totalFor = (payment: Payment) => membershipTotalAmount(payment, paymentAth
 const balanceFor = (payment: Payment) => membershipBalance(payment, paymentAthlete(payment)?.membership.agreedAmount)
 const installmentsFor = (payment: Payment) => membershipInstallments(payment)
 
-function showReceipt(payment: Payment, installment?: MembershipPaymentInstallment) {
+function showReceipt(payment: Payment, installment?: MembershipPaymentInstallment, settledStorePayments: CombinedStorePayment[] = []) {
   if (payment.visitorId) {
     const visitor = visitors.items.find(item => item.id === payment.visitorId)
     if (visitor) {
@@ -71,7 +71,11 @@ function showReceipt(payment: Payment, installment?: MembershipPaymentInstallmen
 
   const planName = plans.items.find(plan => plan.id === athlete.membership.planId)?.name
 
-  activeReceipt.value = buildMembershipReceipt(payment, athlete, planName, installment)
+  const combinedStorePayments = settledStorePayments.length
+    ? settledStorePayments
+    : combinedStorePaymentsForInstallment(commerce.sales, athlete.id, payment.period, installment)
+
+  activeReceipt.value = buildMembershipReceipt(payment, athlete, planName, installment, combinedStorePayments)
   receiptDialog.value = true
 }
 

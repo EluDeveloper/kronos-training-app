@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import type { Athlete, ISOTimestamp, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
+import type { Athlete, CombinedStorePayment, ISOTimestamp, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
 import { formatCurrency, membershipBalance, membershipPaidAmount, membershipTotalAmount, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 
 export type ReceiptKind = 'membership' | 'sale' | 'sale-payment' | 'collection'
@@ -42,23 +42,58 @@ const folioSuffix = (value: string) => value.replace(/[^a-z0-9]/gi, '').slice(-8
 
 export const paymentMethodLabel = (method?: PaymentMethod | null) => method ? methodLabels[method] : 'No especificado'
 
-export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planName?: string, installment?: MembershipPaymentInstallment): ReceiptData {
-  const total = membershipTotalAmount(payment, athlete.membership.agreedAmount)
-  const amountPaid = installment?.amountApplied ?? membershipPaidAmount(payment)
+const storeSaleDescription = (sale: Sale) => {
+  const products = Object.values(sale.items ?? {})
+    .map(item => `${item.quantity} x ${item.name}`)
+    .join(', ')
+
+  return `Tienda: ${products || `venta VEN-${folioSuffix(sale.id)}`}`
+}
+
+export function combinedStorePaymentsForInstallment(sales: Sale[], athleteId: string, period: string, installment?: MembershipPaymentInstallment): CombinedStorePayment[] {
+  if (!installment)
+    return []
+
+  const installmentTime = timestampValue(installment.appliedAt)
+
+  return sales
+    .filter(sale => sale.athleteId === athleteId)
+    .flatMap(sale => Object.values(sale.payments ?? {})
+      .filter(storePayment => {
+        const explicitlyLinked = storePayment.membershipPeriod === period && storePayment.membershipInstallmentId === installment.id
+
+        const legacyCombinedPayment = !storePayment.membershipPeriod
+          && !storePayment.membershipInstallmentId
+          && storePayment.method === installment.method
+          && timestampValue(storePayment.appliedAt) === installmentTime
+
+        return explicitlyLinked || legacyCombinedPayment
+      })
+      .map(storePayment => ({ sale, payment: storePayment })))
+}
+
+export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planName?: string, installment?: MembershipPaymentInstallment, settledStorePayments: CombinedStorePayment[] = []): ReceiptData {
+  const membershipTotal = membershipTotalAmount(payment, athlete.membership.agreedAmount)
+  const membershipAmountPaid = installment?.amountApplied ?? membershipPaidAmount(payment)
   const balance = installment?.balanceAfter ?? membershipBalance(payment, athlete.membership.agreedAmount)
   const description = payment.concept?.trim() || `${installment ? 'Abono a mensualidad' : 'Membresía'} ${payment.period}`
+  const storeAmountPaid = settledStorePayments.reduce((total, entry) => total + Number(entry.payment.amountApplied || 0), 0)
+  const isCombinedPayment = storeAmountPaid > 0
 
   return {
     kind: 'membership',
-    folio: `MEM-${payment.period.replace('-', '')}-${folioSuffix(installment?.id ?? athlete.id)}`,
+    folio: `${isCombinedPayment ? 'COM' : 'MEM'}-${payment.period.replace('-', '')}-${folioSuffix(installment?.id ?? athlete.id)}`,
     issuedAt: installment?.appliedAt ?? payment.appliedAt ?? payment.updatedAt,
     customerName: athlete.profile.name,
     phone: athlete.profile.phone,
-    concept: payment.concept?.trim() || `Mensualidad ${payment.period}${planName ? ` - ${planName}` : ''}`,
-    lines: [{ description, ...(payment.visitCount ? { quantity: payment.visitCount, unitPrice: amountPaid / payment.visitCount } : {}), amount: amountPaid }],
+    concept: `${payment.concept?.trim() || `Mensualidad ${payment.period}${planName ? ` - ${planName}` : ''}`}${isCombinedPayment ? ' + tienda' : ''}`,
+    lines: [
+      { description, ...(payment.visitCount ? { quantity: payment.visitCount, unitPrice: membershipAmountPaid / payment.visitCount } : {}), amount: membershipAmountPaid },
+      ...settledStorePayments.map(entry => ({ description: storeSaleDescription(entry.sale), amount: Number(entry.payment.amountApplied || 0) })),
+    ],
     method: installment?.method ?? payment.method,
-    total,
-    amountPaid,
+    total: membershipTotal + storeAmountPaid,
+    amountPaid: membershipAmountPaid + storeAmountPaid,
     balance,
   }
 }
@@ -511,7 +546,8 @@ const receiptMessage = (receipt: ReceiptData) => receipt.kind === 'collection'
     `Hola ${receipt.customerName}, compartimos tu recibo de Kronos Training.`,
     `Folio: ${receipt.folio}`,
     `Concepto: ${receipt.concept}`,
-    `Pago: ${formatCurrency(receipt.amountPaid)}`,
+    ...receipt.lines.map(line => `- ${line.description}: ${formatCurrency(line.amount)}`),
+    `Pago total: ${formatCurrency(receipt.amountPaid)}`,
     receipt.balance > 0 ? `Saldo pendiente: ${formatCurrency(receipt.balance)}` : 'Saldo: pagado',
   ].join('\n')
 

@@ -281,7 +281,7 @@ test('un cobro combinado liquida mensualidad y deudas de tienda en una escritura
 
   await assertSucceeds(db.ref('v1').update({
     'payments/athlete-1/2026-09': monthlyPayment,
-    'sales/sale-credit/payments/combined-store': { id: 'combined-store', amountApplied: 20, method: 'cash', receivedAmount: 20, changeGiven: 0, appliedAt: timestamp },
+    'sales/sale-credit/payments/combined-store': { id: 'combined-store', amountApplied: 20, method: 'cash', receivedAmount: 20, changeGiven: 0, appliedAt: timestamp, membershipPeriod: '2026-09', membershipInstallmentId: 'combined' },
     'sales/sale-credit/status': 'paid',
     'sales/sale-credit/updatedAt': timestamp,
   }))

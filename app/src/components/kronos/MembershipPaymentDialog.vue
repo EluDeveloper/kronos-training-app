@@ -3,7 +3,7 @@ import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
 import { usePaymentsStore } from '@/stores/payments'
 import { useSessionStore } from '@/stores/session'
-import { currentPeriod, type MembershipPaymentInstallment, type Payment, type PaymentMethod, type Sale } from '@/types/domain'
+import { currentPeriod, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment, type PaymentMethod, type Sale } from '@/types/domain'
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, membershipTotalAmount, saleBalance } from '@/utils/kronos'
 
 const props = withDefaults(defineProps<{
@@ -31,7 +31,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'saved': [payment: Payment, installment: MembershipPaymentInstallment]
+  'saved': [payment: Payment, installment: MembershipPaymentInstallment, settledSales: CombinedStorePayment[]]
 }>()
 
 const athletes = useAthletesStore()
@@ -119,7 +119,7 @@ async function save() {
 
     success(`${result.payment.status === 'paid' ? `Mensualidad ${form.period} liquidada.` : `Abono aplicado. Restan ${formatCurrency(result.payment.balance ?? 0)}.`}${storeMessage}`)
     emit('update:modelValue', false)
-    emit('saved', result.payment, result.installment)
+    emit('saved', result.payment, result.installment, result.settledSales)
   }
   catch (error) {
     failure(error instanceof Error ? error.message : 'No fue posible aplicar el pago.')

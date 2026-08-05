@@ -14,9 +14,9 @@ import { useSessionStore } from '@/stores/session'
 import { useVisitPaymentsStore } from '@/stores/visit-payments'
 import { useVisitsStore } from '@/stores/visits'
 import { useVisitorsStore } from '@/stores/visitors'
-import { currentPeriod, planAccessType, planVisitLimit, type MembershipPaymentInstallment, type Payment } from '@/types/domain'
+import { currentPeriod, planAccessType, planVisitLimit, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment } from '@/types/domain'
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, saleBalance, timestampValue } from '@/utils/kronos'
-import { buildCollectionTicket, buildMembershipReceipt, type ReceiptData } from '@/utils/receipts'
+import { buildCollectionTicket, buildMembershipReceipt, combinedStorePaymentsForInstallment, type ReceiptData } from '@/utils/receipts'
 
 const athletes = useAthletesStore()
 const payments = usePaymentsStore()
@@ -185,7 +185,7 @@ function collectMembership(athleteId: string) {
   paymentDialog.value = true
 }
 
-function showReceipt(payment: Payment, installment?: MembershipPaymentInstallment) {
+function showReceipt(payment: Payment, installment?: MembershipPaymentInstallment, settledStorePayments: CombinedStorePayment[] = []) {
   const athlete = athletes.items.find(item => item.id === payment.athleteId)
   if (!athlete) {
     failure('No fue posible relacionar el recibo con el atleta.')
@@ -195,7 +195,11 @@ function showReceipt(payment: Payment, installment?: MembershipPaymentInstallmen
 
   const planName = plans.items.find(plan => plan.id === athlete.membership.planId)?.name
 
-  activeReceipt.value = buildMembershipReceipt(payment, athlete, planName, installment)
+  const combinedStorePayments = settledStorePayments.length
+    ? settledStorePayments
+    : combinedStorePaymentsForInstallment(commerce.sales, athlete.id, payment.period, installment)
+
+  activeReceipt.value = buildMembershipReceipt(payment, athlete, planName, installment, combinedStorePayments)
   receiptDialog.value = true
 }
 

@@ -1,5 +1,5 @@
 import { child, get, push, ref, runTransaction, update } from 'firebase/database'
-import type { MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment } from '@/types/domain'
+import type { CombinedStorePayment, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment } from '@/types/domain'
 import { businessPath, requireDatabase, subscribeValue, type ErrorHandler } from './realtime.service'
 import { saleBalance } from '@/utils/kronos'
 
@@ -18,7 +18,7 @@ export interface MembershipInstallmentInput {
 export interface AppliedMembershipInstallment {
   payment: Payment
   installment: MembershipPaymentInstallment
-  settledSales: Array<{ sale: Sale; payment: SalePayment }>
+  settledSales: CombinedStorePayment[]
 }
 
 const currency = (value: number) => Math.round(value * 100) / 100
@@ -129,6 +129,8 @@ export const paymentsService = {
           receivedAmount: balance,
           changeGiven: 0,
           appliedAt,
+          membershipPeriod: input.period,
+          membershipInstallmentId: installmentId,
         }
 
         updates[`sales/${sale.id}/payments/${salePaymentId}`] = salePayment

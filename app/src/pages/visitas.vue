@@ -14,9 +14,9 @@ import { useSessionStore } from '@/stores/session'
 import { useVisitPaymentsStore } from '@/stores/visit-payments'
 import { useVisitorsStore } from '@/stores/visitors'
 import { useVisitsStore } from '@/stores/visits'
-import { currentPeriod, planAccessType, planVisitLimit, planVisitPrice, type MembershipPaymentInstallment, type Payment, type Visit, type VisitPayment } from '@/types/domain'
+import { currentPeriod, planAccessType, planVisitLimit, planVisitPrice, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment, type Visit, type VisitPayment } from '@/types/domain'
 import { formatCurrency, formatDate, saleBalance, timestampValue } from '@/utils/kronos'
-import { buildAccumulatedVisitStatement, buildMembershipReceipt, buildRenewalReminder, buildVisitPaymentReceipt, buildVisitStatement, type ReceiptData } from '@/utils/receipts'
+import { buildAccumulatedVisitStatement, buildMembershipReceipt, buildRenewalReminder, buildVisitPaymentReceipt, buildVisitStatement, combinedStorePaymentsForInstallment, type ReceiptData } from '@/utils/receipts'
 
 const athletes = useAthletesStore()
 const visitors = useVisitorsStore()
@@ -333,14 +333,18 @@ function openVisitPayment() {
     memberPaymentDialog.value = true
 }
 
-function showPaymentReceipt(payment: Payment | VisitPayment, installment?: MembershipPaymentInstallment) {
+function showPaymentReceipt(payment: Payment | VisitPayment, installment?: MembershipPaymentInstallment, settledStorePayments: CombinedStorePayment[] = []) {
   if ('visitRefs' in payment) {
     const visitor = visitors.items.find(item => item.id === payment.visitorId)
     if (visitor)
       activeReceipt.value = buildVisitPaymentReceipt(payment, visitor)
   }
   else if (selectedAthlete.value) {
-    activeReceipt.value = buildMembershipReceipt(payment, selectedAthlete.value, selectedPlan.value?.name, installment)
+    const combinedStorePayments = settledStorePayments.length
+      ? settledStorePayments
+      : combinedStorePaymentsForInstallment(commerce.sales, selectedAthlete.value.id, payment.period, installment)
+
+    activeReceipt.value = buildMembershipReceipt(payment, selectedAthlete.value, selectedPlan.value?.name, installment, combinedStorePayments)
   }
   if (activeReceipt.value)
     receiptDialog.value = true

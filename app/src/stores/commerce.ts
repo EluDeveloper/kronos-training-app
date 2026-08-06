@@ -37,9 +37,10 @@ export const useCommerceStore = defineStore('commerce', () => {
   const addStock = (id: string, quantity: number) => productsService.addStock(id, quantity)
   const createSale = (sale: NewSale, creditDeposit = 0, creditApplied = 0) => salesService.create(sale, creditDeposit, creditApplied)
   const addPayment = (saleId: string, amount: number, method: string, received?: number, change?: number, creditDeposit = 0) => salesService.addPayment(saleId, amount, method, received, change, creditDeposit)
+  const addGroupedPayment = (saleIds: string[], amount: number, method: string, received?: number, change?: number, creditDeposit = 0) => salesService.addGroupedPayment(saleIds, amount, method, received, change, creditDeposit)
   const cancelSale = (saleId: string) => salesService.cancel(saleId)
   const creditForAthlete = (athleteId?: string | null) => storeCredits.value.find(account => account.athleteId === athleteId)?.balance ?? 0
   const dispose = () => { stopProducts?.(); stopSales?.(); stopStoreCredits?.(); stopProducts = null; stopSales = null; stopStoreCredits = null }
 
-  return { products, sales, storeCredits, openCredit, lowStock, loading, error, subscribe, createProduct, updateProduct, addStock, createSale, addPayment, cancelSale, creditForAthlete, dispose }
+  return { products, sales, storeCredits, openCredit, lowStock, loading, error, subscribe, createProduct, updateProduct, addStock, createSale, addPayment, addGroupedPayment, cancelSale, creditForAthlete, dispose }
 })

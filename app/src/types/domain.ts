@@ -163,6 +163,7 @@ export interface SalePayment {
   appliedAt: ISOTimestamp
   membershipPeriod?: string | null
   membershipInstallmentId?: EntityId | null
+  groupPaymentId?: EntityId | null
 }
 
 export interface Sale extends AuditFields {

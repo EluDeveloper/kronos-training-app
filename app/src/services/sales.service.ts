@@ -1,7 +1,7 @@
-import type { PaymentMethod, Sale, StoreCreditAccount, StoreCreditEntry } from '@/types/domain'
+import type { PaymentMethod, Sale, SalePayment, StoreCreditAccount, StoreCreditEntry } from '@/types/domain'
 import { get, increment, push, ref, update } from 'firebase/database'
 import { businessPath, requireDatabase, serverTimestamp, subscribeCollection, type ErrorHandler } from './realtime.service'
-import { saleAppliedAmount } from '@/utils/kronos'
+import { saleAppliedAmount, timestampValue } from '@/utils/kronos'
 
 export type NewSale = Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>
 
@@ -145,6 +145,103 @@ export const salesService = {
     }
 
     return { sale: updatedSale, payment }
+  },
+  async addGroupedPayment(saleIds: string[], amountApplied: number, method: string, receivedAmount = amountApplied, changeGiven = 0, creditDeposit = 0) {
+    const database = requireDatabase()
+    const uniqueSaleIds = [...new Set(saleIds.filter(Boolean))]
+
+    if (uniqueSaleIds.length < 2)
+      throw new Error('Selecciona al menos dos adeudos del mismo atleta.')
+
+    const snapshots = await Promise.all(uniqueSaleIds.map(saleId => get(ref(database, businessPath(`sales/${saleId}`)))))
+    const sales = snapshots.map(snapshot => snapshot.exists() ? snapshot.val() as Sale : null)
+
+    if (sales.some(sale => !sale))
+      throw new Error('Uno de los adeudos dejó de existir. Actualiza e intenta de nuevo.')
+
+    const openSales = (sales as Sale[])
+      .filter(sale => sale.status !== 'cancelled' && saleAppliedAmount(sale) < Number(sale.total || 0))
+      .sort((a, b) => timestampValue(a.createdAt) - timestampValue(b.createdAt) || a.id.localeCompare(b.id))
+
+    if (openSales.length !== uniqueSaleIds.length)
+      throw new Error('El saldo de uno de los adeudos cambió. Actualiza e intenta de nuevo.')
+
+    const athleteId = openSales[0]?.athleteId
+    if (!athleteId || openSales.some(sale => sale.athleteId !== athleteId))
+      throw new Error('El cobro conjunto sólo está disponible para adeudos del mismo atleta.')
+
+    const balances = new Map(openSales.map(sale => [sale.id, currency(Math.max(0, Number(sale.total) - saleAppliedAmount(sale)))]))
+    const totalBalance = currency([...balances.values()].reduce((total, balance) => total + balance, 0))
+    const amount = currency(amountApplied)
+    const received = currency(receivedAmount)
+    const deposit = currency(creditDeposit)
+
+    if (amount <= 0 || Math.abs(amount - totalBalance) > 0.01)
+      throw new Error('El total de los adeudos cambió. Actualiza e intenta cobrar nuevamente.')
+    if (received < amount)
+      throw new Error('El efectivo recibido es menor que el abono conjunto.')
+
+    const groupPaymentId = push(ref(database, businessPath('paymentGroups'))).key
+    if (!groupPaymentId)
+      throw new Error('No fue posible generar el identificador del cobro conjunto.')
+
+    const account = await loadCreditAccount(athleteId)
+    const finalCredit = currency(Number(account?.balance || 0) + deposit)
+    const appliedAt = Date.now()
+    const updates: Record<string, unknown> = {}
+    const results: Array<{ sale: Sale; payment: SalePayment }> = []
+    let remaining = amount
+
+    for (const [index, sale] of openSales.entries()) {
+      if (remaining <= 0)
+        break
+
+      const balance = balances.get(sale.id) ?? 0
+      const applied = currency(Math.min(balance, remaining))
+      const paymentId = push(ref(database, businessPath(`sales/${sale.id}/payments`))).key
+      if (!paymentId)
+        throw new Error('No fue posible generar uno de los movimientos del cobro.')
+
+      const payment = {
+        id: paymentId,
+        amountApplied: applied,
+        method: method as PaymentMethod,
+        ...(index === 0 ? { receivedAmount: received, changeGiven: currency(changeGiven) } : {}),
+        ...(index === 0 && deposit > 0 ? { creditBalance: finalCredit } : {}),
+        groupPaymentId,
+        appliedAt,
+      }
+
+      const status: Sale['status'] = applied >= balance - 0.01 ? 'paid' : 'credit'
+
+      updates[`sales/${sale.id}/payments/${paymentId}`] = payment
+      updates[`sales/${sale.id}/status`] = status
+      updates[`sales/${sale.id}/updatedAt`] = appliedAt
+      results.push({
+        sale: {
+          ...sale,
+          status,
+          payments: { ...(sale.payments ?? {}), [paymentId]: payment },
+          updatedAt: appliedAt,
+        },
+        payment,
+      })
+      remaining = currency(remaining - applied)
+    }
+
+    if (deposit > 0) {
+      const entryId = `deposit-${groupPaymentId}`
+
+      updates[`storeCredits/${athleteId}/athleteId`] = athleteId
+      updates[`storeCredits/${athleteId}/balance`] = finalCredit
+      updates[`storeCredits/${athleteId}/createdAt`] = account?.createdAt ?? appliedAt
+      updates[`storeCredits/${athleteId}/updatedAt`] = appliedAt
+      updates[`storeCredits/${athleteId}/entries/${entryId}`] = creditEntry(entryId, 'deposit', deposit, openSales[0].id, appliedAt, finalCredit)
+    }
+
+    await update(ref(database, businessPath('')), updates)
+
+    return { groupPaymentId, entries: results }
   },
   async cancel(saleId: string) {
     const database = requireDatabase()

@@ -977,8 +977,10 @@ onBeforeUnmount(() => {
 
 .empty-cart {
   display: grid;
+  inline-size: 100%;
   min-block-size: 300px;
   place-content: center;
+  place-items: center;
   text-align: center;
 }
 

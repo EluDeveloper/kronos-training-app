@@ -11,9 +11,9 @@ import { useVisitorsStore } from '@/stores/visitors'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSessionStore } from '@/stores/session'
 import type { PaymentMethod, Product, Sale, SaleItem, SalePayment, StoreCreditEntry } from '@/types/domain'
-import { buildSalePaymentReceipt, buildSaleReceipt, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
+import { buildGroupedSalePaymentReceipt, buildSalePaymentReceipt, buildSaleReceipt, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
-import { generateInternalBarcode, normalizeProductBarcode, productBarcodes } from '@/utils/product-barcodes'
+import { generateInternalBarcode, normalizeProductBarcode, productBarcodes, productHasBarcode } from '@/utils/product-barcodes'
 
 const commerce = useCommerceStore()
 const athletes = useAthletesStore()
@@ -35,6 +35,7 @@ const stockDialog = ref(false)
 const paymentDialog = ref(false)
 const receiptDialog = ref(false)
 const activeReceipt = ref<ReceiptData | null>(null)
+const groupedPaymentSales = ref<Sale[]>([])
 const editingProduct = ref<Product | null>(null)
 const selectedProductId = ref('')
 const selectedQuantity = ref(1)
@@ -52,7 +53,7 @@ const cart = ref<Record<string, SaleItem>>({})
 const saleForm = reactive({ customerKey: '', customerName: '', method: 'cash' as PaymentMethod, initialPayment: 0, received: 0, creditApplied: 0, saveExcessAsCredit: false })
 const productForm = reactive({ name: '', category: '', barcode: '', alternativeBarcodes: [] as string[], size: '', stock: 0, alertLevel: 2, unitCost: 0, salePrice: 0, status: 'active' as const })
 const alternativeBarcodeInput = ref('')
-const barcodeScanTarget = ref<'primary' | 'alternative'>('primary')
+const barcodeScanTarget = ref<'pos' | 'primary' | 'alternative'>('primary')
 const barcodeLabel = reactive({ name: '', variant: '', price: 0, code: '' })
 const stockForm = reactive({ product: null as Product | null, quantity: 1 })
 const paymentForm = reactive({ sale: null as Sale | null, amount: 0, method: 'cash' as PaymentMethod, received: 0, saveExcessAsCredit: false })
@@ -76,9 +77,15 @@ const cashExcess = computed(() => saleForm.method === 'cash' ? Math.max(0, Numbe
 const saleCreditDeposit = computed(() => saleForm.saveExcessAsCredit && selectedSaleAthleteId.value && Number(saleForm.initialPayment) + Number(saleForm.creditApplied) >= cartTotal.value ? cashExcess.value : 0)
 const saleChange = computed(() => Math.max(0, cashExcess.value - saleCreditDeposit.value))
 const paymentExcess = computed(() => paymentForm.method === 'cash' ? Math.max(0, Number(paymentForm.received || 0) - Number(paymentForm.amount || 0)) : 0)
-const paymentCreditDeposit = computed(() => paymentForm.saveExcessAsCredit && paymentForm.sale?.athleteId && Number(paymentForm.amount) >= saleBalance(paymentForm.sale) ? paymentExcess.value : 0)
+const isGroupedPayment = computed(() => groupedPaymentSales.value.length > 1)
+const paymentAthleteId = computed(() => groupedPaymentSales.value[0]?.athleteId ?? paymentForm.sale?.athleteId ?? '')
+
+const paymentBalance = computed(() => isGroupedPayment.value
+  ? groupedPaymentSales.value.reduce((total, sale) => total + saleBalance(sale), 0)
+  : paymentForm.sale ? saleBalance(paymentForm.sale) : 0)
+
+const paymentCreditDeposit = computed(() => paymentForm.saveExcessAsCredit && paymentAthleteId.value && Number(paymentForm.amount) >= paymentBalance.value ? paymentExcess.value : 0)
 const paymentChange = computed(() => Math.max(0, paymentExcess.value - paymentCreditDeposit.value))
-const paymentBalance = computed(() => paymentForm.sale ? saleBalance(paymentForm.sale) : 0)
 const paymentRemaining = computed(() => Math.max(0, paymentBalance.value - Number(paymentForm.amount || 0)))
 
 const creditAccounts = computed(() => commerce.storeCredits
@@ -90,10 +97,37 @@ const creditAccounts = computed(() => commerce.storeCredits
   }))
   .sort((a, b) => a.athleteName.localeCompare(b.athleteName, 'es')))
 
-const storePaymentHistory = computed(() => commerce.sales
-  .flatMap(sale => salePayments(sale).map(payment => ({ sale, payment })))
-  .sort((a, b) => timestampValue(b.payment.appliedAt) - timestampValue(a.payment.appliedAt))
-  .slice(0, 50))
+const storePaymentHistory = computed(() => {
+  const movements = commerce.sales
+    .flatMap(sale => salePayments(sale).map(payment => ({ sale, payment })))
+    .sort((a, b) => timestampValue(b.payment.appliedAt) - timestampValue(a.payment.appliedAt))
+
+  const groupedTotals = new Map<string, number>()
+
+  movements.forEach(entry => {
+    if (entry.payment.groupPaymentId)
+      groupedTotals.set(entry.payment.groupPaymentId, (groupedTotals.get(entry.payment.groupPaymentId) ?? 0) + Number(entry.payment.amountApplied || 0))
+  })
+
+  const seenGroups = new Set<string>()
+
+  return movements
+    .filter(entry => {
+      if (!entry.payment.groupPaymentId)
+        return true
+      if (seenGroups.has(entry.payment.groupPaymentId))
+        return false
+
+      seenGroups.add(entry.payment.groupPaymentId)
+
+      return true
+    })
+    .map(entry => ({
+      ...entry,
+      amount: entry.payment.groupPaymentId ? groupedTotals.get(entry.payment.groupPaymentId) ?? entry.payment.amountApplied : entry.payment.amountApplied,
+    }))
+    .slice(0, 50)
+})
 
 const creditEntryLabel = (entry: StoreCreditEntry) => ({ deposit: 'Depósito', application: 'Aplicado', refund: 'Reintegro' })[entry.type]
 
@@ -113,6 +147,30 @@ const paginatedInventory = computed(() => filteredInventory.value.slice((invento
 const filteredCredit = computed(() => commerce.openCredit
   .filter(sale => `${customerName(sale)} ${Object.values(sale.items ?? {}).map(item => item.name).join(' ')}`.toLocaleLowerCase('es').includes(creditSearch.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt)))
+
+const groupedDebtAccounts = computed(() => {
+  const groups = new Map<string, Sale[]>()
+
+  commerce.openCredit.forEach(sale => {
+    if (!sale.athleteId || saleBalance(sale) <= 0)
+      return
+
+    groups.set(sale.athleteId, [...(groups.get(sale.athleteId) ?? []), sale])
+  })
+
+  const search = creditSearch.value.trim().toLocaleLowerCase('es')
+
+  return [...groups.entries()]
+    .filter(([, sales]) => sales.length > 1)
+    .map(([athleteId, sales]) => ({
+      athleteId,
+      athleteName: athletes.items.find(athlete => athlete.id === athleteId)?.profile.name ?? sales[0].customerName,
+      sales: [...sales].sort((a, b) => timestampValue(a.createdAt) - timestampValue(b.createdAt)),
+      total: sales.reduce((total, sale) => total + saleBalance(sale), 0),
+    }))
+    .filter(group => !search || `${group.athleteName} ${group.sales.flatMap(sale => Object.values(sale.items ?? {}).map(item => item.name)).join(' ')}`.toLocaleLowerCase('es').includes(search))
+    .sort((a, b) => a.athleteName.localeCompare(b.athleteName, 'es'))
+})
 
 const creditPageCount = computed(() => Math.max(1, Math.ceil(filteredCredit.value.length / perPage)))
 const paginatedCredit = computed(() => filteredCredit.value.slice((creditPage.value - 1) * perPage, creditPage.value * perPage))
@@ -134,7 +192,16 @@ function showSaleReceipt(sale: Sale) {
 }
 
 function showPaymentReceipt(sale: Sale, payment: SalePayment) {
-  activeReceipt.value = buildSalePaymentReceipt(sale, payment, customerForSale(sale))
+  if (payment.groupPaymentId) {
+    const entries = commerce.sales.flatMap(groupSale => Object.values(groupSale.payments ?? {})
+      .filter(groupPayment => groupPayment.groupPaymentId === payment.groupPaymentId)
+      .map(groupPayment => ({ sale: groupSale, payment: groupPayment })))
+
+    activeReceipt.value = buildGroupedSalePaymentReceipt(entries, customerForSale(sale))
+  }
+  else {
+    activeReceipt.value = buildSalePaymentReceipt(sale, payment, customerForSale(sale))
+  }
   receiptDialog.value = true
 }
 
@@ -185,19 +252,36 @@ watch([inventorySearch, inventoryStockFilter], () => { inventoryPage.value = 1 }
 watch(creditSearch, () => { creditPage.value = 1 })
 watch([salesSearch, salesStatusFilter], () => { salesPage.value = 1 })
 
+function addProductToCart(product: Product, quantity: number) {
+  if (!canSell.value)
+    return false
+
+  const already = cart.value[product.id]?.quantity ?? 0
+  if (quantity <= 0 || quantity + already > product.stock)
+    return false
+
+  cart.value[product.id] = {
+    productId: product.id,
+    name: product.size ? `${product.name} · ${product.size}` : product.name,
+    quantity: quantity + already,
+    unitPrice: product.salePrice,
+    unitCost: product.unitCost,
+  }
+
+  return true
+}
+
 function addToCart() {
   if (!canSell.value)
     return notifications.show('No tienes permiso para realizar ventas.', 'warning')
 
   const product = commerce.products.find(item => item.id === selectedProductId.value)
   const quantity = Number(selectedQuantity.value)
-  const already = cart.value[product?.id ?? '']?.quantity ?? 0
-  if (!product || quantity <= 0 || quantity + already > product.stock) {
+  if (!product || !addProductToCart(product, quantity)) {
     notifications.show('Selecciona un producto y una cantidad disponible.', 'warning')
 
     return
   }
-  cart.value[product.id] = { productId: product.id, name: product.name, quantity: quantity + already, unitPrice: product.salePrice, unitCost: product.unitCost }
   selectedProductId.value = ''
   selectedQuantity.value = 1
 }
@@ -327,7 +411,10 @@ async function saveProduct() {
   finally { saving.value = false }
 }
 
-function openBarcodeScanner(target: 'primary' | 'alternative') {
+function openBarcodeScanner(target: 'pos' | 'primary' | 'alternative') {
+  if (target === 'pos' && !canSell.value)
+    return notifications.show('No tienes permiso para realizar ventas.', 'warning')
+
   barcodeScanTarget.value = target
   barcodeDialog.value = true
 }
@@ -353,12 +440,26 @@ function removeAlternativeBarcode(code: string) {
 function useScannedBarcode(code: string) {
   const normalizedCode = normalizeProductBarcode(code)
 
-  if (barcodeScanTarget.value === 'alternative')
+  if (barcodeScanTarget.value === 'pos') {
+    const product = activeProducts.value.find(item => productHasBarcode(item, normalizedCode))
+    if (!product)
+      return notifications.show(`No existe un producto activo con el código ${normalizedCode}.`, 'warning')
+    if (!addProductToCart(product, 1))
+      return notifications.show(`No hay existencias suficientes de ${product.name}.`, 'warning')
+
+    barcodeDialog.value = false
+    notifications.show(`${product.size ? `${product.name} · ${product.size}` : product.name} agregado al carrito.`)
+  }
+  else if (barcodeScanTarget.value === 'alternative') {
     addAlternativeBarcode(normalizedCode)
-  else
+    barcodeDialog.value = false
+    notifications.show('Código de barras capturado.')
+  }
+  else {
     productForm.barcode = normalizedCode
-  barcodeDialog.value = false
-  notifications.show('Código de barras capturado.')
+    barcodeDialog.value = false
+    notifications.show('Código de barras capturado.')
+  }
 }
 
 function createInternalBarcode() {
@@ -419,6 +520,7 @@ function openPayment(sale: Sale) {
   if (!canCollect.value)
     return notifications.show('No tienes permiso para aplicar abonos.', 'warning')
 
+  groupedPaymentSales.value = []
   paymentForm.sale = sale
   paymentForm.amount = saleBalance(sale)
   paymentForm.received = saleBalance(sale)
@@ -426,21 +528,57 @@ function openPayment(sale: Sale) {
   paymentForm.saveExcessAsCredit = false
   paymentDialog.value = true
 }
+
+function openGroupedPayment(sales: Sale[]) {
+  if (!canCollect.value)
+    return notifications.show('No tienes permiso para cobrar adeudos.', 'warning')
+  if (sales.length < 2 || !sales[0]?.athleteId || sales.some(sale => sale.athleteId !== sales[0].athleteId))
+    return notifications.show('El cobro conjunto requiere al menos dos adeudos del mismo atleta.', 'warning')
+
+  groupedPaymentSales.value = [...sales].sort((a, b) => timestampValue(a.createdAt) - timestampValue(b.createdAt))
+  paymentForm.sale = null
+  paymentForm.amount = groupedPaymentSales.value.reduce((total, sale) => total + saleBalance(sale), 0)
+  paymentForm.received = paymentForm.amount
+  paymentForm.method = 'cash'
+  paymentForm.saveExcessAsCredit = false
+  paymentDialog.value = true
+}
+
 async function applyPayment() {
   if (!canCollect.value)
     return notifications.show('No tienes permiso para aplicar abonos.', 'warning')
 
-  const sale = paymentForm.sale
   const amount = Number(paymentForm.amount)
   const received = paymentForm.method === 'cash' ? Number(paymentForm.received || 0) : amount
-  if (!sale)
+  const sale = paymentForm.sale
+  if (!sale && !isGroupedPayment.value)
     return notifications.show('No se encontró la venta pendiente.', 'warning')
-  if (!Number.isFinite(amount) || amount <= 0 || amount > saleBalance(sale))
-    return notifications.show(`El abono debe ser mayor a $0 y no superar ${formatCurrency(saleBalance(sale))}.`, 'warning')
+  if (!Number.isFinite(amount) || amount <= 0 || amount > paymentBalance.value)
+    return notifications.show(`El abono debe ser mayor a $0 y no superar ${formatCurrency(paymentBalance.value)}.`, 'warning')
+  if (isGroupedPayment.value && Math.abs(amount - paymentBalance.value) > 0.01)
+    return notifications.show('El cobro conjunto debe liquidar el saldo completo seleccionado.', 'warning')
   if (!Number.isFinite(received) || received < amount)
     return notifications.show(`El efectivo recibido (${formatCurrency(received)}) es menor que el abono (${formatCurrency(amount)}).`, 'warning')
   saving.value = true
   try {
+    if (isGroupedPayment.value) {
+      const result = await commerce.addGroupedPayment(groupedPaymentSales.value.map(item => item.id), amount, paymentForm.method, received, paymentChange.value, paymentCreditDeposit.value)
+      const firstSale = result.entries[0]?.sale
+
+      if (!firstSale)
+        throw new Error('No fue posible generar el recibo del cobro conjunto.')
+
+      activeReceipt.value = buildGroupedSalePaymentReceipt(result.entries, customerForSale(firstSale))
+      notifications.show(paymentCreditDeposit.value > 0 ? `Adeudos liquidados. Se guardaron ${formatCurrency(paymentCreditDeposit.value)} como saldo a favor.` : `${groupedPaymentSales.value.length} adeudos liquidados en un solo cobro.`)
+      paymentDialog.value = false
+      receiptDialog.value = true
+
+      return
+    }
+
+    if (!sale)
+      throw new Error('No se encontró la venta pendiente.')
+
     const result = await commerce.addPayment(sale.id, amount, paymentForm.method, received, paymentChange.value, paymentCreditDeposit.value)
 
     notifications.show(paymentCreditDeposit.value > 0 ? `Abono aplicado. Se guardaron ${formatCurrency(paymentCreditDeposit.value)} como saldo a favor.` : 'Abono aplicado al saldo correcto.')
@@ -569,48 +707,42 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
               Armar venta
             </VCardTitle>
             <VCardText>
-              <VRow>
-                <VCol
-                  cols="12"
-                  md="7"
+              <div class="pos-product-controls">
+                <VAutocomplete
+                  v-model="selectedProductId"
+                  :items="activeProducts"
+                  :item-title="item => item.size ? `${item.name} · ${item.size}` : item.name"
+                  item-value="id"
+                  label="Buscar producto"
+                  prepend-inner-icon="ri-search-line"
+                  :item-props="item => ({ subtitle: `${item.stock} disponibles · ${formatCurrency(item.salePrice)}` })"
+                  clearable
+                  auto-select-first
+                />
+                <VTextField
+                  v-model.number="selectedQuantity"
+                  type="number"
+                  min="1"
+                  label="Cantidad"
+                />
+                <VBtn
+                  block
+                  height="56"
+                  variant="tonal"
+                  @click="addToCart"
                 >
-                  <VAutocomplete
-                    v-model="selectedProductId"
-                    :items="activeProducts"
-                    item-title="name"
-                    item-value="id"
-                    label="Buscar producto"
-                    prepend-inner-icon="ri-search-line"
-                    :item-props="item => ({ subtitle: `${item.stock} disponibles · ${formatCurrency(item.salePrice)}` })"
-                    clearable
-                    auto-select-first
-                  />
-                </VCol>
-                <VCol
-                  cols="6"
-                  md="2"
+                  Agregar
+                </VBtn>
+                <VBtn
+                  class="pos-scan-button"
+                  block
+                  height="56"
+                  prepend-icon="ri-camera-line"
+                  @click="openBarcodeScanner('pos')"
                 >
-                  <VTextField
-                    v-model.number="selectedQuantity"
-                    type="number"
-                    min="1"
-                    label="Cantidad"
-                  />
-                </VCol>
-                <VCol
-                  cols="6"
-                  md="3"
-                >
-                  <VBtn
-                    block
-                    height="56"
-                    variant="tonal"
-                    @click="addToCart"
-                  >
-                    Agregar
-                  </VBtn>
-                </VCol>
-              </VRow>
+                  Leer código
+                </VBtn>
+              </div>
               <template v-if="cartItems.length">
                 <VTable>
                   <thead><tr><th>PRODUCTO</th><th>CANT.</th><th>IMPORTE</th><th /></tr></thead><tbody>
@@ -638,6 +770,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
               </template>
               <EmptyState
                 v-else
+                class="pos-cart-empty"
                 icon="ri-shopping-basket-line"
                 title="Carrito vacío"
                 description="Selecciona productos disponibles para iniciar."
@@ -857,7 +990,43 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
             prepend-inner-icon="ri-search-line"
             clearable
             class="mb-5"
-          /><EmptyState
+          />
+          <VCard
+            v-if="groupedDebtAccounts.length"
+            class="grouped-debt-panel mb-5"
+            variant="outlined"
+            rounded="lg"
+          >
+            <VCardItem
+              title="Cobro conjunto"
+              subtitle="Atletas con dos o más adeudos pendientes"
+              prepend-icon="ri-stack-line"
+            />
+            <VCardText class="pt-0 d-flex flex-column ga-3">
+              <div
+                v-for="group in groupedDebtAccounts"
+                :key="group.athleteId"
+                class="grouped-debt-row"
+              >
+                <div>
+                  <p class="font-weight-bold mb-1">
+                    {{ group.athleteName }}
+                  </p>
+                  <p class="text-body-2 text-medium-emphasis mb-0">
+                    {{ group.sales.length }} adeudos · {{ formatCurrency(group.total) }} pendientes
+                  </p>
+                </div>
+                <VBtn
+                  v-if="canCollect"
+                  prepend-icon="ri-hand-coin-line"
+                  @click="openGroupedPayment(group.sales)"
+                >
+                  Cobrar juntos
+                </VBtn>
+              </div>
+            </VCardText>
+          </VCard>
+          <EmptyState
             v-if="!filteredCredit.length"
             icon="ri-checkbox-circle-line"
             title="Sin saldos pendientes"
@@ -1011,7 +1180,13 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                 <td>{{ formatDate(entry.payment.appliedAt) }}</td>
                 <td>{{ paymentMethodLabel(entry.payment.method) }}</td>
                 <td class="text-right font-weight-bold text-success">
-                  {{ formatCurrency(entry.payment.amountApplied) }}
+                  {{ formatCurrency(entry.amount) }}
+                  <div
+                    v-if="entry.payment.groupPaymentId"
+                    class="text-caption text-medium-emphasis"
+                  >
+                    Cobro conjunto
+                  </div>
                 </td>
                 <td class="text-right">
                   <VBtn
@@ -1332,8 +1507,8 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
     >
       <VCardItem
         class="pa-6 pb-2"
-        title="Escanear código de barras"
-        subtitle="Centra el código dentro del recuadro."
+        :title="barcodeScanTarget === 'pos' ? 'Leer producto para venta' : 'Escanear código de barras'"
+        :subtitle="barcodeScanTarget === 'pos' ? 'Centra el código; el producto exacto se agregará al carrito.' : 'Centra el código dentro del recuadro.'"
       />
       <VCardText class="pa-6">
         <BarcodeScanner
@@ -1385,7 +1560,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
   </VDialog>
   <VDialog
     v-model="paymentDialog"
-    max-width="520"
+    max-width="600"
   >
     <VCard
       class="kronos-card"
@@ -1393,25 +1568,46 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
     >
       <VCardItem
         class="pa-6 pb-2"
-        title="Aplicar abono"
-        :subtitle="paymentForm.sale ? customerName(paymentForm.sale) : 'Venta pendiente'"
+        :title="isGroupedPayment ? 'Cobrar adeudos juntos' : 'Aplicar abono'"
+        :subtitle="isGroupedPayment ? (athletes.items.find(athlete => athlete.id === paymentAthleteId)?.profile.name ?? 'Atleta') : paymentForm.sale ? customerName(paymentForm.sale) : 'Venta pendiente'"
       />
       <VCardText class="pa-6 d-flex flex-column ga-5">
         <VAlert
           type="info"
           variant="tonal"
         >
-          Saldo actual: {{ formatCurrency(paymentBalance) }}
+          {{ isGroupedPayment ? `${groupedPaymentSales.length} adeudos · Total conjunto:` : 'Saldo actual:' }} {{ formatCurrency(paymentBalance) }}
         </VAlert>
+        <div
+          v-if="isGroupedPayment"
+          class="grouped-payment-detail"
+        >
+          <div
+            v-for="sale in groupedPaymentSales"
+            :key="sale.id"
+            class="d-flex justify-space-between align-start ga-4"
+          >
+            <div>
+              <p class="text-body-2 font-weight-medium mb-0">
+                {{ Object.values(sale.items ?? {}).map(item => `${item.quantity} × ${item.name}`).join(', ') }}
+              </p>
+              <p class="text-caption text-medium-emphasis mb-0">
+                {{ formatDate(sale.createdAt) }}
+              </p>
+            </div>
+            <strong class="text-no-wrap">{{ formatCurrency(saleBalance(sale)) }}</strong>
+          </div>
+        </div>
         <VTextField
           v-model.number="paymentForm.amount"
           type="number"
           min="0.01"
           :max="paymentBalance"
           step="0.01"
-          label="Abono que se aplicará"
+          :label="isGroupedPayment ? 'Total a cobrar' : 'Abono que se aplicará'"
           prefix="$"
-          hint="Este monto se descontará del saldo pendiente."
+          :readonly="isGroupedPayment"
+          :hint="isGroupedPayment ? 'El cobro liquidará todos los adeudos mostrados.' : 'Este monto se descontará del saldo pendiente.'"
           persistent-hint
         />
         <VSelect
@@ -1438,7 +1634,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
           Después del abono quedarán {{ formatCurrency(paymentRemaining) }} pendientes.
         </VAlert>
         <VSwitch
-          v-if="paymentForm.sale?.athleteId && paymentExcess > 0 && paymentForm.amount >= saleBalance(paymentForm.sale)"
+          v-if="paymentAthleteId && paymentExcess > 0 && paymentForm.amount >= paymentBalance"
           v-model="paymentForm.saveExcessAsCredit"
           color="secondary"
           hide-details
@@ -1469,7 +1665,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
           :loading="saving"
           @click="applyPayment"
         >
-          Aplicar abono
+          {{ isGroupedPayment ? 'Cobrar adeudos' : 'Aplicar abono' }}
         </VBtn>
       </VCardActions>
     </VCard>
@@ -1487,3 +1683,64 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
     @error="notifications.show($event, 'error')"
   />
 </template>
+
+<style scoped>
+.pos-product-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(96px, 112px) minmax(104px, 120px) minmax(148px, 172px);
+  gap: 16px;
+  align-items: start;
+  margin-block-end: 24px;
+}
+
+.pos-product-controls .v-btn {
+  min-inline-size: 0;
+  white-space: nowrap;
+}
+
+.pos-cart-empty {
+  inline-size: 100%;
+}
+
+.grouped-debt-panel {
+  border-color: rgba(151, 213, 222, 0.28);
+}
+
+.grouped-debt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(151, 213, 222, 0.16);
+  border-radius: 14px;
+  background: rgba(151, 213, 222, 0.05);
+}
+
+.grouped-payment-detail {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(151, 213, 222, 0.18);
+  border-radius: 14px;
+}
+
+@media (max-width: 600px) {
+  .grouped-debt-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 700px) {
+  .pos-product-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(132px, 160px);
+  }
+}
+
+@media (max-width: 480px) {
+  .pos-product-controls {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

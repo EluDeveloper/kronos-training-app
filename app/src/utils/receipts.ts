@@ -233,6 +233,51 @@ export function buildSalePaymentReceipt(sale: Sale, targetPayment: SalePayment, 
   }
 }
 
+export function buildGroupedSalePaymentReceipt(entries: CombinedStorePayment[], customer?: ReceiptCustomer): ReceiptData {
+  const firstEntry = entries[0]
+  if (!firstEntry)
+    throw new Error('No hay movimientos para generar el recibo conjunto.')
+
+  const balanceAfter = entries.reduce((total, entry) => {
+    const orderedPayments = Object.values(entry.sale.payments ?? {}).sort((a, b) => {
+      const difference = timestampValue(a.appliedAt) - timestampValue(b.appliedAt)
+
+      return difference || a.id.localeCompare(b.id)
+    })
+
+    let appliedThroughReceipt = 0
+
+    for (const payment of orderedPayments) {
+      appliedThroughReceipt += Number(payment.amountApplied || 0)
+      if (payment.id === entry.payment.id)
+        break
+    }
+
+    return total + Math.max(0, Number(entry.sale.total || 0) - appliedThroughReceipt)
+  }, 0)
+
+  const amountPaid = entries.reduce((total, entry) => total + Number(entry.payment.amountApplied || 0), 0)
+  const creditBalance = entries.find(entry => entry.payment.creditBalance != null)?.payment.creditBalance
+
+  return {
+    kind: 'sale-payment',
+    folio: `AGR-${folioSuffix(firstEntry.payment.groupPaymentId ?? firstEntry.payment.id)}`,
+    issuedAt: firstEntry.payment.appliedAt,
+    customerName: customer ? customerName(customer) : firstEntry.sale.customerName,
+    phone: customer ? customerPhone(customer) : null,
+    concept: `Cobro conjunto de ${entries.length} adeudos de tienda`,
+    lines: entries.map(entry => ({
+      description: storeSaleDescription(entry.sale),
+      amount: Number(entry.payment.amountApplied || 0),
+    })),
+    method: firstEntry.payment.method,
+    total: amountPaid + balanceAfter,
+    amountPaid,
+    balance: balanceAfter,
+    ...(creditBalance != null ? { creditBalance } : {}),
+  }
+}
+
 export function buildCollectionTicket(athlete: Athlete, period: string, openSales: Sale[]): ReceiptData {
   const membershipAmount = Number(athlete.membership.agreedAmount || 0)
 

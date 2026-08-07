@@ -73,6 +73,7 @@ const cashClosure = {
   id: '2026-08-06',
   date: '2026-08-06',
   movementFrom: '2026-08-06',
+  isBaseline: true,
   openingCash: 1000,
   openingBank: 5000,
   cashIncome: 500,
@@ -133,6 +134,7 @@ test('sólo Admin puede guardar y consultar cierres de caja e inventario', async
 
   await assertSucceeds(adminDb.ref('v1/cashClosures/2026-08-06').set(cashClosure))
   await assertSucceeds(adminDb.ref('v1/inventoryClosures/2026-08-03').set(inventoryClosure))
+  await assertFails(adminDb.ref('v1/cashClosures/2026-08-06/isBaseline').set('sí'))
   await assertSucceeds(adminDb.ref('v1/cashClosures').once('value'))
   await assertSucceeds(adminDb.ref('v1/inventoryClosures').once('value'))
   await assertFails(receptionDb.ref('v1/cashClosures').once('value'))

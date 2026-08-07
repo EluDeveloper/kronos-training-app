@@ -620,6 +620,8 @@ Estado de validación local:
 - La suite completa del emulador pasa 24 de 24 pruebas. Los permisos de Tienda se ajustaron por campo para permitir decrementos/restauraciones de stock sin conceder escritura sobre nombre, precios o códigos de producto.
 - `npm run build` finaliza correctamente y Firebase publicó Hosting y Realtime Database Rules en `https://kronos-training-fd5e5.web.app`.
 - La pantalla pública de acceso se verificó en 1440 × 900 y 390 × 844, sin desbordamiento horizontal ni errores de consola. La inspección final de Dashboard, Cierres y Tienda sigue pendiente porque la sesión administrativa del navegador expiró; no se solicitaron ni manipularon credenciales.
+- Corrección posterior del corte inicial: un cierre puede marcarse como `isBaseline` cuando los saldos reales ya incluyen ventas, egresos y transferencias históricas. En ese modo la pantalla no vuelve a sumar esos movimientos ni muestra diferencias ficticias.
+- El cierre del 2026-08-06 quedó conciliado en producción como base: efectivo `$17,750`, banco `$24,741`, esperados iguales a los saldos contados y diferencias en cero. El traslado previo de `$25,500` de efectivo a banco se considera incluido en esa base, no como ingreso nuevo.
 
 Riesgo de dependencias pendiente:
 

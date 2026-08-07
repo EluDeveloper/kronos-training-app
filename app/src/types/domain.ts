@@ -222,6 +222,7 @@ export interface CashClosure extends AuditFields {
   id: ISODate
   date: ISODate
   movementFrom: ISODate
+  isBaseline?: boolean
   openingCash: number
   openingBank: number
   cashIncome: number

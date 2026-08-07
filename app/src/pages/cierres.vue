@@ -27,7 +27,7 @@ const savingInventory = ref(false)
 const today = dateKey(new Date())
 const selectedCashDate = ref(today)
 const selectedWeekDate = ref(today)
-const cashForm = reactive({ openingCash: 0, openingBank: 0, countedCash: 0, countedBank: 0, notes: '' })
+const cashForm = reactive({ openingCash: 0, openingBank: 0, countedCash: 0, countedBank: 0, notes: '', isBaseline: false })
 const inventoryCounts = reactive<Record<string, number | null>>({})
 const inventoryNotes = ref('')
 
@@ -66,7 +66,7 @@ const closureMovements = computed(() => movementsBetweenDates(
   previousCashClosure.value?.date ?? null,
   selectedCashDate.value,
 ))
-const cashMovementSummary = computed(() => summarizeMovements(closureMovements.value))
+const cashMovementSummary = computed(() => summarizeMovements(cashForm.isBaseline ? [] : closureMovements.value))
 const expectedCash = computed(() => Number(cashForm.openingCash || 0) + cashMovementSummary.value.cashNet)
 const expectedBank = computed(() => Number(cashForm.openingBank || 0) + cashMovementSummary.value.bankNet)
 const cashVariance = computed(() => Number(cashForm.countedCash || 0) - expectedCash.value)
@@ -86,6 +86,7 @@ function loadCashForm() {
       countedCash: existing.countedCash,
       countedBank: existing.countedBank,
       notes: existing.notes ?? '',
+      isBaseline: existing.isBaseline === true,
     })
 
     return
@@ -95,6 +96,7 @@ function loadCashForm() {
     openingCash: previousCashClosure.value?.countedCash ?? 0,
     openingBank: previousCashClosure.value?.countedBank ?? 0,
     notes: '',
+    isBaseline: false,
   })
   cashForm.countedCash = expectedCash.value
   cashForm.countedBank = expectedBank.value
@@ -117,6 +119,7 @@ async function saveCashClosure() {
     await closures.saveCash({
       date: selectedCashDate.value,
       movementFrom: previousCashClosure.value ? addDays(previousCashClosure.value.date, 1) : selectedCashDate.value,
+      isBaseline: cashForm.isBaseline,
       openingCash: Number(cashForm.openingCash),
       openingBank: Number(cashForm.openingBank),
       cashIncome: summary.cashIncome,
@@ -322,6 +325,25 @@ onBeforeUnmount(() => {
                 class="mb-5"
               />
 
+              <VSwitch
+                v-if="!previousCashClosure"
+                v-model="cashForm.isBaseline"
+                label="Usar como saldo inicial conciliado"
+                color="primary"
+                class="mb-2"
+                hint="Actívalo si los saldos capturados ya incluyen ventas, egresos y transferencias anteriores. Esos movimientos no se volverán a sumar."
+                persistent-hint
+              />
+
+              <VAlert
+                v-if="cashForm.isBaseline"
+                color="info"
+                variant="tonal"
+                class="mb-5"
+              >
+                Este cierre inicia un control nuevo. Caja y banco esperados serán exactamente los saldos conciliados que captures; el historial anterior queda absorbido en esta base.
+              </VAlert>
+
               <VRow>
                 <VCol
                   cols="12"
@@ -351,7 +373,10 @@ onBeforeUnmount(() => {
                 </VCol>
               </VRow>
 
-              <div class="movement-breakdown mb-6">
+              <div
+                v-if="!cashForm.isBaseline"
+                class="movement-breakdown mb-6"
+              >
                 <div>
                   <span>Ingresos en efectivo</span><strong class="text-success">{{ formatCurrency(cashMovementSummary.cashIncome) }}</strong>
                 </div>
@@ -450,7 +475,7 @@ onBeforeUnmount(() => {
                 :value="formatCurrency(expectedCash)"
                 icon="ri-cash-line"
                 color="secondary"
-                :detail="`Movimientos desde ${formatDate(previousCashClosure?.date ?? selectedCashDate)}`"
+                :detail="cashForm.isBaseline ? 'Saldo inicial conciliado' : `Movimientos desde ${formatDate(previousCashClosure?.date ?? selectedCashDate)}`"
               />
             </VCol>
             <VCol cols="6">

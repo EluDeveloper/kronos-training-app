@@ -524,98 +524,82 @@ onBeforeUnmount(() => {
                   <VCol
                     cols="12"
                     sm="6"
-                    lg="3"
+                    lg="6"
                     class="d-flex"
                   >
-                    <VCard
-                      class="monthly-action-card flex-grow-1"
-                      variant="tonal"
+                    <MetricCard
+                      class="monthly-action-indicator flex-grow-1"
+                      label="Deudas de tienda"
+                      :value="commerce.openCredit.length"
+                      :detail="`${formatCurrency(openDebt)} pendiente`"
+                      icon="ri-wallet-3-line"
                       color="error"
-                      rounded="lg"
+                      role="button"
+                      tabindex="0"
+                      aria-label="Revisar deudas de tienda"
                       @click="openCommerce('credit')"
-                    >
-                      <VCardText class="d-flex flex-column justify-space-between h-100">
-                        <div class="text-caption">
-                          Deudas de tienda
-                        </div><div>
-                          <div class="text-h5 font-weight-bold">
-                            {{ commerce.openCredit.length }}
-                          </div><div>{{ formatCurrency(openDebt) }}</div>
-                        </div>
-                      </VCardText>
-                    </VCard>
+                      @keydown.enter="openCommerce('credit')"
+                      @keydown.space.prevent="openCommerce('credit')"
+                    />
                   </VCol>
                   <VCol
                     cols="12"
                     sm="6"
-                    lg="3"
+                    lg="6"
                     class="d-flex"
                   >
-                    <VCard
-                      class="monthly-action-card flex-grow-1"
-                      variant="tonal"
+                    <MetricCard
+                      class="monthly-action-indicator flex-grow-1"
+                      label="Inventario bajo"
+                      :value="commerce.lowStock.length"
+                      :detail="commerce.lowStock.length === 1 ? 'Producto por reabastecer' : 'Productos por reabastecer'"
+                      icon="ri-archive-stack-line"
                       color="warning"
-                      rounded="lg"
+                      role="button"
+                      tabindex="0"
+                      aria-label="Revisar inventario bajo"
                       @click="openCommerce('inventory')"
-                    >
-                      <VCardText class="d-flex flex-column justify-space-between h-100">
-                        <div class="text-caption">
-                          Inventario bajo
-                        </div><div>
-                          <div class="text-h5 font-weight-bold">
-                            {{ commerce.lowStock.length }}
-                          </div><div>productos</div>
-                        </div>
-                      </VCardText>
-                    </VCard>
+                      @keydown.enter="openCommerce('inventory')"
+                      @keydown.space.prevent="openCommerce('inventory')"
+                    />
                   </VCol>
                   <VCol
                     cols="12"
                     sm="6"
-                    lg="3"
+                    lg="6"
                     class="d-flex"
                   >
-                    <VCard
-                      class="monthly-action-card flex-grow-1"
-                      variant="tonal"
+                    <MetricCard
+                      class="monthly-action-indicator flex-grow-1"
+                      label="Egresos pendientes"
+                      :value="pendingExpenses.length"
+                      detail="Programados este mes"
+                      icon="ri-bill-line"
                       color="info"
-                      rounded="lg"
                       to="/egresos"
-                    >
-                      <VCardText class="d-flex flex-column justify-space-between h-100">
-                        <div class="text-caption">
-                          Egresos pendientes
-                        </div><div>
-                          <div class="text-h5 font-weight-bold">
-                            {{ pendingExpenses.length }}
-                          </div><div>este mes</div>
-                        </div>
-                      </VCardText>
-                    </VCard>
+                      aria-label="Revisar egresos pendientes"
+                    />
                   </VCol>
                   <VCol
                     cols="12"
                     sm="6"
-                    lg="3"
+                    lg="6"
                     class="d-flex"
                   >
-                    <VCard
-                      class="monthly-action-card flex-grow-1"
-                      variant="tonal"
+                    <MetricCard
+                      class="monthly-action-indicator flex-grow-1"
+                      label="Cuponeras por renovar"
+                      :value="couponRenewals.length"
+                      detail="Con 2 visitas o menos"
+                      icon="ri-coupon-3-line"
                       color="secondary"
-                      rounded="lg"
+                      role="button"
+                      tabindex="0"
+                      aria-label="Revisar cuponeras por renovar"
                       @click="openVisits"
-                    >
-                      <VCardText class="d-flex flex-column justify-space-between h-100">
-                        <div class="text-caption">
-                          Cuponeras por renovar
-                        </div><div>
-                          <div class="text-h5 font-weight-bold">
-                            {{ couponRenewals.length }}
-                          </div><div>con 2 visitas o menos</div>
-                        </div>
-                      </VCardText>
-                    </VCard>
+                      @keydown.enter="openVisits()"
+                      @keydown.space.prevent="openVisits()"
+                    />
                   </VCol>
                 </VRow>
 
@@ -1145,8 +1129,16 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.monthly-action-card {
-  min-block-size: 158px;
+.monthly-action-indicator {
+  cursor: pointer;
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.monthly-action-indicator:hover,
+.monthly-action-indicator:focus-visible {
+  box-shadow: 0 12px 28px rgba(var(--v-theme-on-surface), 0.09);
+  outline: none;
+  transform: translateY(-2px);
 }
 
 .report-table-wrap {

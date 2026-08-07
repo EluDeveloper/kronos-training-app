@@ -40,6 +40,10 @@ yarn-error.log*
 # Optional: ignore local files
 local.settings.json
 
+# Sensitive local data and Codex attachments
+/AppKronos/Backup/*.json
+/AppKronos/.codex-remote-attachments/
+
 # Public assets (generated)
 /app/public/images/
 /src/assets/images/

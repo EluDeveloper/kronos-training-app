@@ -23,10 +23,12 @@ El servidor sólo escucha en localhost. Para probarlo desde otro dispositivo de 
 ```sh
 npm run typecheck
 npm run build
-npm run migrate:check
+npm run test:finance
 npm run test:rules
 npm audit --omit=dev
 ```
+
+`npm run migrate:check` sólo debe ejecutarse cuando se proporcione de forma controlada una copia local autorizada del respaldo original, que ya no forma parte del repositorio.
 
 Las pruebas de reglas requieren Java 21 o una versión compatible con Firebase Emulator Suite.
 
@@ -39,6 +41,14 @@ Las pruebas de reglas requieren Java 21 o una versión compatible con Firebase E
 - El primer Admin se crea desde un dispositivo anónimo que ya figure como autorizado en `v1/authorizedDevices`.
 
 El alta se realiza con una instancia secundaria de Firebase Auth para no cerrar la sesión del Admin que crea al usuario. Los permisos también están aplicados en `database.rules.json`; ocultar una opción del menú no es el único control de acceso.
+
+## Reportes y cierres
+
+- El Dashboard Admin incluye detalle de ingresos, egresos, tienda, altas, bajas y stock por mes, además de comparación entre dos periodos.
+- Caja chica corresponde a movimientos en efectivo. Cuenta bancaria agrupa transferencias y tarjetas; el método “Otro” permanece visible pero no se concilia automáticamente.
+- El primer cierre diario solicita saldos iniciales. Los siguientes usan el último saldo contado y agregan los movimientos posteriores para mostrar diferencias.
+- El cierre semanal de inventario compara existencias del sistema contra conteo físico y calcula faltantes a costo unitario. Guardar el cierre no modifica el stock.
+- Los cierres y sus saldos son exclusivos de Admin en esta fase.
 
 ## Publicación de esta fase
 

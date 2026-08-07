@@ -142,6 +142,8 @@ Cada atleta contiene:
 
 ## Estado del respaldo analizado
 
+El respaldo se eliminó del árbol de trabajo el 2026-08-06 por solicitud del usuario. Los datos y conteos de esta sección se conservan únicamente como registro histórico de la migración ya ejecutada.
+
 El archivo `kronos_backup_20260803.json` es JSON válido y coincide con el formato de exportación de `kronos.html`. Los conteos se revalidaron directamente antes de preparar la migración.
 
 ### Conteos
@@ -182,7 +184,7 @@ El archivo `kronos_backup_20260803.json` es JSON válido y coincide con el forma
 
 ### 1. Privacidad del respaldo
 
-El respaldo contiene datos personales y financieros en texto claro. El archivo está versionado por Git y el repositorio tiene un remoto de GitHub configurado.
+El respaldo contiene datos personales y financieros en texto claro. El archivo fue retirado del árbol actual y agregado a `.gitignore` el 2026-08-06, pero los commits anteriores pueden conservarlo. El repositorio tiene un remoto de GitHub configurado.
 
 No se confirmó si el repositorio remoto es público. Antes de publicar la nueva aplicación se debe:
 

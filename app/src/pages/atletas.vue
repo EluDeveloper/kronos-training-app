@@ -175,7 +175,7 @@ function sendKioskCodeByWhatsApp() {
   const phone = athlete.profile.phone.replace(/\D/g, '')
   const message = encodeURIComponent(`Hola ${athlete.profile.name}. Tu código personal para registrar compras en el kiosco de Kronos es: ${kioskCode.value}. No lo compartas con otras personas.`)
 
-  window.open(`https://wa.me/52${phone}?text=${message}`, '_blank', 'noopener,noreferrer')
+  window.open(`https://web.whatsapp.com/send?phone=52${phone}&text=${message}`, '_blank', 'noopener,noreferrer')
 }
 
 onMounted(() => { athletes.subscribe(); plans.subscribe() })

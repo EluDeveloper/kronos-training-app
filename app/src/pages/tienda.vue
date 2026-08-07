@@ -74,6 +74,7 @@ const outstanding = computed(() => commerce.openCredit.reduce((sum, sale) => sum
 const selectedSaleAthleteId = computed(() => saleForm.customerKey.startsWith('athlete:') ? saleForm.customerKey.slice(8) : '')
 const availableStoreCredit = computed(() => commerce.creditForAthlete(selectedSaleAthleteId.value))
 const cashExcess = computed(() => saleForm.method === 'cash' ? Math.max(0, Number(saleForm.received || 0) - Number(saleForm.initialPayment || 0)) : 0)
+const cashShortfall = computed(() => saleForm.method === 'cash' ? Math.max(0, Number(saleForm.initialPayment || 0) - Number(saleForm.received || 0)) : 0)
 const saleCreditDeposit = computed(() => saleForm.saveExcessAsCredit && selectedSaleAthleteId.value && Number(saleForm.initialPayment) + Number(saleForm.creditApplied) >= cartTotal.value ? cashExcess.value : 0)
 const saleChange = computed(() => Math.max(0, cashExcess.value - saleCreditDeposit.value))
 const paymentExcess = computed(() => paymentForm.method === 'cash' ? Math.max(0, Number(paymentForm.received || 0) - Number(paymentForm.amount || 0)) : 0)
@@ -831,17 +832,69 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                 type="number"
                 min="0"
                 :max="Math.max(0, cartTotal - saleForm.creditApplied)"
-                label="Pago aplicado"
+                label="Monto que se cobrará ahora"
                 prefix="$"
+                hint="Indica cuánto de esta venta pagará el cliente hoy; el resto quedará como saldo pendiente."
+                persistent-hint
               />
-              <VTextField
+              <div
                 v-if="saleForm.method === 'cash'"
-                v-model.number="saleForm.received"
-                type="number"
-                min="0"
-                label="Efectivo recibido"
-                prefix="$"
-              />
+                class="cash-capture-panel"
+              >
+                <div class="cash-capture-heading">
+                  <VIcon
+                    icon="ri-cash-line"
+                    color="secondary"
+                    size="28"
+                  />
+                  <div>
+                    <p class="font-weight-bold mb-1">
+                      Pago en efectivo
+                    </p>
+                    <p class="text-body-2 text-medium-emphasis mb-0">
+                      Captura el total de billetes y monedas que te entrega el cliente.
+                    </p>
+                  </div>
+                </div>
+                <VTextField
+                  v-model.number="saleForm.received"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  label="Dinero que entrega el cliente"
+                  prefix="$"
+                  prepend-inner-icon="ri-hand-coin-line"
+                  hint="Ejemplo: si cobrarás $180 y recibes $200, captura $200."
+                  persistent-hint
+                />
+                <div
+                  class="cash-change-result"
+                  :class="{ 'cash-change-result--short': cashShortfall > 0 }"
+                >
+                  <div>
+                    <p class="text-overline mb-1">
+                      Cambio que debes entregar
+                    </p>
+                    <p class="cash-change-amount mb-0">
+                      {{ formatCurrency(saleChange) }}
+                    </p>
+                  </div>
+                  <div class="cash-change-help text-body-2">
+                    <template v-if="cashShortfall > 0">
+                      Faltan <strong>{{ formatCurrency(cashShortfall) }}</strong> para cubrir el monto a cobrar.
+                    </template>
+                    <template v-else-if="saleCreditDeposit > 0">
+                      El excedente se guardará como saldo a favor; no debes entregarlo como cambio.
+                    </template>
+                    <template v-else-if="saleForm.initialPayment > 0">
+                      Devuelve esta cantidad antes de completar la venta.
+                    </template>
+                    <template v-else>
+                      Captura primero el monto que se cobrará para calcular el cambio.
+                    </template>
+                  </div>
+                </div>
+              </div>
               <VSwitch
                 v-if="selectedSaleAthleteId && cashExcess > 0 && saleForm.initialPayment + saleForm.creditApplied >= cartTotal"
                 v-model="saleForm.saveExcessAsCredit"
@@ -857,24 +910,17 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                 Saldo a crédito: {{ formatCurrency(cartTotal - saleForm.initialPayment - saleForm.creditApplied) }}
               </VAlert>
               <VAlert
-                v-else-if="saleCreditDeposit > 0"
+                v-if="saleCreditDeposit > 0"
                 color="success"
                 variant="tonal"
               >
                 Se abonarán {{ formatCurrency(saleCreditDeposit) }} al saldo a favor del atleta.
               </VAlert>
-              <VAlert
-                v-else-if="saleChange > 0"
-                color="warning"
-                variant="tonal"
-              >
-                Cambio a entregar: {{ formatCurrency(saleChange) }}
-              </VAlert>
               <VBtn
                 block
                 size="large"
                 :loading="saving"
-                :disabled="!cartItems.length"
+                :disabled="!cartItems.length || cashShortfall > 0"
                 @click="completeSale"
               >
                 Completar venta
@@ -1702,6 +1748,52 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
   inline-size: 100%;
 }
 
+.cash-capture-panel {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid rgba(151, 213, 222, 0.3);
+  border-radius: 16px;
+  background: rgba(151, 213, 222, 0.06);
+}
+
+.cash-capture-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cash-change-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.9fr);
+  gap: 20px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid rgba(151, 213, 222, 0.4);
+  border-radius: 14px;
+  background: rgba(151, 213, 222, 0.12);
+}
+
+.cash-change-result--short {
+  border-color: rgba(255, 64, 27, 0.55);
+  background: rgba(255, 64, 27, 0.1);
+}
+
+.cash-change-amount {
+  color: rgb(var(--v-theme-secondary));
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cash-change-result--short .cash-change-amount {
+  color: rgb(var(--v-theme-error));
+}
+
+.cash-change-help {
+  line-height: 1.5;
+}
+
 .grouped-debt-panel {
   border-color: rgba(151, 213, 222, 0.28);
 }
@@ -1729,6 +1821,10 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
   .grouped-debt-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .cash-change-result {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -28,6 +28,7 @@ const visibleSections = computed(() => sections.map(section => ({
 
   <template v-if="session.isAdmin">
     <VerticalNavSectionTitle :item="{ heading: 'Sistema' }" />
+    <VerticalNavLink :item="{ title: 'Cierres y conciliación', icon: 'ri-safe-2-line', to: '/cierres' }" />
     <VerticalNavLink :item="{ title: 'Usuarios y permisos', icon: 'ri-user-settings-line', to: '/usuarios' }" />
   </template>
 </template>

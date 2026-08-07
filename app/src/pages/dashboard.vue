@@ -6,6 +6,7 @@ import PageHeader from '@/components/kronos/PageHeader.vue'
 import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
+import { useClosuresStore } from '@/stores/closures'
 import { useCommerceStore } from '@/stores/commerce'
 import { useExpensesStore } from '@/stores/expenses'
 import { usePaymentsStore } from '@/stores/payments'
@@ -15,10 +16,12 @@ import { useVisitPaymentsStore } from '@/stores/visit-payments'
 import { useVisitsStore } from '@/stores/visits'
 import { useVisitorsStore } from '@/stores/visitors'
 import { currentPeriod, planAccessType, planVisitLimit, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment } from '@/types/domain'
+import { buildFinancialMovements, dateKey, movementsBetweenDates, movementsForPeriod, periodKey, summarizeMovements } from '@/utils/financial-reports'
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, saleBalance, timestampValue } from '@/utils/kronos'
-import { buildCollectionTicket, buildMembershipReceipt, combinedStorePaymentsForInstallment, type ReceiptData } from '@/utils/receipts'
+import { buildCollectionTicket, buildMembershipReceipt, combinedStorePaymentsForInstallment, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
 
 const athletes = useAthletesStore()
+const closures = useClosuresStore()
 const payments = usePaymentsStore()
 const commerce = useCommerceStore()
 const expenses = useExpensesStore()
@@ -38,6 +41,38 @@ const selectedAthleteId = ref('')
 const receiptDialog = ref(false)
 const activeReceipt = ref<ReceiptData | null>(null)
 const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+const previousMonth = (value: string) => {
+  const date = new Date(`${value}-15T12:00:00`)
+
+  date.setMonth(date.getMonth() - 1)
+
+  return currentPeriod(date)
+}
+const detailPeriod = ref(period)
+const comparisonPeriodA = ref(period)
+const comparisonPeriodB = ref(previousMonth(period))
+
+const allFinancialMovements = computed(() => buildFinancialMovements({
+  membershipPayments: payments.items,
+  visitPayments: visitPayments.items,
+  sales: commerce.sales,
+  expenses: expenses.items,
+}))
+
+const latestCashClosure = computed(() => closures.cash
+  .filter(item => item.date <= dateKey(today))
+  .sort((left, right) => right.date.localeCompare(left.date))[0] ?? null)
+const movementsAfterLastClosure = computed(() => movementsBetweenDates(
+  allFinancialMovements.value,
+  latestCashClosure.value?.date ?? null,
+  dateKey(today),
+))
+const accountMovementSummary = computed(() => summarizeMovements(movementsAfterLastClosure.value))
+const estimatedCashBalance = computed(() => Number(latestCashClosure.value?.countedCash || 0) + accountMovementSummary.value.cashNet)
+const estimatedBankBalance = computed(() => Number(latestCashClosure.value?.countedBank || 0) + accountMovementSummary.value.bankNet)
+const balanceDetail = computed(() => latestCashClosure.value
+  ? `Desde cierre ${formatDate(latestCashClosure.value.date)}`
+  : 'Estimado desde saldo inicial $0 · realiza el primer cierre')
 
 const membershipIncome = computed(() => payments.items
   .flatMap(payment => membershipInstallments(payment))
@@ -126,34 +161,67 @@ const availableYears = computed(() => {
   return [...years].filter(Number.isFinite).sort((a, b) => b - a)
 })
 
+const availablePeriods = computed(() => {
+  const periods = new Set<string>([period, previousMonth(period)])
+
+  allFinancialMovements.value.forEach(movement => periods.add(movement.period))
+  commerce.sales.forEach(sale => periods.add(periodKey(sale.createdAt)))
+  athletes.items.forEach(athlete => {
+    if (athlete.membership.registrationDate)
+      periods.add(athlete.membership.registrationDate.slice(0, 7))
+    if (athlete.inactiveAt)
+      periods.add(athlete.inactiveAt.slice(0, 7))
+  })
+
+  return [...periods]
+    .filter(value => /^\d{4}-(0[1-9]|1[0-2])$/.test(value))
+    .sort((left, right) => right.localeCompare(left))
+})
+
+const periodLabel = (value: string) => {
+  const [year, month] = value.split('-').map(Number)
+
+  return `${monthNames[month - 1]} ${year}`
+}
+
+function reportForPeriod(rowPeriod: string) {
+  const financial = summarizeMovements(movementsForPeriod(allFinancialMovements.value, rowPeriod))
+  const periodSales = commerce.sales.filter(sale => periodKey(sale.createdAt) === rowPeriod)
+  const completedSales = periodSales.filter(sale => sale.status !== 'cancelled')
+  const unitsSold = completedSales.reduce((total, sale) => total + Object.values(sale.items ?? {}).reduce((sum, item) => sum + Number(item.quantity || 0), 0), 0)
+  const inventoryClosure = closures.inventory
+    .filter(item => item.weekEnd.slice(0, 7) === rowPeriod)
+    .sort((left, right) => right.weekEnd.localeCompare(left.weekEnd))[0]
+  const currentStock = commerce.products.reduce((total, product) => total + Number(product.stock || 0), 0)
+  const currentStockValue = commerce.products.reduce((total, product) => total + Number(product.stock || 0) * Number(product.unitCost || 0), 0)
+
+  return {
+    period: rowPeriod,
+    label: periodLabel(rowPeriod),
+    memberships: financial.memberships + financial.visits,
+    shop: financial.store,
+    income: financial.income,
+    expenses: financial.expenses,
+    net: financial.net,
+    cash: financial.cashNet,
+    bank: financial.bankNet,
+    sales: completedSales.length,
+    unitsSold,
+    cancellations: periodSales.length - completedSales.length,
+    athleteAdds: athletes.items.filter(athlete => athlete.membership.registrationDate?.startsWith(rowPeriod)).length,
+    athleteDrops: athletes.items.filter(athlete => athlete.inactiveAt?.startsWith(rowPeriod)).length,
+    stockUnits: inventoryClosure?.totalCountedUnits ?? (rowPeriod === period ? currentStock : null),
+    stockValue: inventoryClosure
+      ? Object.values(inventoryClosure.items).reduce((total, item) => total + item.countedStock * item.unitCost, 0)
+      : rowPeriod === period ? currentStockValue : null,
+    stockSource: inventoryClosure ? `Cierre ${formatDate(inventoryClosure.weekEnd)}` : rowPeriod === period ? 'Stock actual' : 'Sin cierre semanal',
+  }
+}
+
 const annualRows = computed(() => Array.from({ length: 12 }, (_, monthIndex) => {
   const rowPeriod = `${selectedYear.value}-${String(monthIndex + 1).padStart(2, '0')}`
 
-  const memberships = payments.items
-    .flatMap(payment => membershipInstallments(payment))
-    .filter(installment => currentPeriod(new Date(timestampValue(installment.appliedAt))) === rowPeriod)
-    .reduce((total, installment) => total + Number(installment.amountApplied ?? 0), 0)
-    + visitPayments.items
-      .filter(payment => currentPeriod(new Date(timestampValue(payment.appliedAt))) === rowPeriod)
-      .reduce((total, payment) => total + Number(payment.amount || 0), 0)
-
-  const shop = commerce.sales
-    .filter(sale => sale.status !== 'cancelled')
-    .flatMap(sale => Object.values(sale.payments ?? {}))
-    .filter(payment => currentPeriod(new Date(payment.appliedAt)) === rowPeriod)
-    .reduce((total, payment) => total + Number(payment.amountApplied || 0), 0)
-
-  const expenseTotal = expenses.items
-    .filter(expense => expense.status === 'paid' && expense.date.startsWith(rowPeriod))
-    .reduce((total, expense) => total + Number(expense.amount || 0), 0)
-
-  return {
-    month: monthNames[monthIndex],
-    memberships,
-    shop,
-    expenses: expenseTotal,
-    net: memberships + shop - expenseTotal,
-  }
+  return { ...reportForPeriod(rowPeriod), month: monthNames[monthIndex] }
 }))
 
 const annualMemberships = computed(() => annualRows.value.reduce((total, row) => total + row.memberships, 0))
@@ -179,6 +247,68 @@ const annualChartOptions = computed(() => ({
   xaxis: { categories: monthNames, labels: { style: { colors: '#A9AAA8' } } },
   yaxis: { labels: { style: { colors: '#A9AAA8' }, formatter: (value: number) => `$${Math.round(value / 1000)}k` } },
 }))
+
+const detailReport = computed(() => reportForPeriod(detailPeriod.value))
+const comparisonA = computed(() => reportForPeriod(comparisonPeriodA.value))
+const comparisonB = computed(() => reportForPeriod(comparisonPeriodB.value))
+const comparisonRows = computed(() => [
+  { label: 'Ingresos totales', a: comparisonA.value.income, b: comparisonB.value.income, type: 'currency' as const, goodWhenHigher: true },
+  { label: 'Egresos pagados', a: comparisonA.value.expenses, b: comparisonB.value.expenses, type: 'currency' as const, goodWhenHigher: false },
+  { label: 'Resultado neto', a: comparisonA.value.net, b: comparisonB.value.net, type: 'currency' as const, goodWhenHigher: true },
+  { label: 'Movimiento de efectivo', a: comparisonA.value.cash, b: comparisonB.value.cash, type: 'currency' as const, goodWhenHigher: true },
+  { label: 'Movimiento bancario', a: comparisonA.value.bank, b: comparisonB.value.bank, type: 'currency' as const, goodWhenHigher: true },
+  { label: 'Ventas completadas', a: comparisonA.value.sales, b: comparisonB.value.sales, type: 'number' as const, goodWhenHigher: true },
+  { label: 'Unidades vendidas', a: comparisonA.value.unitsSold, b: comparisonB.value.unitsSold, type: 'number' as const, goodWhenHigher: true },
+  { label: 'Altas de atletas', a: comparisonA.value.athleteAdds, b: comparisonB.value.athleteAdds, type: 'number' as const, goodWhenHigher: true },
+  { label: 'Bajas de atletas', a: comparisonA.value.athleteDrops, b: comparisonB.value.athleteDrops, type: 'number' as const, goodWhenHigher: false },
+].map(row => {
+  const difference = row.a - row.b
+
+  return {
+    ...row,
+    difference,
+    tone: difference === 0 ? '' : (difference > 0) === row.goodWhenHigher ? 'text-success' : 'text-error',
+  }
+}))
+
+const topProducts = computed(() => {
+  const products = new Map<string, { id: string; name: string; units: number; revenue: number; cost: number }>()
+
+  commerce.sales
+    .filter(sale => sale.status !== 'cancelled' && periodKey(sale.createdAt) === detailPeriod.value)
+    .forEach(sale => Object.values(sale.items ?? {}).forEach(item => {
+      const current = products.get(item.productId) ?? { id: item.productId, name: item.name, units: 0, revenue: 0, cost: 0 }
+
+      current.units += Number(item.quantity || 0)
+      current.revenue += Number(item.quantity || 0) * Number(item.unitPrice || 0)
+      current.cost += Number(item.quantity || 0) * Number(item.unitCost || 0)
+      products.set(item.productId, current)
+    }))
+
+  return [...products.values()]
+    .map(item => ({ ...item, margin: item.revenue - item.cost }))
+    .sort((left, right) => right.units - left.units || right.revenue - left.revenue)
+    .slice(0, 10)
+})
+
+const expenseCategories = computed(() => {
+  const categories = new Map<string, number>()
+
+  expenses.items
+    .filter(expense => expense.status === 'paid' && expense.date.startsWith(detailPeriod.value))
+    .forEach(expense => categories.set(expense.category, (categories.get(expense.category) ?? 0) + Number(expense.amount || 0)))
+
+  return [...categories.entries()]
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((left, right) => right.amount - left.amount)
+})
+
+const storeMovements = computed(() => allFinancialMovements.value
+  .filter(movement => movement.source === 'store' && movement.period === detailPeriod.value)
+  .sort((left, right) => right.occurredAt - left.occurredAt)
+  .slice(0, 15))
+
+const comparisonFormat = (value: number, type: 'currency' | 'number') => type === 'currency' ? formatCurrency(value) : value.toLocaleString('es-MX')
 
 function collectMembership(athleteId: string) {
   selectedAthleteId.value = athleteId
@@ -226,6 +356,8 @@ function openVisits(athleteId?: string) {
 }
 
 onMounted(() => {
+  if (session.isAdmin)
+    closures.subscribe()
   athletes.subscribe()
   payments.subscribe()
   commerce.subscribe()
@@ -237,6 +369,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  closures.dispose()
   athletes.dispose()
   payments.dispose()
   commerce.dispose()
@@ -266,7 +399,7 @@ onBeforeUnmount(() => {
       v-if="session.isAdmin"
       value="annual"
     >
-      Reporte anual
+      Análisis y comparativos
     </VTab>
   </VTabs>
 
@@ -322,6 +455,36 @@ onBeforeUnmount(() => {
             icon="ri-funds-line"
             :color="netCash >= 0 ? 'success' : 'error'"
             detail="Ingresos menos egresos pagados"
+          />
+        </VCol>
+        <VCol
+          v-if="session.isAdmin"
+          cols="12"
+          sm="6"
+          lg="3"
+        >
+          <MetricCard
+            label="Caja chica estimada"
+            :value="formatCurrency(estimatedCashBalance)"
+            icon="ri-cash-line"
+            color="secondary"
+            :detail="balanceDetail"
+            @click="router.push('/cierres')"
+          />
+        </VCol>
+        <VCol
+          v-if="session.isAdmin"
+          cols="12"
+          sm="6"
+          lg="3"
+        >
+          <MetricCard
+            label="Cuenta bancaria estimada"
+            :value="formatCurrency(estimatedBankBalance)"
+            icon="ri-bank-line"
+            color="info"
+            :detail="balanceDetail"
+            @click="router.push('/cierres')"
           />
         </VCol>
       </VRow>
@@ -655,9 +818,9 @@ onBeforeUnmount(() => {
       <div class="d-flex flex-wrap justify-space-between align-center ga-4 mb-5">
         <div>
           <h2 class="text-h5 font-weight-bold mb-1">
-            Reporte anual
+            Visibilidad financiera y operativa
           </h2><p class="text-body-2 text-medium-emphasis mb-0">
-            Flujo real por fecha de aplicación.
+            Flujo por fecha de aplicación, movimientos de tienda, atletas e inventario auditado.
           </p>
         </div>
         <VSelect
@@ -728,7 +891,6 @@ onBeforeUnmount(() => {
       <VRow>
         <VCol
           cols="12"
-          xl="8"
         >
           <VCard
             class="kronos-card h-100"
@@ -750,7 +912,6 @@ onBeforeUnmount(() => {
         </VCol>
         <VCol
           cols="12"
-          xl="4"
         >
           <VCard
             class="kronos-card h-100"
@@ -760,14 +921,20 @@ onBeforeUnmount(() => {
               title="Detalle mensual"
               :subtitle="`Ejercicio ${selectedYear}`"
             />
-            <VTable density="compact">
+            <div class="report-table-wrap">
+              <VTable density="compact">
               <thead>
                 <tr>
-                  <th>Mes</th><th class="text-right">
-                    Ingresos
-                  </th><th class="text-right">
-                    Neto
-                  </th>
+                  <th>Mes</th>
+                  <th class="text-right">Ingresos</th>
+                  <th class="text-right">Egresos</th>
+                  <th class="text-right">Neto</th>
+                  <th class="text-right">Ventas</th>
+                  <th class="text-right">Unidades</th>
+                  <th class="text-right">Canceladas</th>
+                  <th class="text-right">Altas</th>
+                  <th class="text-right">Bajas</th>
+                  <th class="text-right">Stock</th>
                 </tr>
               </thead>
               <tbody>
@@ -777,7 +944,10 @@ onBeforeUnmount(() => {
                 >
                   <td>{{ row.month }}</td>
                   <td class="text-right">
-                    {{ formatCurrency(row.memberships + row.shop) }}
+                    {{ formatCurrency(row.income) }}
+                  </td>
+                  <td class="text-right text-error">
+                    {{ formatCurrency(row.expenses) }}
                   </td>
                   <td
                     class="text-right font-weight-bold"
@@ -785,12 +955,174 @@ onBeforeUnmount(() => {
                   >
                     {{ formatCurrency(row.net) }}
                   </td>
+                  <td class="text-right">{{ row.sales }}</td>
+                  <td class="text-right">{{ row.unitsSold }}</td>
+                  <td class="text-right">{{ row.cancellations }}</td>
+                  <td class="text-right text-success">{{ row.athleteAdds }}</td>
+                  <td class="text-right text-error">{{ row.athleteDrops }}</td>
+                  <td
+                    class="text-right"
+                    :title="row.stockSource"
+                  >
+                    {{ row.stockUnits ?? '—' }}
+                  </td>
+                </tr>
+              </tbody>
+              </VTable>
+            </div>
+          </VCard>
+        </VCol>
+      </VRow>
+
+      <VCard
+        class="kronos-card mt-5"
+        rounded="xl"
+      >
+        <VCardItem
+          title="Comparar dos meses"
+          subtitle="Elige los periodos que quieres revisar lado a lado"
+        />
+        <VCardText>
+          <VRow class="mb-3">
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VSelect
+                v-model="comparisonPeriodA"
+                :items="availablePeriods.map(value => ({ title: periodLabel(value), value }))"
+                label="Mes principal"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VSelect
+                v-model="comparisonPeriodB"
+                :items="availablePeriods.map(value => ({ title: periodLabel(value), value }))"
+                label="Mes para comparar"
+              />
+            </VCol>
+          </VRow>
+          <div class="report-table-wrap">
+            <VTable density="comfortable">
+              <thead>
+                <tr><th>Indicador</th><th class="text-right">{{ periodLabel(comparisonPeriodA) }}</th><th class="text-right">{{ periodLabel(comparisonPeriodB) }}</th><th class="text-right">Diferencia</th></tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="row in comparisonRows"
+                  :key="row.label"
+                >
+                  <td class="font-weight-medium">{{ row.label }}</td>
+                  <td class="text-right">{{ comparisonFormat(row.a, row.type) }}</td>
+                  <td class="text-right">{{ comparisonFormat(row.b, row.type) }}</td>
+                  <td
+                    class="text-right font-weight-bold"
+                    :class="row.tone"
+                  >
+                    {{ comparisonFormat(row.difference, row.type) }}
+                  </td>
+                </tr>
+              </tbody>
+            </VTable>
+          </div>
+        </VCardText>
+      </VCard>
+
+      <div class="d-flex flex-wrap justify-space-between align-center ga-4 mt-7 mb-4">
+        <div>
+          <h2 class="text-h5 font-weight-bold mb-1">Detalle del mes</h2>
+          <p class="text-body-2 text-medium-emphasis mb-0">Productos, egresos y movimientos aplicados.</p>
+        </div>
+        <VSelect
+          v-model="detailPeriod"
+          :items="availablePeriods.map(value => ({ title: periodLabel(value), value }))"
+          label="Mes"
+          density="compact"
+          hide-details
+          style="max-inline-size: 220px"
+        />
+      </div>
+
+      <VRow class="mb-2">
+        <VCol cols="12" sm="6" lg="3">
+          <MetricCard label="Ingresos del mes" :value="formatCurrency(detailReport.income)" icon="ri-arrow-up-circle-line" color="success" :detail="periodLabel(detailPeriod)" />
+        </VCol>
+        <VCol cols="12" sm="6" lg="3">
+          <MetricCard label="Egresos del mes" :value="formatCurrency(detailReport.expenses)" icon="ri-arrow-down-circle-line" color="error" :detail="periodLabel(detailPeriod)" />
+        </VCol>
+        <VCol cols="12" sm="6" lg="3">
+          <MetricCard label="Altas / Bajas" :value="`${detailReport.athleteAdds} / ${detailReport.athleteDrops}`" icon="ri-user-follow-line" detail="Movimientos de atletas" />
+        </VCol>
+        <VCol cols="12" sm="6" lg="3">
+          <MetricCard label="Stock auditado" :value="detailReport.stockUnits ?? 'Sin cierre'" icon="ri-archive-stack-line" color="secondary" :detail="detailReport.stockSource" />
+        </VCol>
+      </VRow>
+
+      <VRow>
+        <VCol cols="12" lg="7">
+          <VCard class="kronos-card h-100" rounded="xl">
+            <VCardItem title="Productos más vendidos" :subtitle="`${periodLabel(detailPeriod)} · ordenado por unidades`" />
+            <EmptyState
+              v-if="!topProducts.length"
+              title="Sin productos vendidos"
+              description="No hay ventas completadas en este periodo."
+              icon="ri-shopping-bag-line"
+            />
+            <VTable v-else density="compact">
+              <thead><tr><th>Producto</th><th class="text-right">Unidades</th><th class="text-right">Venta</th><th class="text-right">Margen estimado</th></tr></thead>
+              <tbody>
+                <tr v-for="(product, index) in topProducts" :key="product.id">
+                  <td><VChip v-if="index === 0" color="secondary" size="x-small" class="mr-2">Más vendido</VChip>{{ product.name }}</td>
+                  <td class="text-right font-weight-bold">{{ product.units }}</td>
+                  <td class="text-right">{{ formatCurrency(product.revenue) }}</td>
+                  <td class="text-right text-success">{{ formatCurrency(product.margin) }}</td>
                 </tr>
               </tbody>
             </VTable>
           </VCard>
         </VCol>
+        <VCol cols="12" lg="5">
+          <VCard class="kronos-card h-100" rounded="xl">
+            <VCardItem title="Egresos por categoría" :subtitle="periodLabel(detailPeriod)" />
+            <EmptyState
+              v-if="!expenseCategories.length"
+              title="Sin egresos pagados"
+              description="No hay movimientos para este periodo."
+              icon="ri-money-dollar-circle-line"
+            />
+            <VList v-else bg-color="transparent">
+              <VListItem v-for="category in expenseCategories" :key="category.category" :title="category.category">
+                <template #append><strong class="text-error">{{ formatCurrency(category.amount) }}</strong></template>
+              </VListItem>
+            </VList>
+          </VCard>
+        </VCol>
       </VRow>
+
+      <VCard class="kronos-card mt-5" rounded="xl">
+        <VCardItem title="Movimientos de tienda" :subtitle="`${periodLabel(detailPeriod)} · últimos 15 pagos y abonos`" />
+        <EmptyState
+          v-if="!storeMovements.length"
+          title="Sin movimientos de tienda"
+          description="No hay ventas o abonos aplicados en este periodo."
+          icon="ri-exchange-dollar-line"
+        />
+        <VTable v-else density="compact">
+          <thead><tr><th>Fecha</th><th>Concepto</th><th>Método</th><th>Destino</th><th class="text-right">Importe</th></tr></thead>
+          <tbody>
+            <tr v-for="movement in storeMovements" :key="movement.id">
+              <td>{{ formatDate(movement.occurredAt) }}</td>
+              <td>{{ movement.description }}</td>
+              <td>{{ paymentMethodLabel(movement.method) }}</td>
+              <td>{{ movement.account === 'cash' ? 'Caja' : movement.account === 'bank' ? 'Banco' : movement.account === 'non-cash' ? 'Saldo a favor' : 'Otro' }}</td>
+              <td class="text-right text-success font-weight-bold">{{ formatCurrency(movement.amount) }}</td>
+            </tr>
+          </tbody>
+        </VTable>
+      </VCard>
     </VWindowItem>
   </VWindow>
 
@@ -815,5 +1147,13 @@ onBeforeUnmount(() => {
 
 .monthly-action-card {
   min-block-size: 158px;
+}
+
+.report-table-wrap {
+  overflow-x: auto;
+}
+
+.report-table-wrap .v-table {
+  min-inline-size: 980px;
 }
 </style>

@@ -69,11 +69,74 @@ beforeEach(async () => {
 
 after(async () => env?.cleanup())
 
+const cashClosure = {
+  id: '2026-08-06',
+  date: '2026-08-06',
+  movementFrom: '2026-08-06',
+  openingCash: 1000,
+  openingBank: 5000,
+  cashIncome: 500,
+  bankIncome: 750,
+  otherIncome: 0,
+  cashExpenses: 100,
+  bankExpenses: 250,
+  otherExpenses: 0,
+  expectedCash: 1400,
+  expectedBank: 5500,
+  countedCash: 1390,
+  countedBank: 5500,
+  cashVariance: -10,
+  bankVariance: 0,
+  closedBy: 'admin',
+  closedByName: 'Admin de prueba',
+  createdAt: now(),
+  updatedAt: now(),
+}
+
+const inventoryClosure = {
+  id: '2026-08-03',
+  weekStart: '2026-08-03',
+  weekEnd: '2026-08-09',
+  items: {
+    'product-1': {
+      productId: 'product-1',
+      name: 'Producto de prueba',
+      category: 'Prueba',
+      systemStock: 2,
+      countedStock: 1,
+      variance: -1,
+      unitCost: 10,
+      varianceValue: -10,
+    },
+  },
+  totalSystemUnits: 2,
+  totalCountedUnits: 1,
+  varianceUnits: -1,
+  lossValue: 10,
+  gainValue: 0,
+  closedBy: 'admin',
+  closedByName: 'Admin de prueba',
+  createdAt: now(),
+  updatedAt: now(),
+}
+
 test('un usuario no autenticado no puede leer datos ni perfiles', async () => {
   const db = env.unauthenticatedContext().database()
 
   await assertFails(db.ref('v1/athletes').once('value'))
   await assertFails(db.ref('v1/users/admin').once('value'))
+})
+
+test('sólo Admin puede guardar y consultar cierres de caja e inventario', async () => {
+  const adminDb = env.authenticatedContext('admin').database()
+  const receptionDb = env.authenticatedContext('reception').database()
+
+  await assertSucceeds(adminDb.ref('v1/cashClosures/2026-08-06').set(cashClosure))
+  await assertSucceeds(adminDb.ref('v1/inventoryClosures/2026-08-03').set(inventoryClosure))
+  await assertSucceeds(adminDb.ref('v1/cashClosures').once('value'))
+  await assertSucceeds(adminDb.ref('v1/inventoryClosures').once('value'))
+  await assertFails(receptionDb.ref('v1/cashClosures').once('value'))
+  await assertFails(receptionDb.ref('v1/inventoryClosures/2026-08-03').set(inventoryClosure))
 })
 
 test('un dispositivo pendiente sólo puede leer su autorización y el estado inicial', async () => {

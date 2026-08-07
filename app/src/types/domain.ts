@@ -218,6 +218,55 @@ export interface Expense extends AuditFields {
   receiptUrl?: string | null
 }
 
+export interface CashClosure extends AuditFields {
+  id: ISODate
+  date: ISODate
+  movementFrom: ISODate
+  openingCash: number
+  openingBank: number
+  cashIncome: number
+  bankIncome: number
+  otherIncome: number
+  cashExpenses: number
+  bankExpenses: number
+  otherExpenses: number
+  expectedCash: number
+  expectedBank: number
+  countedCash: number
+  countedBank: number
+  cashVariance: number
+  bankVariance: number
+  notes?: string | null
+  closedBy: EntityId
+  closedByName: string
+}
+
+export interface InventoryClosureItem {
+  productId: EntityId
+  name: string
+  category: string
+  systemStock: number
+  countedStock: number
+  variance: number
+  unitCost: number
+  varianceValue: number
+}
+
+export interface InventoryClosure extends AuditFields {
+  id: ISODate
+  weekStart: ISODate
+  weekEnd: ISODate
+  items: Record<EntityId, InventoryClosureItem>
+  totalSystemUnits: number
+  totalCountedUnits: number
+  varianceUnits: number
+  lossValue: number
+  gainValue: number
+  notes?: string | null
+  closedBy: EntityId
+  closedByName: string
+}
+
 export interface WorkoutBlock {
   duration: string
   title: string

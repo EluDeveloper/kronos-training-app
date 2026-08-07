@@ -12,6 +12,7 @@
     "migrate:check": "node scripts/migrate-kronos-backup.mjs",
     "migrate:export": "node scripts/migrate-kronos-backup.mjs --out kronos-v1-migration.json",
     "test:rules": "firebase emulators:exec --only database \"node --test tests/database.rules.test.mjs\"",
+    "test:finance": "tsx --test tests/financial-reports.test.ts",
     "lint": "eslint . -c .eslintrc.cjs --fix --ext .ts,.js,.cjs,.vue,.tsx,.jsx",
     "build:icons": "tsx src/plugins/iconify/build-icons.ts",
     "postinstall": "npm run build:icons"

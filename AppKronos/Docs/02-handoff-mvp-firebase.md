@@ -1,6 +1,24 @@
 # Kronos Training — Handoff para implementar el MVP en Firebase
 
-Última actualización: 2026-08-03
+Última actualización: 2026-08-06
+
+## Actualización vigente del repositorio — 2026-08-06
+
+Este documento conserva el historial de las decisiones del MVP. El estado vigente del código supera algunas decisiones iniciales descritas más adelante:
+
+- La aplicación ya utiliza acceso visible por correo y contraseña después del alta controlada del primer Admin desde un dispositivo anónimo autorizado.
+- Existen roles `admin` y `reception`, permisos por módulo y por acción, contraseña temporal y administración de usuarios.
+- Se incorporaron pagos parciales de membresía, saldo a favor en tienda, códigos de barras, impresión de etiquetas y kiosco.
+- Los archivos demo heredados de Materio se conservan deliberadamente para posible reutilización, pero sus rutas demo no deben exponerse en la navegación operativa.
+- La rama base `develop` coincide con `origin/develop` en `4c8ff53`; el árbol de trabajo contiene además los cambios de la Fase 12 y ajustes posteriores todavía sin commit.
+- El árbol local pasa typecheck, build, 2 de 2 pruebas financieras y 24 de 24 pruebas de reglas.
+- La Fase 12 y sus reglas fueron publicadas en Firebase Hosting y Realtime Database el 2026-08-06. La inspección autenticada final requiere iniciar sesión nuevamente en el navegador de validación.
+
+Higiene del repositorio:
+
+- El respaldo `AppKronos/Backup/kronos_backup_20260803.json` y la imagen versionada dentro de `AppKronos/.codex-remote-attachments/` se eliminaron del árbol de trabajo por solicitud del usuario el 2026-08-06.
+- `.gitignore` excluye nuevos respaldos JSON y adjuntos de Codex en esas ubicaciones. Los commits anteriores todavía pueden contener ambos archivos hasta que se decida si también debe reescribirse el historial remoto.
+- La auditoría de dependencias descrita más adelante corresponde al estado del 2026-08-03. Varias dependencias ya cambiaron y se requiere ejecutar una auditoría nueva antes de declarar resuelto el riesgo.
 
 ## Cómo utilizar este documento
 
@@ -167,6 +185,8 @@ La lógica Firebase debe permanecer separada de los componentes Vue.
   /sales/{saleId}
   /expenses/{expenseId}
   /workouts/{yyyy-mm-dd}
+  /cashClosures/{yyyy-mm-dd}
+  /inventoryClosures/{yyyy-mm-dd}
   /settings
 ```
 
@@ -562,8 +582,6 @@ Verificación disponible antes del despliegue:
 - Reglas y Hosting se publicaron correctamente en `kronos-training-fd5e5`.
 - En producción, Cristian Castillo mostró una visita pendiente de junio al consultar agosto, además de $25 de adeudo en tienda; el aviso generado desglosó ambos conceptos y totalizó $105.
 - El botón PDF funcionó en producción sin `Failed to fetch dynamically imported module`. La apertura automatizada de la pestaña de impresión fue bloqueada por la política del navegador integrado, pero el generador compartido fue validado mediante descarga y renderizado visual del PDF.
-<<<<<<< HEAD
-
 ### Fase 11 — Centro de alertas y WhatsApp Web — LIBERADA 2026-08-03
 
 - [x] Centralizar notificaciones y confirmaciones en un único componente global con el diseño de Kronos.
@@ -582,8 +600,26 @@ Verificación de liberación:
 - La prueba se cerró con Cancelar; no se modificaron ventas ni inventario reales.
 - Un recibo real de tienda mostró el botón `WhatsApp Web`, y la generación de PDF activó la nueva notificación global `Acción completada · Recibo descargado`.
 - Hosting se publicó correctamente en `https://kronos-training-fd5e5.web.app`.
-=======
->>>>>>> b05abdd0d11ef5ec4852baf8279da3c78acf63e4
+
+### Fase 12 — Visibilidad operativa y cierres — DESPLEGADA EN PRODUCCIÓN 2026-08-06
+
+- [x] Ampliar el reporte anual con ingresos, egresos, ventas, unidades, cancelaciones, altas, bajas y stock por mes.
+- [x] Comparar dos meses seleccionados con diferencias favorables y desfavorables.
+- [x] Mostrar productos más vendidos, margen estimado, egresos por categoría y movimientos de tienda.
+- [x] Estimar caja chica y cuenta bancaria desde el último cierre contado y los movimientos posteriores.
+- [x] Crear cierres diarios con saldo esperado, saldo contado, diferencias y notas.
+- [x] Crear cierres semanales de inventario con conteo físico, faltantes, sobrantes y pérdida estimada a costo.
+- [x] Mantener los cierres restringidos a Admin y sin modificar automáticamente ventas, egresos o existencias.
+- [x] Añadir reglas y prueba permitida/denegada para los nuevos nodos.
+
+Estado de validación local:
+
+- `npm run typecheck` termina sin errores después de integrar los módulos.
+- `npm run test:finance` pasa 2 de 2 pruebas sobre ingreso reconocido, efectivo neto, banco, saldo a favor y rango posterior al último cierre.
+- La prueba nueva confirma que Admin puede escribir cierres y Recepción no puede leerlos ni escribirlos.
+- La suite completa del emulador pasa 24 de 24 pruebas. Los permisos de Tienda se ajustaron por campo para permitir decrementos/restauraciones de stock sin conceder escritura sobre nombre, precios o códigos de producto.
+- `npm run build` finaliza correctamente y Firebase publicó Hosting y Realtime Database Rules en `https://kronos-training-fd5e5.web.app`.
+- La pantalla pública de acceso se verificó en 1440 × 900 y 390 × 844, sin desbordamiento horizontal ni errores de consola. La inspección final de Dashboard, Cierres y Tienda sigue pendiente porque la sesión administrativa del navegador expiró; no se solicitaron ni manipularon credenciales.
 
 Riesgo de dependencias pendiente:
 
@@ -636,8 +672,9 @@ El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de 
 
 ## Fuera de alcance inicial
 
-- Login visible por correo o Google.
-- Roles múltiples detallados.
+Esta lista describe el alcance original. El login visible y los roles/permisos dejaron de estar fuera de alcance y ya forman parte de la aplicación vigente.
+
+- Login mediante Google.
 - Nómina y facturación fiscal.
 - Pagos en línea.
 - Cloud Functions salvo necesidad de atomicidad.
@@ -652,10 +689,10 @@ El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de 
 2. Revisar `git status` y preservar cambios del usuario.
 3. Trabajar en `app/`.
 4. Revisar `package.json`, tema, rutas y navegación; no repetir el análisis de `kronos.html`.
-5. Retomar desde el mantenimiento posterior al MVP o desde una nueva solicitud del usuario; las fases 1 a 6 están liberadas.
+5. Retomar desde el mantenimiento posterior al MVP o desde una nueva solicitud del usuario; las fases 1 a 11 están liberadas y existen funciones posteriores ya integradas.
 6. Mantener `.env.local` fuera de Git y no copiar credenciales a documentos ni mensajes.
 7. No abrir reglas públicas ni volver a ejecutar la migración real sobre el proyecto de producción.
-8. Repetir typecheck, build, `migrate:check` y `test:rules` antes de una futura publicación.
+8. Repetir typecheck, build y `test:rules` antes de una futura publicación. Ejecutar `migrate:check` sólo si se proporciona de forma controlada una copia local autorizada del respaldo eliminado.
 
 ## Mensaje sugerido para reanudar
 
@@ -664,11 +701,13 @@ El archivo `kronos-v1-migration.json` contiene datos reales y está excluido de 
 ## Estado actual del handoff
 
 - Análisis y estrategia Firebase terminados.
-- Fases 1 a 7 implementadas y liberadas.
+- Fases 1 a 11 implementadas y liberadas.
 - Respaldo migrado una sola vez a Realtime Database y conteos remotos verificados.
 - Anonymous Authentication, autorización por dispositivo, reglas y App Check activos.
 - Build, typecheck, Emulator Suite y pruebas responsivas completados.
 - Aplicación oficial disponible en `https://kronos-training-fd5e5.web.app`.
 - Dashboard anual, acciones de cobranza y recibos PDF/WhatsApp disponibles en producción.
 - Cobro acumulado multimes de visitantes, liquidación atómica y recibos desglosados disponibles en producción.
-- Siguiente paso recomendado: priorizar el mantenimiento de dependencias señalado en este documento y definir el siguiente módulo operativo.
+- Usuarios, permisos granulares, pagos parciales de membresía, saldo a favor, códigos de barras y kiosco están integrados en el repositorio después de las fases documentadas originalmente.
+- El cobro conjunto de adeudos está integrado en `develop`; falta agregar su prueba específica de reglas y confirmar su despliegue.
+- Siguiente paso recomendado: completar la validación del cobro conjunto, ejecutar una auditoría actual de dependencias y decidir si el respaldo y el adjunto también deben purgarse del historial Git anterior.

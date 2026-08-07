@@ -71,6 +71,12 @@ export const routes = [
         component: () => import('@/pages/usuarios.vue'),
       },
       {
+        path: 'cierres',
+        name: 'closures',
+        meta: { adminOnly: true },
+        component: () => import('@/pages/cierres.vue'),
+      },
+      {
         path: 'sin-acceso',
         name: 'no-access',
         component: () => import('@/pages/sin-acceso.vue'),

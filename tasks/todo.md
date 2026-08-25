@@ -8,9 +8,13 @@
 
 ## Pilot
 
-- [ ] Elegir el primer flujo vertical.
-- [ ] Crear `SPEC-<module>.md`.
-- [ ] Descomponer la spec en tareas ejecutables.
+- [x] Elegir el primer flujo vertical: alta y edición de atletas.
+- [x] Crear `specs/SPEC-athletes-payments.md`.
+- [x] Descomponer la spec en tareas ejecutables.
+- [ ] Aprobar la spec del piloto.
+- [ ] Implementar validación determinista y pruebas enfocadas.
+- [ ] Integrar errores por campo y estados de formulario.
+- [ ] Mejorar estados de carga, error y resultados vacíos.
 - [ ] Implementar la primera tarea sin mezclar módulos.
 - [ ] Verificar typecheck, build, pruebas y Chrome.
 - [ ] Entregar el reporte de impacto.

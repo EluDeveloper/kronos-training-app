@@ -23,8 +23,12 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 ### Fase 1: Primer piloto
 
-- [ ] Crear la spec del piloto elegido.
-- [ ] Descomponerla en tareas de tamaño S o M.
+- [x] Crear la spec del piloto elegido.
+- [x] Descomponerla en tareas de tamaño S o M.
+- [ ] Aprobar `specs/SPEC-athletes-payments.md`.
+- [ ] Implementar validación determinista y pruebas enfocadas.
+- [ ] Integrar errores por campo y estados de formulario.
+- [ ] Mejorar estados de carga, error y resultados vacíos.
 - [ ] Implementar una rebanada vertical.
 - [ ] Añadir o actualizar pruebas de comportamiento.
 - [ ] Ejecutar typecheck, build y pruebas relevantes.

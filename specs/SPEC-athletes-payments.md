@@ -38,6 +38,7 @@ Run from `app/`:
 ```sh
 npm run typecheck
 npm run build
+npm run test:athlete-intake
 npm run test:finance
 npm run test:rules
 ```
@@ -48,9 +49,13 @@ The current baseline has two known environment failures documented in `tasks/pla
 
 ```text
 app/src/pages/atletas.vue              → page, list and dialogs
+app/src/components/kronos/AthleteIntakeFields.vue → sección accesible de admisión
 app/src/stores/athletes.ts             → reactive collection state
+app/src/stores/athlete-intake.ts       → admisión del atleta seleccionado
 app/src/services/athletes.service.ts   → Firebase boundary
+app/src/services/athlete-intake.service.ts → Firebase boundary sensible
 app/src/types/domain.ts                → Athlete and Membership contracts
+app/src/utils/athlete-intake.ts        → contrato, normalización y validación
 app/tests/                              → repository tests
 specs/SPEC-athletes-payments.md        → approved behavior contract
 Docs/implementation-reports/           → delivery impact reports
@@ -237,5 +242,5 @@ The UI adds an explicit `Ninguna de las anteriores` choice for the condition and
 
 - Should duplicate phone numbers be rejected, warned about or allowed for family accounts?
 - Which authorized test account and dataset should be used for Chrome QA?
-- Should the first implementation use a new validation utility or keep validation local to the page?
+- La validación se concentra en `app/src/utils/athlete-intake.ts` para compartir contrato entre la página y las pruebas.
 - What retention, consent and export/delete policy applies to the health questionnaire?

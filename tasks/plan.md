@@ -25,18 +25,18 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 - [x] Crear la spec del piloto elegido.
 - [x] Descomponerla en tareas de tamaño S o M.
-- [ ] Aprobar `specs/SPEC-athletes-payments.md`.
+- [x] Aprobar `specs/SPEC-athletes-payments.md`.
 - [x] Confirmar el modelo de acceso y privacidad para datos de salud: nodo `athleteIntake` separado y permisos `athletesIntake`/`athletesIntakeManage` con mínimo privilegio.
-- [ ] Implementar el modelo backward-compatible y validación determinista.
-- [ ] Añadir pruebas enfocadas de contacto de emergencia y cuestionario de salud.
-- [ ] Integrar errores por campo y estados de formulario.
-- [ ] Integrar secciones accesibles y campos condicionales.
-- [ ] Mejorar estados de carga, error y resultados vacíos.
-- [ ] Implementar una rebanada vertical.
-- [ ] Añadir o actualizar pruebas de comportamiento.
-- [ ] Ejecutar typecheck, build y pruebas relevantes.
+- [x] Implementar el modelo backward-compatible y validación determinista.
+- [x] Añadir pruebas enfocadas de contacto de emergencia y cuestionario de salud.
+- [x] Integrar errores por campo y estados de formulario.
+- [x] Integrar secciones accesibles y campos condicionales.
+- [x] Mejorar estados de carga, error y resultados vacíos.
+- [x] Implementar una rebanada vertical.
+- [x] Añadir o actualizar pruebas de comportamiento.
+- [x] Ejecutar typecheck, build y pruebas relevantes; reglas pendientes por Java 21 y `tsx` por ENOMEM del entorno.
 - [ ] Validar el flujo en Chrome con autorización manual si requiere login.
-- [ ] Entregar el reporte de impacto.
+- [x] Entregar el reporte de impacto.
 
 ### Checkpoint: Primer piloto
 

@@ -13,14 +13,14 @@
 - [x] Descomponer la spec en tareas ejecutables.
 - [x] Aprobar la spec del piloto.
 - [x] Confirmar el modelo de acceso y privacidad para datos de salud: nodo `athleteIntake` separado y permisos `athletesIntake`/`athletesIntakeManage` con mínimo privilegio.
-- [ ] Implementar el modelo backward-compatible y validación determinista.
-- [ ] Añadir pruebas enfocadas de contacto de emergencia y cuestionario de salud.
-- [ ] Integrar errores por campo y estados de formulario.
-- [ ] Integrar secciones accesibles y campos condicionales.
-- [ ] Mejorar estados de carga, error y resultados vacíos.
-- [ ] Implementar la primera tarea sin mezclar módulos.
-- [ ] Verificar typecheck, build, pruebas y Chrome.
-- [ ] Entregar el reporte de impacto.
+- [x] Implementar el modelo backward-compatible y validación determinista.
+- [x] Añadir pruebas enfocadas de contacto de emergencia y cuestionario de salud.
+- [x] Integrar errores por campo y estados de formulario.
+- [x] Integrar secciones accesibles y campos condicionales.
+- [x] Mejorar estados de carga, error y resultados vacíos.
+- [x] Implementar la primera tarea sin mezclar módulos.
+- [ ] Verificar typecheck, build, pruebas de reglas y Chrome; queda pendiente Java 21 y autorización manual de Chrome.
+- [x] Entregar el reporte de impacto.
 
 ## Checkpoint: Foundation
 

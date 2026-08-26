@@ -64,6 +64,7 @@ test('rechaza datos operativos y de admisión incompletos con errores por campo'
 
 test('requiere descripción cuando se elige otra condición o una actividad', () => {
   const form = validForm()
+
   form.healthHistory.conditions.other = true
   form.healthHistory.conditions.none = false
   form.healthHistory.conditions.otherDescription = ''
@@ -77,6 +78,7 @@ test('requiere descripción cuando se elige otra condición o una actividad', ()
 
 test('exige una selección explícita y hace mutuamente excluyente Ninguna', () => {
   const form = validForm()
+
   form.healthHistory.exerciseSymptoms = ['dizziness', 'none']
 
   assert.equal(validateAthleteForm(form).exerciseSymptoms, 'Ninguna no puede combinarse con otros síntomas.')

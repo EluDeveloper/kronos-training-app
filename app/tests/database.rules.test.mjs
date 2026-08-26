@@ -23,6 +23,7 @@ const appUser = (uid, role = 'reception', permissions = {}, enabled = true, must
 
 const product = stock => ({ id: 'product-1', name: 'Producto de prueba', category: 'Prueba', barcode: '7501234567890', barcodes: { 'KR-00000001': true }, size: null, stock, alertLevel: 1, unitCost: 10, salePrice: 20, status: 'active', createdAt: now(), updatedAt: now() })
 const athlete = { id: 'athlete-1', profile: { name: 'Atleta de prueba', phone: '0000000000', birthDate: '2000-01-01' }, membership: { schedule: 'Matutino', planId: 'plan-1', agreedAmount: 500, paymentDay: 5, registrationDate: '2026-01-01' }, kioskCode: '123456', status: 'active', createdAt: now(), updatedAt: now() }
+
 const athleteIntake = {
   athleteId: 'athlete-1',
   maritalStatus: 'single',
@@ -40,6 +41,7 @@ const athleteIntake = {
   createdAt: now(),
   updatedAt: now(),
 }
+
 const visitor = { id: 'visitor-1', name: 'Visitante de prueba', phone: '5512345678', pricePerVisit: 100, createdAt: now(), updatedAt: now() }
 
 const saleFixture = (id, status = 'paid', payments = {}) => ({

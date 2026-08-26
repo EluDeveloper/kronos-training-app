@@ -1,6 +1,6 @@
 # Spec: Alta y edición de atletas
 
-Estado: borrador para revisión humana.
+Estado: aprobada para implementación incremental.
 Módulo: `athletes-payments`.
 Capability map: `specs/CAPABILITY-MAP.md`.
 
@@ -27,6 +27,8 @@ El piloto conserva Vue 3, TypeScript, Vuetify, Pinia y Firebase Realtime Databas
 - Planes se cargan desde `usePlansStore` y sólo los activos se ofrecen en alta.
 - Actualmente `save()` concentra la validación en un mensaje genérico y no expone errores por campo.
 - La lista de atletas muestra datos operativos; los antecedentes de salud no deben aparecer en la tabla, búsquedas, notificaciones ni tarjetas resumidas.
+- Los datos de admisión sensibles viven en `v1/athleteIntake/{athleteId}`, separados de `v1/athletes`, para que la lectura general de atletas no exponga información de salud.
+- La lectura de admisión requiere `athletesIntake`; su escritura requiere `athletesIntakeManage`. Admin conserva el bypass existente. Estas acciones no se conceden por defecto a recepción.
 - Los registros existentes pueden no tener los nuevos campos; la lectura debe tolerar esos datos ausentes.
 
 ## Commands
@@ -104,21 +106,38 @@ interface AthleteHealthHistory {
     otherDescription?: string | null
   }
   anemia: boolean
-  exerciseSymptoms: Array<'dizziness' | 'fainting' | 'nausea' | 'shortness-of-breath' | 'none'>
+  exerciseSymptoms: {
+    dizziness: boolean
+    fainting: boolean
+    nausea: boolean
+    shortnessOfBreath: boolean
+    none: boolean
+  }
   sportsActivity: { practiced: boolean; description?: string | null }
   sportsFacility: { attended: boolean; description?: string | null }
 }
+
+interface AthleteIntake {
+  athleteId: string
+  maritalStatus: MaritalStatus
+  emergencyContact: EmergencyContact
+  healthHistory: AthleteHealthHistory
+  createdAt: string | number
+  updatedAt: string | number
+}
 ```
 
-`maritalStatus`, `emergencyContact` and `healthHistory` should be optional at the domain type boundary while legacy records are being read. New athlete creation requires a deliberate value for each question and all emergency-contact fields. Editing a legacy record should show missing values as `Sin capturar` and require completion before saving.
+`AthleteIntake` is optional on legacy `Athlete` reads because existing records may not have a companion intake record. New athlete creation requires a deliberate value for each question and all emergency-contact fields. Editing a legacy record should show missing values as `Sin capturar` and require completion before saving when the user has `athletesIntakeManage`.
 
 The duplicated bone-injury question from the request is intentionally represented once as `healthHistory.boneInjury`.
+
+The UI adds an explicit `Ninguna de las anteriores` choice for the condition and symptom checkbox groups so an unanswered group cannot be mistaken for a negative answer. In the persisted map, `none` is mutually exclusive with the other options.
 
 ## Functional Requirements
 
 ### Create
 
-- The authorized user can open `Nuevo atleta`.
+- The authorized user with `athletesManage` can maintain operational fields. Creating a new athlete also requires `athletesIntakeManage`, because the new record must include its admission questionnaire.
 - Required fields are name, phone, plan, agreed amount and payment day.
 - Phone input is normalized to digits before persistence and must contain exactly 10 digits.
 - Agreed amount must be greater than zero.
@@ -134,6 +153,7 @@ The duplicated bone-injury question from the request is intentionally represente
 - The form includes exercise symptoms checkboxes: dizziness, fainting, nausea, shortness of breath and none. `Ninguna` is mutually exclusive with the other symptoms.
 - The form includes sports activity and sports-facility yes/no questions. If the answer is yes, the corresponding activity or facility name is required.
 - Health answers must not default to `No` or `Ninguna`; the user must make an explicit selection.
+- A user with `athletesManage` but without `athletesIntakeManage` can edit operational fields of an existing athlete, but cannot read or overwrite its sensitive intake record.
 - The save action shows a busy state and cannot submit the same form repeatedly.
 - On success, the dialog closes and the user receives a success notification.
 
@@ -169,7 +189,7 @@ The duplicated bone-injury question from the request is intentionally represente
 - Unit or focused behavior tests must cover empty name, invalid phone, invalid amount, invalid payment day and a valid normalized payload.
 - Focused behavior tests must cover missing emergency contact data, explicit health answers, mutually exclusive `none` symptoms and conditional descriptions.
 - Integration behavior must verify create and update payload boundaries without using production data.
-- Security tests or rule review must verify that health fields follow the existing authenticated athlete-management boundary and are not exposed through unrelated summaries.
+- Security tests or rule review must verify that health fields are readable only through `athletesIntake`, writable only through `athletesIntakeManage`, linked to an existing athlete and not exposed through unrelated summaries.
 - Chrome QA must cover opening, validation, successful create/edit, failed save, filter reset and responsive layouts.
 - Chrome QA must inspect console, network, DOM/accessibility tree and before/after screenshots.
 - For protected routes, the agent must pause before login and wait for the user's manual authorization as defined in `AGENTS.md`.
@@ -188,7 +208,6 @@ The duplicated bone-injury question from the request is intentionally represente
 
 - Adding a new testing framework or dependency.
 - Changing Firebase rules, indexes, authentication or permissions.
-- Creating a separate permission for reading or editing health information.
 - Defining a retention period, consent record or export/delete workflow for health information.
 - Adding phone uniqueness or duplicate-detection business rules.
 - Changing the meaning or allowed range of existing data fields.
@@ -219,5 +238,4 @@ The duplicated bone-injury question from the request is intentionally represente
 - Should duplicate phone numbers be rejected, warned about or allowed for family accounts?
 - Which authorized test account and dataset should be used for Chrome QA?
 - Should the first implementation use a new validation utility or keep validation local to the page?
-- Should health information have a dedicated `athletesHealthRead`/`athletesHealthManage` permission, or remain under the current athlete-management permission for this phase?
 - What retention, consent and export/delete policy applies to the health questionnaire?

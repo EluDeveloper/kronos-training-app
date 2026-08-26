@@ -11,8 +11,8 @@
 - [x] Elegir el primer flujo vertical: alta y edición de atletas.
 - [x] Crear `specs/SPEC-athletes-payments.md`.
 - [x] Descomponer la spec en tareas ejecutables.
-- [ ] Aprobar la spec del piloto.
-- [ ] Confirmar el modelo de acceso y privacidad para datos de salud.
+- [x] Aprobar la spec del piloto.
+- [x] Confirmar el modelo de acceso y privacidad para datos de salud: nodo `athleteIntake` separado y permisos `athletesIntake`/`athletesIntakeManage` con mínimo privilegio.
 - [ ] Implementar el modelo backward-compatible y validación determinista.
 - [ ] Añadir pruebas enfocadas de contacto de emergencia y cuestionario de salud.
 - [ ] Integrar errores por campo y estados de formulario.

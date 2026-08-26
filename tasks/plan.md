@@ -26,7 +26,7 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 - [x] Crear la spec del piloto elegido.
 - [x] Descomponerla en tareas de tamaño S o M.
 - [ ] Aprobar `specs/SPEC-athletes-payments.md`.
-- [ ] Confirmar el modelo de acceso y privacidad para datos de salud.
+- [x] Confirmar el modelo de acceso y privacidad para datos de salud: nodo `athleteIntake` separado y permisos `athletesIntake`/`athletesIntakeManage` con mínimo privilegio.
 - [ ] Implementar el modelo backward-compatible y validación determinista.
 - [ ] Añadir pruebas enfocadas de contacto de emergencia y cuestionario de salud.
 - [ ] Integrar errores por campo y estados de formulario.

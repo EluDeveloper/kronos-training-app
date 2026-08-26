@@ -23,6 +23,23 @@ const appUser = (uid, role = 'reception', permissions = {}, enabled = true, must
 
 const product = stock => ({ id: 'product-1', name: 'Producto de prueba', category: 'Prueba', barcode: '7501234567890', barcodes: { 'KR-00000001': true }, size: null, stock, alertLevel: 1, unitCost: 10, salePrice: 20, status: 'active', createdAt: now(), updatedAt: now() })
 const athlete = { id: 'athlete-1', profile: { name: 'Atleta de prueba', phone: '0000000000', birthDate: '2000-01-01' }, membership: { schedule: 'Matutino', planId: 'plan-1', agreedAmount: 500, paymentDay: 5, registrationDate: '2026-01-01' }, kioskCode: '123456', status: 'active', createdAt: now(), updatedAt: now() }
+const athleteIntake = {
+  athleteId: 'athlete-1',
+  maritalStatus: 'single',
+  emergencyContact: { name: 'Contacto de prueba', phone: '5512345678', relationship: 'Hermana' },
+  healthHistory: {
+    boneInjury: false,
+    cardiovascularDisease: false,
+    exerciseBreathingDifficulty: false,
+    conditions: { asthma: false, epilepsy: false, diabetes: false, other: false, none: true, otherDescription: null },
+    anemia: false,
+    exerciseSymptoms: { dizziness: false, fainting: false, nausea: false, shortnessOfBreath: false, none: true },
+    sportsActivity: { practiced: true, description: 'Natación' },
+    sportsFacility: { attended: false, description: null },
+  },
+  createdAt: now(),
+  updatedAt: now(),
+}
 const visitor = { id: 'visitor-1', name: 'Visitante de prueba', phone: '5512345678', pricePerVisit: 100, createdAt: now(), updatedAt: now() }
 
 const saleFixture = (id, status = 'paid', payments = {}) => ({
@@ -54,6 +71,9 @@ beforeEach(async () => {
     await db.ref('v1/authConfig').set({ initialized: true, initializedAt: now() })
     await db.ref('v1/users/admin').set(appUser('admin', 'admin'))
     await db.ref('v1/users/reception').set(appUser('reception', 'reception', { store: true, storeSell: true }, true, true))
+    await db.ref('v1/users/athletes-only').set(appUser('athletes-only', 'reception', { athletes: true, athletesManage: true }))
+    await db.ref('v1/users/intake-reader').set(appUser('intake-reader', 'reception', { athletes: true, athletesIntake: true }))
+    await db.ref('v1/users/intake-manager').set(appUser('intake-manager', 'reception', { athletes: true, athletesIntake: true, athletesIntakeManage: true }))
     await db.ref('v1/users/collector').set(appUser('collector', 'reception', { store: true, storeCollect: true }))
     await db.ref('v1/users/cashier').set(appUser('cashier', 'reception', { payments: true, paymentsManage: true, store: true, storeCollect: true }))
     await db.ref('v1/users/inventory').set(appUser('inventory', 'reception', { store: true, storeInventory: true }))
@@ -61,6 +81,7 @@ beforeEach(async () => {
     await db.ref('v1/users/disabled').set(appUser('disabled', 'reception', { dashboard: true }, false))
     await db.ref('v1/products/product-1').set(product(2))
     await db.ref('v1/athletes/athlete-1').set(athlete)
+    await db.ref('v1/athleteIntake/athlete-1').set(athleteIntake)
     await db.ref('v1/sales/sale-credit').set(saleFixture('sale-credit', 'credit'))
     await db.ref('v1/sales/sale-cancel').set(saleFixture('sale-cancel'))
     await db.ref('v1/visitors/visitor-1').set(visitor)
@@ -125,7 +146,33 @@ test('un usuario no autenticado no puede leer datos ni perfiles', async () => {
   const db = env.unauthenticatedContext().database()
 
   await assertFails(db.ref('v1/athletes').once('value'))
+  await assertFails(db.ref('v1/athleteIntake/athlete-1').once('value'))
   await assertFails(db.ref('v1/users/admin').once('value'))
+})
+
+test('los datos de admisión tienen lectura y escritura separadas del registro operativo', async () => {
+  const athletesOnlyDb = env.authenticatedContext('athletes-only').database()
+  const readerDb = env.authenticatedContext('intake-reader').database()
+  const managerDb = env.authenticatedContext('intake-manager').database()
+  const adminDb = env.authenticatedContext('admin').database()
+
+  await assertSucceeds(athletesOnlyDb.ref('v1/athletes/athlete-1').once('value'))
+  await assertFails(athletesOnlyDb.ref('v1/athleteIntake/athlete-1').once('value'))
+  await assertSucceeds(readerDb.ref('v1/athleteIntake/athlete-1').once('value'))
+  await assertFails(readerDb.ref('v1/athleteIntake/athlete-1').set(athleteIntake))
+  await assertSucceeds(managerDb.ref('v1/athleteIntake/athlete-1').set(athleteIntake))
+  await assertSucceeds(adminDb.ref('v1/athleteIntake/athlete-1').once('value'))
+})
+
+test('las reglas rechazan respuestas de admisión inconsistentes', async () => {
+  const managerDb = env.authenticatedContext('intake-manager').database()
+  const invalidIntake = structuredClone(athleteIntake)
+
+  invalidIntake.healthHistory.conditions.other = true
+  invalidIntake.healthHistory.conditions.none = false
+  invalidIntake.healthHistory.conditions.otherDescription = null
+
+  await assertFails(managerDb.ref('v1/athleteIntake/athlete-1').set(invalidIntake))
 })
 
 test('sólo Admin puede guardar y consultar cierres de caja e inventario', async () => {

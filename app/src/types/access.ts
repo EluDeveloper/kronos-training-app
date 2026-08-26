@@ -8,7 +8,11 @@ export const accessModules = [
   },
   {
     key: 'athletes', label: 'Atletas', description: 'Directorio y estado de los miembros.', icon: 'ri-team-line', route: '/atletas', section: 'Operación',
-    actions: [{ key: 'athletesManage', label: 'Administrar atletas', description: 'Dar de alta, editar y cambiar el estado de los miembros.' }],
+    actions: [
+      { key: 'athletesManage', label: 'Administrar atletas', description: 'Dar de alta, editar y cambiar el estado de los miembros.' },
+      { key: 'athletesIntake', label: 'Consultar datos de admisión', description: 'Consultar contacto de emergencia y antecedentes de salud.' },
+      { key: 'athletesIntakeManage', label: 'Administrar datos de admisión', description: 'Capturar y actualizar contacto de emergencia y antecedentes de salud.' },
+    ],
   },
   {
     key: 'payments', label: 'Mensualidades', description: 'Consulta de cobros, historial y avisos.', icon: 'ri-wallet-3-line', route: '/pagos', section: 'Operación',

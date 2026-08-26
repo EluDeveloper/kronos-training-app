@@ -8,6 +8,8 @@ export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'other' | 'store-cred
 export type SaleStatus = 'paid' | 'credit' | 'cancelled'
 export type ExpenseStatus = 'paid' | 'pending' | 'scheduled'
 export type PlanAccessType = 'unlimited' | 'visit-pack' | 'pay-per-visit'
+export type MaritalStatus = 'single' | 'married' | 'domestic-partnership' | 'divorced' | 'widowed' | 'separated' | 'prefer-not-to-say'
+export type ExerciseSymptom = 'dizziness' | 'fainting' | 'nausea' | 'shortness-of-breath' | 'none'
 
 export interface AuditFields {
   createdAt: ISOTimestamp
@@ -37,6 +39,47 @@ export interface Athlete extends AuditFields {
   inactiveAt?: ISODate | null
   inactiveReason?: string | null
   migrationNeedsReview?: boolean
+}
+
+export interface EmergencyContact {
+  name: string
+  phone: string
+  relationship: string
+}
+
+export interface AthleteHealthConditions {
+  asthma: boolean
+  epilepsy: boolean
+  diabetes: boolean
+  other: boolean
+  none: boolean
+  otherDescription?: string | null
+}
+
+export interface AthleteExerciseSymptoms {
+  dizziness: boolean
+  fainting: boolean
+  nausea: boolean
+  shortnessOfBreath: boolean
+  none: boolean
+}
+
+export interface AthleteHealthHistory {
+  boneInjury: boolean
+  cardiovascularDisease: boolean
+  exerciseBreathingDifficulty: boolean
+  conditions: AthleteHealthConditions
+  anemia: boolean
+  exerciseSymptoms: AthleteExerciseSymptoms
+  sportsActivity: { practiced: boolean; description?: string | null }
+  sportsFacility: { attended: boolean; description?: string | null }
+}
+
+export interface AthleteIntake extends AuditFields {
+  athleteId: EntityId
+  maritalStatus: MaritalStatus
+  emergencyContact: EmergencyContact
+  healthHistory: AthleteHealthHistory
 }
 
 export interface VisitorContact extends AuditFields {

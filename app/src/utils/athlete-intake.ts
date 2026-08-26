@@ -105,7 +105,7 @@ export const normalizePhone = (value: string) => value.replace(/\D/g, '')
 
 const isAnswered = (value: boolean | null | undefined): value is boolean => value !== null && value !== undefined
 
-export const validateAthleteForm = (input: AthleteFormInput): AthleteFormErrors => {
+export const validateAthleteOperationalForm = (input: Pick<AthleteFormInput, 'name' | 'phone' | 'planId' | 'agreedAmount' | 'paymentDay'>): AthleteFormErrors => {
   const errors: AthleteFormErrors = {}
 
   if (!input.name.trim())
@@ -122,6 +122,12 @@ export const validateAthleteForm = (input: AthleteFormInput): AthleteFormErrors 
 
   if (!Number.isInteger(input.paymentDay) || input.paymentDay < 1 || input.paymentDay > 31)
     errors.paymentDay = 'El día de pago debe estar entre 1 y 31.'
+
+  return errors
+}
+
+export const validateAthleteForm = (input: AthleteFormInput): AthleteFormErrors => {
+  const errors = validateAthleteOperationalForm(input)
 
   if (!input.maritalStatus)
     errors.maritalStatus = 'Selecciona el estado civil.'
@@ -230,43 +236,44 @@ export const intakeToForm = (intake?: AthleteIntake | null): AthleteIntakeForm =
   if (!intake)
     return empty
 
-  const symptoms = intake.healthHistory.exerciseSymptoms as Partial<AthleteExerciseSymptoms>
-  const conditions = intake.healthHistory.conditions
+  const healthHistory = intake.healthHistory
+  const symptoms = healthHistory?.exerciseSymptoms as Partial<AthleteExerciseSymptoms> | undefined
+  const conditions = healthHistory?.conditions
 
   return {
-    maritalStatus: intake.maritalStatus,
+    maritalStatus: intake.maritalStatus ?? null,
     emergencyContact: {
-      name: intake.emergencyContact.name,
-      phone: intake.emergencyContact.phone,
-      relationship: intake.emergencyContact.relationship,
+      name: intake.emergencyContact?.name ?? '',
+      phone: intake.emergencyContact?.phone ?? '',
+      relationship: intake.emergencyContact?.relationship ?? '',
     },
     healthHistory: {
-      boneInjury: intake.healthHistory.boneInjury,
-      cardiovascularDisease: intake.healthHistory.cardiovascularDisease,
-      exerciseBreathingDifficulty: intake.healthHistory.exerciseBreathingDifficulty,
+      boneInjury: healthHistory?.boneInjury ?? null,
+      cardiovascularDisease: healthHistory?.cardiovascularDisease ?? null,
+      exerciseBreathingDifficulty: healthHistory?.exerciseBreathingDifficulty ?? null,
       conditions: {
-        asthma: conditions.asthma,
-        epilepsy: conditions.epilepsy,
-        diabetes: conditions.diabetes,
-        other: conditions.other,
-        none: conditions.none,
-        otherDescription: conditions.otherDescription ?? '',
+        asthma: conditions?.asthma ?? null,
+        epilepsy: conditions?.epilepsy ?? null,
+        diabetes: conditions?.diabetes ?? null,
+        other: conditions?.other ?? null,
+        none: conditions?.none ?? null,
+        otherDescription: conditions?.otherDescription ?? '',
       },
-      anemia: intake.healthHistory.anemia,
+      anemia: healthHistory?.anemia ?? null,
       exerciseSymptoms: [
-        symptoms.dizziness ? 'dizziness' : null,
-        symptoms.fainting ? 'fainting' : null,
-        symptoms.nausea ? 'nausea' : null,
-        symptoms.shortnessOfBreath ? 'shortness-of-breath' : null,
-        symptoms.none ? 'none' : null,
+        symptoms?.dizziness ? 'dizziness' : null,
+        symptoms?.fainting ? 'fainting' : null,
+        symptoms?.nausea ? 'nausea' : null,
+        symptoms?.shortnessOfBreath ? 'shortness-of-breath' : null,
+        symptoms?.none ? 'none' : null,
       ].filter((value): value is ExerciseSymptom => value !== null),
       sportsActivity: {
-        practiced: intake.healthHistory.sportsActivity.practiced,
-        description: intake.healthHistory.sportsActivity.description ?? '',
+        practiced: healthHistory?.sportsActivity?.practiced ?? null,
+        description: healthHistory?.sportsActivity?.description ?? '',
       },
       sportsFacility: {
-        attended: intake.healthHistory.sportsFacility.attended,
-        description: intake.healthHistory.sportsFacility.description ?? '',
+        attended: healthHistory?.sportsFacility?.attended ?? null,
+        description: healthHistory?.sportsFacility?.description ?? '',
       },
     },
   }

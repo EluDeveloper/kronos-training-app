@@ -115,7 +115,7 @@ async function save() {
   if (saving.value)
     return
 
-  if (!intakeReady.value) {
+  if (!intakeReady.value || athleteIntake.error) {
     failure('Espera a que carguen los datos de admisión.')
 
     return
@@ -131,6 +131,7 @@ async function save() {
   const phone = form.phone.replace(/\D/g, '')
 
   const existing = athletes.items.find(item => item.id === editingId.value)
+  const wasCreating = !editingId.value
 
   const payload = {
     profile: { name: form.name.trim(), phone, birthDate: form.birthDate || null },
@@ -148,13 +149,15 @@ async function save() {
     let athleteId = editingId.value
     if (editingId.value)
       await athletes.update(editingId.value, payload)
-    else
+    else {
       athleteId = await athletes.create(payload)
+      editingId.value = athleteId
+    }
 
     if (canManageIntake.value && athleteId)
       await athleteIntake.save(toAthleteIntake(athleteId, intakeForm))
 
-    success(editingId.value ? 'Atleta actualizado.' : 'Atleta registrado.')
+    success(wasCreating ? 'Atleta registrado.' : 'Atleta actualizado.')
     dialog.value = false
   }
   catch (error) { failure(error instanceof Error ? error.message : 'No fue posible guardar el atleta.') }
@@ -514,7 +517,7 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
           v-if="canReadIntake"
           v-model="intakeForm"
           :errors="formErrors"
-          :disabled="!canManageIntake || saving || !intakeReady"
+          :disabled="!canManageIntake || saving || !intakeReady || Boolean(athleteIntake.error)"
         />
       </VCardText>
       <VCardActions class="pa-6 pt-0">

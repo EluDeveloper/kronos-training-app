@@ -6,8 +6,8 @@
 - Tests: ⚠️ La prueba enfocada pasa compilada con esbuild y Node (4/4). El comando `npm run test:athlete-intake` queda bloqueado por `uv_os_get_passwd returned ENOMEM`. Las reglas no pudieron ejecutarse porque el entorno sólo tiene Java 8 y Firebase CLI requiere Java 21+.
 - Typecheck: ✅ `npm run typecheck`.
 - Build: ✅ `npm run build` (1107 módulos transformados).
-- Chrome QA: ⚠️ Bloqueado: Chrome está ejecutándose, pero el perfil de pruebas seleccionado (`Profile 3`) no tiene la extensión de control instalada/habilitada y falta el registro del host nativo.
-- Login manual requerido: Sí.
+- Chrome QA: ⚠️ La extensión ya conecta y la pestaña local conserva la sesión manual, pero el dashboard queda en `Conectando Kronos` porque Firebase rechaza el token App Check de `localhost`.
+- Login manual requerido: ✅ Completado por el usuario en la pestaña local; no se inspeccionaron credenciales ni material de autenticación.
 
 ## Árbol de archivos modificados
 
@@ -63,13 +63,13 @@ flowchart TD
 - Comandos ejecutados: `npm run typecheck`, lint dirigido a los archivos afectados, `npm run build`, `npm run test:athlete-intake`, `npm run test:rules`.
 - Prueba enfocada alternativa: esbuild del test a un archivo temporal y `node`; 4 pruebas pasaron.
 - Resultado de reglas: no ejecutable hasta disponer de Java 21+.
-- Viewports revisados: ninguno todavía; Chrome QA requiere una conexión funcional con el perfil autenticado.
-- Errores o warnings observados: no hay errores de lint ni typecheck en los archivos afectados; los bloqueos de `tsx`, Firebase CLI y la conexión Chrome son del entorno.
+- Viewports revisados: viewport predeterminado de Chrome; no fue posible abrir el formulario para revisar responsive porque la sesión quedó bloqueada durante la autorización.
+- Errores o warnings observados: Chrome DevTools registró `FIREBASE WARNING: Missing appcheck token` en `localhost:5173`; el intento inicial con la clave configurada también registró errores de reCAPTCHA/App Check. No se observaron errores nuevos de lint ni typecheck.
 
 ## Riesgos y pendientes
 
 - Ejecutar `npm run test:rules` con JDK 21+.
-- Iniciar sesión manualmente en el perfil de Chrome de pruebas y validar alta, edición, validación, reintento, responsive y consola/network.
-- Confirmar la extensión ChatGPT/Codex instalada y habilitada en el mismo perfil de Chrome; si el host nativo continúa ausente, reinstalar el Browser plugin desde la interfaz de plugins de ChatGPT.
+- Configurar App Check para el origen local de QA (`localhost`) mediante un dominio permitido o un debug token registrado; después repetir alta, edición, validación, reintento, responsive y consola/network en Chrome.
+- No se enviaron datos de prueba ni datos de salud a Firebase porque la pantalla no alcanzó el formulario y el entorno local no tiene un dataset de pruebas aislado.
 - Definir retención, consentimiento y exportación/eliminación de la información de salud.
 - Los permisos de admisión quedan desactivados por defecto; un Admin debe concederlos explícitamente.

@@ -19,7 +19,7 @@
 - [x] Integrar secciones accesibles y campos condicionales.
 - [x] Mejorar estados de carga, error y resultados vacíos.
 - [x] Implementar la primera tarea sin mezclar módulos.
-- [ ] Verificar typecheck, build, pruebas de reglas y Chrome; queda pendiente Java 21 y autorización manual de Chrome.
+- [ ] Verificar pruebas de reglas y Chrome; typecheck/build pasan, Java 21 sigue pendiente y Chrome queda bloqueado por App Check para `localhost`.
 - [x] Entregar el reporte de impacto.
 
 ## Checkpoint: Foundation

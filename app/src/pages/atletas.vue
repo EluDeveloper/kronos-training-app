@@ -746,10 +746,15 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
     white-space: normal;
   }
 
+  .athlete-form-tabs :deep(.v-tab:has(.v-chip) .v-btn__content) {
+    padding-inline-end: 1rem;
+  }
+
   .athlete-form-tabs :deep(.v-chip) {
     position: absolute;
     inset-block-start: 0.125rem;
     inset-inline-end: 0.125rem;
+    z-index: 1;
     margin-inline-start: 0 !important;
   }
 

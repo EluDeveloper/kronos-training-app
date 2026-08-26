@@ -1,18 +1,31 @@
 <script setup lang="ts">
 import EmptyState from '@/components/kronos/EmptyState.vue'
+import AthleteIntakeFields from '@/components/kronos/AthleteIntakeFields.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import { useNotifications } from '@/composables/useNotifications'
+import { useAthleteIntakeStore } from '@/stores/athlete-intake'
 import { useAthletesStore } from '@/stores/athletes'
 import { usePlansStore } from '@/stores/plans'
 import { useSessionStore } from '@/stores/session'
 import type { Athlete } from '@/types/domain'
 import { calculateAge } from '@/types/domain'
+import {
+  createEmptyAthleteIntakeForm,
+  intakeToForm,
+  toAthleteIntake,
+  validateAthleteForm,
+  validateAthleteOperationalForm,
+  type AthleteFormErrors,
+} from '@/utils/athlete-intake'
 import { formatCurrency } from '@/utils/kronos'
 
+const athleteIntake = useAthleteIntakeStore()
 const athletes = useAthletesStore()
 const plans = usePlansStore()
 const session = useSessionStore()
 const canManage = computed(() => session.can('athletesManage'))
+const canReadIntake = computed(() => session.can('athletesIntake') || session.can('athletesIntakeManage'))
+const canManageIntake = computed(() => session.can('athletesIntakeManage'))
 const { success, failure } = useNotifications()
 const search = ref('')
 const statusFilter = ref<string | null>(null)
@@ -28,11 +41,18 @@ const kioskCodeAthlete = ref<Athlete | null>(null)
 const kioskCode = ref('')
 const kioskCodePersisted = ref(false)
 const kioskCodeCopied = ref(false)
+const intakeReady = ref(true)
 
 const form = reactive({
   name: '', phone: '', birthDate: '', schedule: '06:00 AM', planId: '', agreedAmount: 0,
   paymentDay: 1, registrationDate: new Date().toISOString().slice(0, 10),
 })
+
+const intakeForm = reactive(createEmptyAthleteIntakeForm())
+
+const formErrors = computed<AthleteFormErrors>(() => canManageIntake.value
+  ? validateAthleteForm({ ...form, ...intakeForm })
+  : validateAthleteOperationalForm(form))
 
 const filtered = computed(() => athletes.sorted
   .filter(athlete => !statusFilter.value || athlete.status === statusFilter.value)
@@ -52,7 +72,17 @@ watch(() => form.planId, id => {
 })
 watch([search, statusFilter, planFilter], () => { page.value = 1 })
 
+function resetIntakeForm() {
+  Object.assign(intakeForm, createEmptyAthleteIntakeForm())
+}
+
 function openForm(athlete?: Athlete) {
+  if (!athlete && !canManageIntake.value) {
+    failure('Para registrar un atleta se requiere el permiso de administrar datos de admisión.')
+
+    return
+  }
+
   editingId.value = athlete?.id ?? null
   form.name = athlete?.profile.name ?? ''
   form.phone = athlete?.profile.phone ?? ''
@@ -62,6 +92,18 @@ function openForm(athlete?: Athlete) {
   form.agreedAmount = athlete?.membership.agreedAmount ?? plans.active[0]?.price ?? 0
   form.paymentDay = athlete?.membership.paymentDay ?? 1
   form.registrationDate = athlete?.membership.registrationDate ?? new Date().toISOString().slice(0, 10)
+  resetIntakeForm()
+  athleteIntake.clear()
+  intakeReady.value = !athlete || !canReadIntake.value
+
+  if (athlete && canReadIntake.value) {
+    intakeReady.value = false
+    athleteIntake.subscribe(athlete.id, value => {
+      Object.assign(intakeForm, intakeToForm(value))
+      intakeReady.value = true
+    })
+  }
+
   dialog.value = true
 }
 
@@ -70,12 +112,23 @@ function openCreateForm() {
 }
 
 async function save() {
-  const phone = form.phone.replace(/\D/g, '')
-  if (!form.name.trim() || phone.length !== 10 || !form.planId || form.agreedAmount <= 0 || form.paymentDay < 1 || form.paymentDay > 31) {
-    failure('Revisa nombre, teléfono, plan, monto y día de pago.')
+  if (saving.value)
+    return
+
+  if (!intakeReady.value) {
+    failure('Espera a que carguen los datos de admisión.')
 
     return
   }
+
+  const errors = formErrors.value
+  if (Object.keys(errors).length) {
+    failure('Revisa los campos marcados antes de guardar.')
+
+    return
+  }
+
+  const phone = form.phone.replace(/\D/g, '')
 
   const existing = athletes.items.find(item => item.id === editingId.value)
 
@@ -92,10 +145,15 @@ async function save() {
 
   saving.value = true
   try {
+    let athleteId = editingId.value
     if (editingId.value)
       await athletes.update(editingId.value, payload)
     else
-      await athletes.create(payload)
+      athleteId = await athletes.create(payload)
+
+    if (canManageIntake.value && athleteId)
+      await athleteIntake.save(toAthleteIntake(athleteId, intakeForm))
+
     success(editingId.value ? 'Atleta actualizado.' : 'Atleta registrado.')
     dialog.value = false
   }
@@ -178,8 +236,13 @@ function sendKioskCodeByWhatsApp() {
   window.open(`https://web.whatsapp.com/send?phone=52${phone}&text=${message}`, '_blank', 'noopener,noreferrer')
 }
 
+watch(dialog, value => {
+  if (!value)
+    athleteIntake.clear()
+})
+
 onMounted(() => { athletes.subscribe(); plans.subscribe() })
-onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
+onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispose() })
 </script>
 
 <template>
@@ -189,7 +252,7 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
     description="Perfiles, planes y estado de las membresías."
   >
     <template
-      v-if="canManage"
+      v-if="canManage && canManageIntake"
       #actions
     >
       <VBtn
@@ -313,7 +376,8 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
 
   <VDialog
     v-model="dialog"
-    max-width="760"
+    max-width="980"
+    scrollable
   >
     <VCard
       class="kronos-card"
@@ -322,9 +386,33 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
       <VCardItem
         class="pa-6 pb-2"
         :title="editingId ? 'Editar atleta' : 'Nuevo atleta'"
-        subtitle="Datos personales y configuración de la membresía."
+        subtitle="Datos personales, admisión y configuración de la membresía."
       />
       <VCardText class="pa-6">
+        <VAlert
+          v-if="canReadIntake && !canManageIntake"
+          class="mb-5"
+          color="info"
+          variant="tonal"
+          icon="ri-lock-line"
+        >
+          Puedes consultar los datos de admisión, pero no modificarlos.
+        </VAlert>
+        <VAlert
+          v-if="athleteIntake.error"
+          class="mb-5"
+          color="error"
+          variant="tonal"
+          icon="ri-error-warning-line"
+        >
+          No fue posible cargar los datos de admisión. El formulario permanecerá bloqueado hasta reintentar.
+        </VAlert>
+        <VProgressLinear
+          v-if="canReadIntake && editingId && !intakeReady"
+          class="mb-5"
+          color="primary"
+          indeterminate
+        />
         <VRow>
           <VCol
             cols="12"
@@ -333,6 +421,8 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
             <VTextField
               v-model="form.name"
               label="Nombre completo"
+              :error-messages="formErrors.name ? [formErrors.name] : []"
+              required
             />
           </VCol>
           <VCol
@@ -342,7 +432,10 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
             <VTextField
               v-model="form.phone"
               label="Teléfono"
+              inputmode="numeric"
               maxlength="10"
+              :error-messages="formErrors.phone ? [formErrors.phone] : []"
+              required
             />
           </VCol>
           <VCol
@@ -384,6 +477,8 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
               label="Buscar plan"
               prepend-inner-icon="ri-search-line"
               auto-select-first
+              :error-messages="formErrors.planId ? [formErrors.planId] : []"
+              required
             />
           </VCol>
           <VCol
@@ -396,6 +491,8 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
               min="1"
               label="Monto"
               prefix="$"
+              :error-messages="formErrors.agreedAmount ? [formErrors.agreedAmount] : []"
+              required
             />
           </VCol>
           <VCol
@@ -408,9 +505,17 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
               min="1"
               max="31"
               label="Día de pago"
+              :error-messages="formErrors.paymentDay ? [formErrors.paymentDay] : []"
+              required
             />
           </VCol>
         </VRow>
+        <AthleteIntakeFields
+          v-if="canReadIntake"
+          v-model="intakeForm"
+          :errors="formErrors"
+          :disabled="!canManageIntake || saving || !intakeReady"
+        />
       </VCardText>
       <VCardActions class="pa-6 pt-0">
         <VSpacer /><VBtn
@@ -420,6 +525,7 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose() })
           Cancelar
         </VBtn><VBtn
           :loading="saving"
+          :disabled="!intakeReady"
           @click="save"
         >
           Guardar

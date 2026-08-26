@@ -733,11 +733,17 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
   }
 
   .athlete-form-tabs :deep(.v-tab) {
-    flex: 1 1 auto;
+    flex: 1 1 0 !important;
+    inline-size: 0;
     min-inline-size: 0;
-    padding-inline: 0.5rem;
+    padding-inline: 0.25rem;
     font-size: 0.75rem;
+    line-height: 1.1;
     letter-spacing: 0;
+  }
+
+  .athlete-form-tabs :deep(.v-btn__content) {
+    white-space: normal;
   }
 
   .athlete-form-tabs :deep(.v-chip) {

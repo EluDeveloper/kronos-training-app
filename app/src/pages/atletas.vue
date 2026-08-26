@@ -750,6 +750,10 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
     padding-inline-end: 1rem;
   }
 
+  .athlete-form-tabs :deep(.v-tab:has(.v-chip) .v-btn__content > span:first-child) {
+    max-inline-size: calc(100% - 1.25rem);
+  }
+
   .athlete-form-tabs :deep(.v-chip) {
     position: absolute;
     inset-block-start: 0.125rem;

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   createEmptyAthleteIntakeForm,
+  firstAthleteFormError,
+  summarizeAthleteFormErrors,
   toAthleteIntake,
   validateAthleteForm,
   type AthleteFormInput,
@@ -123,4 +125,36 @@ test('valida y normaliza el payload de admisión', () => {
       sportsFacility: { attended: false, description: null },
     },
   })
+})
+
+test('agrupa los errores por pestaña sin perder el orden visual', () => {
+  const summary = summarizeAthleteFormErrors({
+    phone: 'Teléfono inválido.',
+    planId: 'Plan requerido.',
+    paymentDay: 'Día inválido.',
+    emergencyContactName: 'Contacto requerido.',
+    boneInjury: 'Respuesta requerida.',
+  })
+
+  assert.deepEqual(summary, {
+    personal: 1,
+    membership: 2,
+    intake: 2,
+  })
+  assert.deepEqual(firstAthleteFormError({ phone: 'Teléfono inválido.', name: 'Nombre requerido.' }), {
+    tab: 'personal',
+    key: 'name',
+  })
+})
+
+test('selecciona membresía o admisión cuando son las primeras pestañas con errores', () => {
+  assert.deepEqual(firstAthleteFormError({ agreedAmount: 'Monto inválido.', maritalStatus: 'Estado requerido.' }), {
+    tab: 'membership',
+    key: 'agreedAmount',
+  })
+  assert.deepEqual(firstAthleteFormError({ exerciseSymptoms: 'Síntomas requeridos.' }), {
+    tab: 'intake',
+    key: 'exerciseSymptoms',
+  })
+  assert.equal(firstAthleteFormError({}), null)
 })

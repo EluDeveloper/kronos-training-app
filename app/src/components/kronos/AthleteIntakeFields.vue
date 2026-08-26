@@ -85,7 +85,6 @@ function setNoConditions(selected: unknown) {
 </script>
 
 <template>
-  <VDivider class="my-5" />
   <section
     aria-labelledby="athlete-intake-heading"
     class="d-flex flex-column ga-1"
@@ -105,6 +104,7 @@ function setNoConditions(selected: unknown) {
     <VCol
       cols="12"
       md="6"
+      data-athlete-field="maritalStatus"
     >
       <VSelect
         v-model="model.maritalStatus"
@@ -124,6 +124,7 @@ function setNoConditions(selected: unknown) {
     <VCol
       cols="12"
       md="5"
+      data-athlete-field="emergencyContactName"
     >
       <VTextField
         v-model="model.emergencyContact.name"
@@ -138,6 +139,7 @@ function setNoConditions(selected: unknown) {
       cols="12"
       sm="6"
       md="3"
+      data-athlete-field="emergencyContactPhone"
     >
       <VTextField
         v-model="model.emergencyContact.phone"
@@ -154,6 +156,7 @@ function setNoConditions(selected: unknown) {
       cols="12"
       sm="6"
       md="4"
+      data-athlete-field="emergencyContactRelationship"
     >
       <VTextField
         v-model="model.emergencyContact.relationship"
@@ -173,6 +176,7 @@ function setNoConditions(selected: unknown) {
     <VCol
       cols="12"
       md="6"
+      data-athlete-field="boneInjury"
     >
       <VRadioGroup
         v-model="model.healthHistory.boneInjury"
@@ -192,6 +196,7 @@ function setNoConditions(selected: unknown) {
     <VCol
       cols="12"
       md="6"
+      data-athlete-field="cardiovascularDisease"
     >
       <VRadioGroup
         v-model="model.healthHistory.cardiovascularDisease"
@@ -211,6 +216,7 @@ function setNoConditions(selected: unknown) {
     <VCol
       cols="12"
       md="6"
+      data-athlete-field="exerciseBreathingDifficulty"
     >
       <VRadioGroup
         v-model="model.healthHistory.exerciseBreathingDifficulty"
@@ -230,6 +236,7 @@ function setNoConditions(selected: unknown) {
     <VCol
       cols="12"
       md="6"
+      data-athlete-field="anemia"
     >
       <VRadioGroup
         v-model="model.healthHistory.anemia"
@@ -248,7 +255,10 @@ function setNoConditions(selected: unknown) {
     </VCol>
 
     <VCol cols="12">
-      <fieldset class="athlete-intake-fieldset">
+      <fieldset
+        class="athlete-intake-fieldset"
+        data-athlete-field="conditions"
+      >
         <legend class="text-body-1 mb-1">
           ¿Es usted?
         </legend>
@@ -277,6 +287,7 @@ function setNoConditions(selected: unknown) {
           v-if="model.healthHistory.conditions.other === true"
           v-model="model.healthHistory.conditions.otherDescription"
           class="mt-2"
+          data-athlete-field="otherCondition"
           label="Otra condición: menciona cuál"
           :disabled="disabled"
           :error-messages="errors.otherCondition ? [errors.otherCondition] : []"
@@ -289,7 +300,10 @@ function setNoConditions(selected: unknown) {
       cols="12"
       md="6"
     >
-      <fieldset class="athlete-intake-fieldset">
+      <fieldset
+        class="athlete-intake-fieldset"
+        data-athlete-field="exerciseSymptoms"
+      >
         <legend class="text-body-1 mb-1">
           Síntomas al realizar esfuerzos o ejercicio físico
         </legend>
@@ -320,6 +334,7 @@ function setNoConditions(selected: unknown) {
     <VCol
       cols="12"
       md="6"
+      data-athlete-field="sportsActivity"
     >
       <VRadioGroup
         v-model="model.healthHistory.sportsActivity.practiced"
@@ -338,6 +353,7 @@ function setNoConditions(selected: unknown) {
       <VTextField
         v-if="model.healthHistory.sportsActivity.practiced === true"
         v-model="model.healthHistory.sportsActivity.description"
+        data-athlete-field="sportsActivityDescription"
         label="¿Cuál actividad?"
         :disabled="disabled"
         :error-messages="errors.sportsActivityDescription ? [errors.sportsActivityDescription] : []"
@@ -348,6 +364,7 @@ function setNoConditions(selected: unknown) {
     <VCol
       cols="12"
       md="6"
+      data-athlete-field="sportsFacility"
     >
       <VRadioGroup
         v-model="model.healthHistory.sportsFacility.attended"
@@ -366,6 +383,7 @@ function setNoConditions(selected: unknown) {
       <VTextField
         v-if="model.healthHistory.sportsFacility.attended === true"
         v-model="model.healthHistory.sportsFacility.description"
+        data-athlete-field="sportsFacilityDescription"
         label="¿Cuál gimnasio o instalación?"
         :disabled="disabled"
         :error-messages="errors.sportsFacilityDescription ? [errors.sportsFacilityDescription] : []"

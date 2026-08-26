@@ -65,10 +65,10 @@
 - [x] B1 — Integrar Playwright Test, Chromium, ignores y configuración responsive segura.
   - Aceptación: cuatro viewports configurados; producción no es el destino predeterminado; estado autenticado excluido de Git.
   - Verificación: `npx playwright test --project=responsive-public` y auditoría npm.
-- [ ] B2 — Probar y añadir el contrato de errores por pestaña.
+- [x] B2 — Probar y añadir el contrato de errores por pestaña.
   - Aceptación: conteos y primer error siguen el orden Personal → Membresía → Admisión.
   - Verificación: `npm run test:athlete-intake` con evidencia RED/GREEN.
-- [ ] B3 — Implementar tabs accesibles en alta/edición.
+- [x] B3 — Implementar tabs accesibles en alta/edición.
   - Aceptación: no se pierden datos, el primer tab inválido se activa/enfoca y permisos/carga se conservan.
   - Verificación: test enfocado, typecheck, lint y build.
 - [ ] B4 — Ejecutar QA responsive y flujo completo afectado.
@@ -77,6 +77,6 @@
 
 ## Checkpoint: Fase B
 
-- [ ] B1–B3 pasan pruebas automatizadas, typecheck y build.
+- [x] B1–B3 pasan pruebas automatizadas, typecheck y build.
 - [ ] B4 completa Playwright y Chrome con login manual autorizado.
 - [ ] Reporte, commits y push quedan sincronizados en `develop` y `main`.

@@ -64,6 +64,48 @@ export type AthleteFormErrorKey =
 
 export type AthleteFormErrors = Partial<Record<AthleteFormErrorKey, string>>
 
+export type AthleteFormTab = 'personal' | 'membership' | 'intake'
+
+const athleteFormFieldsByTab = {
+  personal: ['name', 'phone'],
+  membership: ['planId', 'agreedAmount', 'paymentDay'],
+  intake: [
+    'maritalStatus',
+    'emergencyContactName',
+    'emergencyContactPhone',
+    'emergencyContactRelationship',
+    'boneInjury',
+    'cardiovascularDisease',
+    'exerciseBreathingDifficulty',
+    'conditions',
+    'otherCondition',
+    'anemia',
+    'exerciseSymptoms',
+    'sportsActivity',
+    'sportsActivityDescription',
+    'sportsFacility',
+    'sportsFacilityDescription',
+  ],
+} as const satisfies Record<AthleteFormTab, readonly AthleteFormErrorKey[]>
+
+const athleteFormTabs: AthleteFormTab[] = ['personal', 'membership', 'intake']
+
+export const summarizeAthleteFormErrors = (errors: AthleteFormErrors): Record<AthleteFormTab, number> => ({
+  personal: athleteFormFieldsByTab.personal.filter(key => Boolean(errors[key])).length,
+  membership: athleteFormFieldsByTab.membership.filter(key => Boolean(errors[key])).length,
+  intake: athleteFormFieldsByTab.intake.filter(key => Boolean(errors[key])).length,
+})
+
+export const firstAthleteFormError = (errors: AthleteFormErrors): { tab: AthleteFormTab; key: AthleteFormErrorKey } | null => {
+  for (const tab of athleteFormTabs) {
+    const key = athleteFormFieldsByTab[tab].find(field => Boolean(errors[field]))
+    if (key)
+      return { tab, key }
+  }
+
+  return null
+}
+
 export interface AthleteIntakePayload {
   athleteId: string
   maritalStatus: MaritalStatus

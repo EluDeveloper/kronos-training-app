@@ -11,11 +11,14 @@ import type { Athlete } from '@/types/domain'
 import { calculateAge } from '@/types/domain'
 import {
   createEmptyAthleteIntakeForm,
+  firstAthleteFormError,
   intakeToForm,
+  summarizeAthleteFormErrors,
   toAthleteIntake,
   validateAthleteForm,
   validateAthleteOperationalForm,
   type AthleteFormErrors,
+  type AthleteFormTab,
 } from '@/utils/athlete-intake'
 import { formatCurrency, normalizeSearchTerm } from '@/utils/kronos'
 
@@ -43,6 +46,8 @@ const kioskCodePersisted = ref(false)
 const kioskCodeCopied = ref(false)
 const intakeReady = ref(true)
 const validationAttempted = ref(false)
+const activeFormTab = ref<AthleteFormTab>('personal')
+const formTabsRoot = ref<HTMLElement | null>(null)
 
 const form = reactive({
   name: '', phone: '', birthDate: '', schedule: '06:00 AM', planId: '', agreedAmount: 0,
@@ -59,6 +64,16 @@ const formErrors = computed<AthleteFormErrors>(() => {
     ? validateAthleteForm({ ...form, ...intakeForm })
     : validateAthleteOperationalForm(form)
 })
+
+const formTabErrors = computed(() => summarizeAthleteFormErrors(formErrors.value))
+
+const formTabs: Array<{ label: string; value: AthleteFormTab }> = [
+  { label: 'Datos personales', value: 'personal' },
+  { label: 'Membresía', value: 'membership' },
+  { label: 'Admisión', value: 'intake' },
+]
+
+const visibleFormTabs = computed(() => formTabs.filter(tab => tab.value !== 'intake' || canReadIntake.value))
 
 const filtered = computed(() => athletes.sorted
   .filter(athlete => !statusFilter.value || athlete.status === statusFilter.value)
@@ -99,6 +114,7 @@ function openForm(athlete?: Athlete) {
   form.paymentDay = athlete?.membership.paymentDay ?? 1
   form.registrationDate = athlete?.membership.registrationDate ?? new Date().toISOString().slice(0, 10)
   validationAttempted.value = false
+  activeFormTab.value = 'personal'
   resetIntakeForm()
   athleteIntake.clear()
   intakeReady.value = !athlete || !canReadIntake.value
@@ -112,6 +128,29 @@ function openForm(athlete?: Athlete) {
   }
 
   dialog.value = true
+}
+
+function formTabAriaLabel(tab: { label: string; value: AthleteFormTab }) {
+  const count = formTabErrors.value[tab.value]
+
+  return count ? `${tab.label}, ${count} ${count === 1 ? 'error' : 'errores'}` : tab.label
+}
+
+async function revealFirstFormError(errors: AthleteFormErrors) {
+  const firstError = firstAthleteFormError(errors)
+  if (!firstError)
+    return
+
+  activeFormTab.value = firstError.tab
+  await nextTick()
+
+  const field = formTabsRoot.value?.querySelector<HTMLElement>(`[data-athlete-field="${firstError.key}"]`)
+
+  const focusTarget = field?.matches('input, button, [tabindex]:not([tabindex="-1"])')
+    ? field
+    : field?.querySelector<HTMLElement>('input:not([type="hidden"]), button, [tabindex]:not([tabindex="-1"])')
+
+  focusTarget?.focus()
 }
 
 function openCreateForm() {
@@ -133,6 +172,7 @@ async function save() {
   const errors = formErrors.value
   if (Object.keys(errors).length) {
     failure('Revisa los campos marcados antes de guardar.')
+    await revealFirstFormError(errors)
 
     return
   }
@@ -400,7 +440,7 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
         :title="editingId ? 'Editar atleta' : 'Nuevo atleta'"
         subtitle="Datos personales, admisión y configuración de la membresía."
       />
-      <VCardText class="pa-6">
+      <VCardText class="pa-4 pa-sm-6">
         <VAlert
           v-if="canReadIntake && !canManageIntake"
           class="mb-5"
@@ -425,109 +465,159 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
           color="primary"
           indeterminate
         />
-        <VRow>
-          <VCol
-            cols="12"
-            md="7"
+        <div ref="formTabsRoot">
+          <VTabs
+            v-model="activeFormTab"
+            class="athlete-form-tabs"
+            aria-label="Secciones del formulario de atleta"
+            show-arrows
           >
-            <VTextField
-              v-model="form.name"
-              label="Nombre completo"
-              :error-messages="formErrors.name ? [formErrors.name] : []"
-              required
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="5"
+            <VTab
+              v-for="tab in visibleFormTabs"
+              :key="tab.value"
+              :value="tab.value"
+              :aria-label="formTabAriaLabel(tab)"
+            >
+              <span>{{ tab.label }}</span>
+              <VChip
+                v-if="formTabErrors[tab.value]"
+                class="ms-2"
+                color="error"
+                size="x-small"
+                variant="tonal"
+                aria-hidden="true"
+              >
+                {{ formTabErrors[tab.value] }}
+              </VChip>
+            </VTab>
+          </VTabs>
+          <VDivider />
+
+          <VWindow
+            v-model="activeFormTab"
+            class="athlete-form-window"
+            :touch="false"
           >
-            <VTextField
-              v-model="form.phone"
-              label="Teléfono"
-              inputmode="numeric"
-              maxlength="10"
-              :error-messages="formErrors.phone ? [formErrors.phone] : []"
-              required
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="4"
-          >
-            <VTextField
-              v-model="form.birthDate"
-              type="date"
-              label="Fecha de nacimiento"
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="4"
-          >
-            <VTextField
-              v-model="form.schedule"
-              label="Horario base"
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="4"
-          >
-            <VTextField
-              v-model="form.registrationDate"
-              type="date"
-              label="Fecha de registro"
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="6"
-          >
-            <VAutocomplete
-              v-model="form.planId"
-              :items="planItems"
-              label="Buscar plan"
-              prepend-inner-icon="ri-search-line"
-              auto-select-first
-              :error-messages="formErrors.planId ? [formErrors.planId] : []"
-              required
-            />
-          </VCol>
-          <VCol
-            cols="6"
-            md="3"
-          >
-            <VTextField
-              v-model.number="form.agreedAmount"
-              type="number"
-              min="1"
-              label="Monto"
-              prefix="$"
-              :error-messages="formErrors.agreedAmount ? [formErrors.agreedAmount] : []"
-              required
-            />
-          </VCol>
-          <VCol
-            cols="6"
-            md="3"
-          >
-            <VTextField
-              v-model.number="form.paymentDay"
-              type="number"
-              min="1"
-              max="31"
-              label="Día de pago"
-              :error-messages="formErrors.paymentDay ? [formErrors.paymentDay] : []"
-              required
-            />
-          </VCol>
-        </VRow>
-        <AthleteIntakeFields
-          v-if="canReadIntake"
-          v-model="intakeForm"
-          :errors="formErrors"
-          :disabled="!canManageIntake || saving || !intakeReady || Boolean(athleteIntake.error)"
-        />
+            <VWindowItem value="personal">
+              <VRow>
+                <VCol
+                  cols="12"
+                  md="7"
+                  data-athlete-field="name"
+                >
+                  <VTextField
+                    v-model="form.name"
+                    label="Nombre completo"
+                    :error-messages="formErrors.name ? [formErrors.name] : []"
+                    required
+                  />
+                </VCol>
+                <VCol
+                  cols="12"
+                  md="5"
+                  data-athlete-field="phone"
+                >
+                  <VTextField
+                    v-model="form.phone"
+                    label="Teléfono"
+                    inputmode="numeric"
+                    maxlength="10"
+                    :error-messages="formErrors.phone ? [formErrors.phone] : []"
+                    required
+                  />
+                </VCol>
+                <VCol
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="form.birthDate"
+                    type="date"
+                    label="Fecha de nacimiento"
+                  />
+                </VCol>
+                <VCol
+                  cols="12"
+                  md="6"
+                >
+                  <VTextField
+                    v-model="form.schedule"
+                    label="Horario base"
+                  />
+                </VCol>
+              </VRow>
+            </VWindowItem>
+
+            <VWindowItem value="membership">
+              <VRow>
+                <VCol
+                  cols="12"
+                  md="4"
+                >
+                  <VTextField
+                    v-model="form.registrationDate"
+                    type="date"
+                    label="Fecha de registro"
+                  />
+                </VCol>
+                <VCol
+                  cols="12"
+                  md="8"
+                  data-athlete-field="planId"
+                >
+                  <VAutocomplete
+                    v-model="form.planId"
+                    :items="planItems"
+                    label="Buscar plan"
+                    prepend-inner-icon="ri-search-line"
+                    auto-select-first
+                    :error-messages="formErrors.planId ? [formErrors.planId] : []"
+                    required
+                  />
+                </VCol>
+                <VCol
+                  cols="12"
+                  sm="6"
+                  data-athlete-field="agreedAmount"
+                >
+                  <VTextField
+                    v-model.number="form.agreedAmount"
+                    type="number"
+                    min="1"
+                    label="Monto"
+                    prefix="$"
+                    :error-messages="formErrors.agreedAmount ? [formErrors.agreedAmount] : []"
+                    required
+                  />
+                </VCol>
+                <VCol
+                  cols="12"
+                  sm="6"
+                  data-athlete-field="paymentDay"
+                >
+                  <VTextField
+                    v-model.number="form.paymentDay"
+                    type="number"
+                    min="1"
+                    max="31"
+                    label="Día de pago"
+                    :error-messages="formErrors.paymentDay ? [formErrors.paymentDay] : []"
+                    required
+                  />
+                </VCol>
+              </VRow>
+            </VWindowItem>
+
+            <VWindowItem value="intake">
+              <AthleteIntakeFields
+                v-if="canReadIntake"
+                v-model="intakeForm"
+                :errors="formErrors"
+                :disabled="!canManageIntake || saving || !intakeReady || Boolean(athleteIntake.error)"
+              />
+            </VWindowItem>
+          </VWindow>
+        </div>
       </VCardText>
       <VCardActions class="pa-6 pt-0">
         <VSpacer /><VBtn
@@ -627,3 +717,20 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.athlete-form-tabs {
+  max-inline-size: 100%;
+}
+
+.athlete-form-window {
+  min-inline-size: 0;
+  padding-block-start: 1.5rem;
+}
+
+@media (max-width: 600px) {
+  .athlete-form-window {
+    padding-block-start: 1rem;
+  }
+}
+</style>

@@ -16,6 +16,8 @@ export const formatDate = (value?: ISOTimestamp | null) => {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('es-MX')
 }
 
+export const normalizeSearchTerm = (value?: string | null) => (value ?? '').toLocaleLowerCase('es')
+
 export const timestampValue = (value?: ISOTimestamp | null) => {
   if (!value)
     return 0

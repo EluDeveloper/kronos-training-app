@@ -17,7 +17,7 @@ import {
   validateAthleteOperationalForm,
   type AthleteFormErrors,
 } from '@/utils/athlete-intake'
-import { formatCurrency } from '@/utils/kronos'
+import { formatCurrency, normalizeSearchTerm } from '@/utils/kronos'
 
 const athleteIntake = useAthleteIntakeStore()
 const athletes = useAthletesStore()
@@ -57,7 +57,7 @@ const formErrors = computed<AthleteFormErrors>(() => canManageIntake.value
 const filtered = computed(() => athletes.sorted
   .filter(athlete => !statusFilter.value || athlete.status === statusFilter.value)
   .filter(athlete => !planFilter.value || athlete.membership.planId === planFilter.value)
-  .filter(athlete => `${athlete.profile.name} ${athlete.profile.phone} ${athlete.membership.schedule}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es'))))
+  .filter(athlete => `${athlete.profile.name} ${athlete.profile.phone} ${athlete.membership.schedule}`.toLocaleLowerCase('es').includes(normalizeSearchTerm(search.value))))
 
 const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
 const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))

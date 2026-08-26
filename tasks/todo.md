@@ -11,7 +11,7 @@
 
 - [x] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md` antes de implementar Fase B.
 - [x] Revisar y autorizar `specs/SPEC-quality-gates.md` antes de integrar Playwright.
-- [ ] Fase B: dividir el formulario de atleta en pestañas.
+- [x] Fase B: dividir el formulario de atleta en pestañas.
 - [ ] Fase C: generar ficha de inscripción reutilizando el diseño de recibos.
 - [ ] Fase D: cambiar el código de quiosco al formato determinista solicitado.
 - [ ] Fase E: implementar notificaciones de pagos con WhatsApp Business.
@@ -71,12 +71,12 @@
 - [x] B3 — Implementar tabs accesibles en alta/edición.
   - Aceptación: no se pierden datos, el primer tab inválido se activa/enfoca y permisos/carga se conservan.
   - Verificación: test enfocado, typecheck, lint y build.
-- [ ] B4 — Ejecutar QA responsive y flujo completo afectado.
+- [x] B4 — Ejecutar QA responsive y flujo completo afectado.
   - Aceptación: Playwright pasa a 320/768/1024/1440 y Chrome valida alta/edición completa sin errores nuevos.
   - Verificación: Playwright, Chrome DevTools y reporte de impacto.
 
 ## Checkpoint: Fase B
 
 - [x] B1–B3 pasan pruebas automatizadas, typecheck y build.
-- [ ] B4 completa Playwright y Chrome con login manual autorizado.
-- [ ] Reporte, commits y push quedan sincronizados en `develop` y `main`.
+- [x] B4 completa Playwright y Chrome con login manual autorizado.
+- [x] Reporte, commits y push quedan sincronizados en `develop` y `main`.

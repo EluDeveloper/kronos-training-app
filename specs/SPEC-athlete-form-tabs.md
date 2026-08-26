@@ -1,6 +1,6 @@
 # Spec: Formulario de atleta por pestañas
 
-Estado: aprobada para implementación incremental el 2026-08-26.
+Estado: implementada y validada en producción el 2026-08-26.
 Módulo: `athletes-payments`.
 Capability map: `specs/CAPABILITY-MAP.md`.
 Especificación relacionada: `specs/SPEC-athletes-payments.md`.
@@ -105,15 +105,15 @@ Revisar consola, red, árbol de accesibilidad y capturas en los viewports defini
 
 ## Success Criteria
 
-- [ ] El diálogo presenta las tres pestañas con el contenido correcto.
-- [ ] Navegar entre pestañas no pierde ni altera datos.
-- [ ] Los errores se muestran después de guardar, marcan la pestaña correspondiente y llevan al primer error.
-- [ ] Alta y edición mantienen persistencia, permisos y estados de admisión existentes.
-- [ ] No hay overflow horizontal a 320 px y el flujo es utilizable en los cuatro viewports.
-- [ ] Las pruebas unitarias/integración, typecheck y build pasan.
-- [ ] Playwright complementario pasa en el entorno seguro definido.
-- [ ] Chrome valida el flujo completo afectado, con consola limpia y evidencia visual/accesible.
-- [ ] El reporte final lista árbol, flujos afectados/no afectados, diagrama, evidencia y riesgos.
+- [x] El diálogo presenta las tres pestañas con el contenido correcto.
+- [x] Navegar entre pestañas no pierde ni altera datos.
+- [x] Los errores se muestran después de guardar, marcan la pestaña correspondiente y llevan al primer error.
+- [x] Alta y edición mantienen persistencia, permisos y estados de admisión existentes.
+- [x] No hay overflow horizontal a 320 px y el flujo es utilizable en los cuatro viewports.
+- [x] Las pruebas unitarias/integración, typecheck y build pasan.
+- [x] Playwright complementario pasa en el entorno seguro definido.
+- [x] Chrome valida el flujo completo afectado, con consola limpia y evidencia visual/accesible.
+- [x] El reporte final lista árbol, flujos afectados/no afectados, diagrama, evidencia y riesgos.
 
 ## Boundaries
 

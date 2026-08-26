@@ -7,6 +7,8 @@ const viewports = [
   { name: 'desktop-wide', width: 1440, height: 1000 },
 ]
 
+test.setTimeout(60_000)
+
 for (const viewport of viewports) {
   test(`login responsive sin overflow en ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height })

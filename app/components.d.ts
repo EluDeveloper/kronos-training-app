@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AccountStatus: typeof import('./src/components/kronos/AccountStatus.vue')['default']
+    AthleteIntakeFields: typeof import('./src/components/kronos/AthleteIntakeFields.vue')['default']
     BarcodeScanner: typeof import('./src/components/kronos/BarcodeScanner.vue')['default']
     CardStatisticsHorizontal: typeof import('./src/@core/components/cards/CardStatisticsHorizontal.vue')['default']
     CardStatisticsVertical: typeof import('./src/@core/components/cards/CardStatisticsVertical.vue')['default']

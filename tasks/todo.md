@@ -12,8 +12,11 @@
 - [x] Crear `specs/SPEC-athletes-payments.md`.
 - [x] Descomponer la spec en tareas ejecutables.
 - [ ] Aprobar la spec del piloto.
-- [ ] Implementar validación determinista y pruebas enfocadas.
+- [ ] Confirmar el modelo de acceso y privacidad para datos de salud.
+- [ ] Implementar el modelo backward-compatible y validación determinista.
+- [ ] Añadir pruebas enfocadas de contacto de emergencia y cuestionario de salud.
 - [ ] Integrar errores por campo y estados de formulario.
+- [ ] Integrar secciones accesibles y campos condicionales.
 - [ ] Mejorar estados de carga, error y resultados vacíos.
 - [ ] Implementar la primera tarea sin mezclar módulos.
 - [ ] Verificar typecheck, build, pruebas y Chrome.

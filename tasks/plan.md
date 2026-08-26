@@ -26,8 +26,11 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 - [x] Crear la spec del piloto elegido.
 - [x] Descomponerla en tareas de tamaño S o M.
 - [ ] Aprobar `specs/SPEC-athletes-payments.md`.
-- [ ] Implementar validación determinista y pruebas enfocadas.
+- [ ] Confirmar el modelo de acceso y privacidad para datos de salud.
+- [ ] Implementar el modelo backward-compatible y validación determinista.
+- [ ] Añadir pruebas enfocadas de contacto de emergencia y cuestionario de salud.
 - [ ] Integrar errores por campo y estados de formulario.
+- [ ] Integrar secciones accesibles y campos condicionales.
 - [ ] Mejorar estados de carga, error y resultados vacíos.
 - [ ] Implementar una rebanada vertical.
 - [ ] Añadir o actualizar pruebas de comportamiento.

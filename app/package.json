@@ -3,6 +3,7 @@
   "version": "2.3.0",
   "private": true,
   "type": "module",
+  "packageManager": "npm@10.9.3",
   "scripts": {
     "dev": "vite",
     "dev:host": "vite --host",
@@ -14,6 +15,7 @@
     "test:rules": "firebase emulators:exec --only database \"node --test tests/database.rules.test.mjs\"",
     "test:finance": "tsx --test tests/financial-reports.test.ts",
     "test:athlete-intake": "tsx --test tests/athlete-intake.test.ts",
+    "test:iconify": "node --test tests/iconify-build.test.mjs",
     "lint": "eslint . -c .eslintrc.cjs --fix --ext .ts,.js,.cjs,.vue,.tsx,.jsx",
     "build:icons": "tsx src/plugins/iconify/build-icons.ts",
     "postinstall": "npm run build:icons"
@@ -44,7 +46,7 @@
     "@firebase/rules-unit-testing": "^5.0.1",
     "@iconify-json/bxl": "^1.1.10",
     "@iconify-json/ri": "^1.2.1",
-    "@iconify/tools": "^4.2.0",
+    "@iconify/tools": "^5.0.14",
     "@iconify/utils": "^2.1.13",
     "@iconify/vue": "4.1.2",
     "@stylistic/stylelint-config": "^1.0.1",

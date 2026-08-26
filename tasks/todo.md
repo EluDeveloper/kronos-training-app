@@ -1,5 +1,20 @@
 # Task List: Adopción de SDD en Kronos
 
+## Mantenimiento técnico
+
+- [x] Declarar npm y `app/package-lock.json` como fuente autoritativa.
+- [x] Corregir las vulnerabilidades alcanzables sin aplicar `npm audit fix --force`; producción queda en cero y el tooling conserva 5 moderadas documentadas.
+- [x] Instalar/habilitar JDK 21 para el emulador de reglas.
+- [x] Ejecutar `npm run test:rules` con Java 21 y documentar el resultado (26/26).
+
+## Roadmap funcional aprobado para planificación
+
+- [ ] Fase B: dividir el formulario de atleta en pestañas.
+- [ ] Fase C: generar ficha de inscripción reutilizando el diseño de recibos.
+- [ ] Fase D: cambiar el código de quiosco al formato determinista solicitado.
+- [ ] Fase E: implementar notificaciones de pagos con WhatsApp Business.
+- [ ] Fase F: evaluar notificaciones push como alternativa.
+
 ## Foundation
 
 - [ ] Revisar y aprobar el capability map.
@@ -19,7 +34,7 @@
 - [x] Integrar secciones accesibles y campos condicionales.
 - [x] Mejorar estados de carga, error y resultados vacíos.
 - [x] Implementar la primera tarea sin mezclar módulos.
-- [ ] Ejecutar pruebas de reglas con Java 21; typecheck, lint, build, pruebas enfocadas y QA Chrome de producción ya pasan.
+- [x] Ejecutar pruebas de reglas con Java 21; typecheck, lint, build, pruebas enfocadas y QA Chrome de producción ya pasan.
 - [x] Entregar el reporte de impacto.
 
 ## Checkpoint: Foundation

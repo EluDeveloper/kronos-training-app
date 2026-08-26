@@ -3,7 +3,7 @@
 ## Estado
 
 - Spec: ✅ `specs/SPEC-athletes-payments.md` aprobada y actualizada.
-- Tests: ⚠️ La prueba enfocada pasa compilada con esbuild y Node (4/4), y la prueba de búsqueda pasa (2/2). Los comandos `npm run test:athlete-intake` y `npm run test:rules` quedan bloqueados por limitaciones del entorno: `uv_os_get_passwd returned ENOMEM` y Java 8, respectivamente; Firebase CLI requiere Java 21+ para el emulador de reglas.
+- Tests: ✅ Admisión 4/4, búsqueda 2/2, finanzas 2/2 y reglas Firebase 26/26. La suite de reglas se ejecutó con el JDK Temurin 21 instalado para este equipo.
 - Typecheck: ✅ `npm run typecheck`.
 - Lint: ✅ ESLint dirigido a los archivos afectados.
 - Build: ✅ `npm run build` (1107 módulos transformados).
@@ -11,6 +11,7 @@
 - Hosting: ✅ Publicado en `https://kronos-training-fd5e5.web.app/` con el commit `ea60636`.
 - Chrome QA: ✅ Validado en producción con sesión iniciada manualmente por el usuario y URL cache-busting. El formulario no muestra errores al abrirse; los muestra después de intentar guardar incompleto. La búsqueda recupera el listado al limpiarse y no genera errores.
 - E2E demo: ✅ Se creó un atleta ficticio, se editó la admisión con campos condicionales, se confirmó la persistencia y se eliminaron tanto el registro operativo como su admisión sensible. No quedaron datos demo.
+- Dependencias y entorno: ✅ Auditoría de producción en cero y JDK 21 habilitado; detalle en `Docs/implementation-reports/2026-08-26-dependency-java-maintenance.md`.
 - Login manual requerido: ✅ Completado por el usuario; no se inspeccionaron credenciales, cookies, tokens ni material de autenticación.
 
 ## Árbol de archivos modificados
@@ -72,9 +73,9 @@ flowchart TD
 
 ## Evidencia
 
-- Comandos ejecutados: `npm run typecheck`, ESLint dirigido, `npm run build`, `npm run test:athlete-intake`, `npm run test:rules` y pruebas enfocadas compiladas con esbuild/Node.
+- Comandos ejecutados: `npm run typecheck`, ESLint dirigido, `npm run build`, `npm run test:finance`, `npm run test:athlete-intake`, `npm run test:iconify`, `npm run test:rules` y pruebas enfocadas compiladas con esbuild/Node.
 - Pruebas enfocadas alternativas: admisión 4/4 y normalización de búsqueda 2/2.
-- Resultado de reglas: no ejecutable hasta disponer de Java 21+; las reglas sí fueron desplegadas y aceptadas por Firebase.
+- Resultado de reglas: 26/26 con JDK 21; las reglas también fueron desplegadas y aceptadas por Firebase.
 - Chrome producción: carga de `/atletas`, apertura del formulario, comprobación de campos de admisión, validación vacía, limpieza de búsqueda y revisión de consola; todas las comprobaciones pasaron.
 - E2E demo: alta, edición, lectura posterior y eliminación exacta del atleta ficticio; verificación posterior sin registro operativo ni admisión asociada.
 - Viewport revisado: predeterminado de Chrome. La API disponible no permitió cambiar de viewport, por lo que los breakpoints 320/768/1024/1440 quedan pendientes de una sesión responsive dedicada.
@@ -82,9 +83,8 @@ flowchart TD
 
 ## Riesgos y pendientes
 
-- Ejecutar `npm run test:rules` con JDK 21+.
 - Configurar App Check para el origen local de QA (`localhost`) mediante un dominio permitido o un debug token registrado; después repetir alta, edición, validación, reintento, responsive y consola/network en Chrome.
-- Mantener un dataset de QA aislado para futuras pruebas repetibles; el demo usado en esta validación ya fue eliminado.
+- Mantener un dataset de QA aislado para futuras pruebas repetibles; el demo usado en esta validación ya fue eliminado y no se modificaron datos reales.
 - Definir retención, consentimiento y exportación/eliminación de la información de salud.
 - Revisar las vulnerabilidades transitorias reportadas por `npm audit` antes de actualizar dependencias de desarrollo/build; no se aplicó un `audit fix --force`.
 - Los permisos de admisión quedan desactivados por defecto; un Admin debe concederlos explícitamente.

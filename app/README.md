@@ -5,6 +5,7 @@ Panel operativo de Kronos Training construido con Vue 3, Vuetify, Pinia y Fireba
 ## Requisitos
 
 - Node.js 20.19 o superior.
+- JDK 21 o superior para ejecutar el emulador de Realtime Database.
 - Un proyecto Firebase configurado mediante `.env.local`; usa `.env.example` como referencia.
 - Authentication con los proveedores **Correo electrónico/contraseña** y **Anónimo** habilitados.
 - Realtime Database y Hosting configurados para el mismo proyecto.
@@ -24,13 +25,25 @@ El servidor sólo escucha en localhost. Para probarlo desde otro dispositivo de 
 npm run typecheck
 npm run build
 npm run test:finance
+npm run test:athlete-intake
+npm run test:iconify
 npm run test:rules
 npm audit --omit=dev
+npm audit --audit-level=high
 ```
 
 `npm run migrate:check` sólo debe ejecutarse cuando se proporcione de forma controlada una copia local autorizada del respaldo original, que ya no forma parte del repositorio.
 
-Las pruebas de reglas requieren Java 21 o una versión compatible con Firebase Emulator Suite.
+Las pruebas de reglas requieren Java 21 o una versión compatible con Firebase Emulator Suite. En Windows, si el JDK se instaló en la ruta de usuario utilizada por Kronos, puede seleccionarse para la sesión actual con PowerShell:
+
+```powershell
+$jdkHome = Join-Path $env:LOCALAPPDATA 'Kronos\temurin-21'
+$env:JAVA_HOME = $jdkHome
+$env:Path = "$jdkHome\bin;$env:Path"
+npm run test:rules
+```
+
+La aplicación usa npm y `app/package-lock.json` como fuente autoritativa. `npm audit --omit=dev` debe quedar en cero; los hallazgos moderados transitorios de `firebase-tools` pertenecen al tooling de desarrollo y no deben resolverse con `npm audit fix --force` sin revisar el downgrade y sus pruebas.
 
 ## Acceso y perfiles
 

@@ -470,7 +470,6 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
             v-model="activeFormTab"
             class="athlete-form-tabs"
             aria-label="Secciones del formulario de atleta"
-            show-arrows
           >
             <VTab
               v-for="tab in visibleFormTabs"
@@ -729,6 +728,25 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
 }
 
 @media (max-width: 600px) {
+  .athlete-form-tabs :deep(.v-slide-group__content) {
+    justify-content: stretch;
+  }
+
+  .athlete-form-tabs :deep(.v-tab) {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    padding-inline: 0.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0;
+  }
+
+  .athlete-form-tabs :deep(.v-chip) {
+    position: absolute;
+    inset-block-start: 0.125rem;
+    inset-inline-end: 0.125rem;
+    margin-inline-start: 0 !important;
+  }
+
   .athlete-form-window {
     padding-block-start: 1rem;
   }

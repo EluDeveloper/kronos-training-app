@@ -1,6 +1,6 @@
 # Spec: Formulario de atleta por pestañas
 
-Estado: propuesta para revisión y autorización humana.
+Estado: aprobada para implementación incremental el 2026-08-26.
 Módulo: `athletes-payments`.
 Capability map: `specs/CAPABILITY-MAP.md`.
 Especificación relacionada: `specs/SPEC-athletes-payments.md`.
@@ -138,6 +138,6 @@ Revisar consola, red, árbol de accesibilidad y capturas en los viewports defini
 
 ## Open Questions
 
-- ¿Se autoriza implementar exactamente tres tabs con los nombres propuestos?
-- ¿El indicador de errores debe mostrar conteo, icono con texto accesible o ambos?
-- ¿Se autoriza añadir `@playwright/test` y descargar Chromium para QA local?
+- Resuelto: se implementarán exactamente tres tabs con los nombres propuestos.
+- Resuelto: el indicador mostrará un conteo visible y un nombre accesible que indique la cantidad de errores.
+- Resuelto: se autoriza añadir `@playwright/test` y descargar Chromium para QA local.

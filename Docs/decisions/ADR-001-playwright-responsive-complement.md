@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — requiere autorización junto con `specs/SPEC-quality-gates.md`.
+Accepted — autorizado junto con `specs/SPEC-quality-gates.md` el 2026-08-26.
 
 ## Date
 

@@ -16,6 +16,9 @@ dist-ssr
 
 /cypress/videos/
 /cypress/screenshots/
+/playwright-report/
+/test-results/
+/.playwright/
 
 # 👉 Custom Git ignores
 

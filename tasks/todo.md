@@ -9,8 +9,8 @@
 
 ## Roadmap funcional aprobado para planificación
 
-- [ ] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md` antes de implementar Fase B.
-- [ ] Revisar y autorizar `specs/SPEC-quality-gates.md` antes de integrar Playwright.
+- [x] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md` antes de implementar Fase B.
+- [x] Revisar y autorizar `specs/SPEC-quality-gates.md` antes de integrar Playwright.
 - [ ] Fase B: dividir el formulario de atleta en pestañas.
 - [ ] Fase C: generar ficha de inscripción reutilizando el diseño de recibos.
 - [ ] Fase D: cambiar el código de quiosco al formato determinista solicitado.
@@ -56,6 +56,27 @@
 ## Checkpoint: Antes de Fase B
 
 - [x] Las specs propuestas están disponibles para revisión.
-- [ ] El usuario autoriza `specs/SPEC-athlete-form-tabs.md`.
-- [ ] El usuario autoriza `specs/SPEC-quality-gates.md` y la dependencia `@playwright/test`.
-- [ ] Se confirma el entorno local/QA aislado para pruebas Playwright protegidas.
+- [x] El usuario autoriza `specs/SPEC-athlete-form-tabs.md`.
+- [x] El usuario autoriza `specs/SPEC-quality-gates.md` y la dependencia `@playwright/test`.
+- [x] Se define autenticación manual local y no versionada para pruebas Playwright protegidas; no se automatizan credenciales ni escrituras.
+
+## Fase B: Formulario por pestañas
+
+- [x] B1 — Integrar Playwright Test, Chromium, ignores y configuración responsive segura.
+  - Aceptación: cuatro viewports configurados; producción no es el destino predeterminado; estado autenticado excluido de Git.
+  - Verificación: `npx playwright test --project=responsive-public` y auditoría npm.
+- [ ] B2 — Probar y añadir el contrato de errores por pestaña.
+  - Aceptación: conteos y primer error siguen el orden Personal → Membresía → Admisión.
+  - Verificación: `npm run test:athlete-intake` con evidencia RED/GREEN.
+- [ ] B3 — Implementar tabs accesibles en alta/edición.
+  - Aceptación: no se pierden datos, el primer tab inválido se activa/enfoca y permisos/carga se conservan.
+  - Verificación: test enfocado, typecheck, lint y build.
+- [ ] B4 — Ejecutar QA responsive y flujo completo afectado.
+  - Aceptación: Playwright pasa a 320/768/1024/1440 y Chrome valida alta/edición completa sin errores nuevos.
+  - Verificación: Playwright, Chrome DevTools y reporte de impacto.
+
+## Checkpoint: Fase B
+
+- [ ] B1–B3 pasan pruebas automatizadas, typecheck y build.
+- [ ] B4 completa Playwright y Chrome con login manual autorizado.
+- [ ] Reporte, commits y push quedan sincronizados en `develop` y `main`.

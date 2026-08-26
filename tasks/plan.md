@@ -116,8 +116,8 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 
 ### Fases funcionales priorizadas
 
-- [ ] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md`.
-- [ ] Revisar y autorizar `specs/SPEC-quality-gates.md`.
+- [x] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md`.
+- [x] Revisar y autorizar `specs/SPEC-quality-gates.md`.
 - [ ] Fase B: formulario por pestañas.
 - [ ] Fase C: ficha de inscripción y compartir por WhatsApp.
 - [ ] Fase D: código de quiosco determinista.

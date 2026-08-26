@@ -28,6 +28,7 @@ npm run test:finance
 npm run test:athlete-intake
 npm run test:iconify
 npm run test:rules
+npm run test:e2e:responsive:public
 npm audit --omit=dev
 npm audit --audit-level=high
 ```
@@ -44,6 +45,25 @@ npm run test:rules
 ```
 
 La aplicación usa npm y `app/package-lock.json` como fuente autoritativa. `npm audit --omit=dev` debe quedar en cero; los hallazgos moderados transitorios de `firebase-tools` pertenecen al tooling de desarrollo y no deben resolverse con `npm audit fix --force` sin revisar el downgrade y sus pruebas.
+
+## QA web con Playwright y Chrome
+
+Playwright complementa el QA responsive en `320`, `768`, `1024` y `1440` px. No sustituye la validación final del flujo completo afectado en Chrome.
+
+```sh
+npx playwright install chromium
+npm run test:e2e:responsive:public
+```
+
+Los flujos protegidos requieren una sesión manual de QA. Ejecuta `npm run test:e2e:auth`, inicia sesión tú mismo en la ventana abierta y no compartas credenciales. El estado se guarda localmente en `.playwright/auth/user.json`, está excluido de Git y sólo debe usarse en un perfil/dataset de pruebas.
+
+Después puede ejecutarse:
+
+```sh
+npm run test:e2e:responsive
+```
+
+`PLAYWRIGHT_BASE_URL` sólo debe apuntar a un entorno de QA autorizado. Si no está definido, Playwright levanta Vite en `http://127.0.0.1:4173`; producción nunca es el destino predeterminado.
 
 ## Acceso y perfiles
 

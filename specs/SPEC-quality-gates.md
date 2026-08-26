@@ -1,6 +1,6 @@
 # Spec: Gates de QA web y responsive
 
-Estado: propuesta para revisión y autorización humana.
+Estado: aprobada para implementación incremental el 2026-08-26.
 Módulo: `experience-quality`.
 Capability map: `specs/CAPABILITY-MAP.md`.
 
@@ -109,7 +109,7 @@ No se versionará ningún `storageState` que contenga sesión, token o cookie.
 
 ## Open Questions
 
-- ¿Se aprobará `@playwright/test` como dependencia de desarrollo de `app/`?
-- ¿Se usará sólo Chromium empaquetado o también el canal instalado de Google Chrome para alguna prueba específica?
-- ¿Qué entorno local/QA aislado y dataset sintético estarán disponibles para los flujos protegidos?
-- ¿Qué capturas visuales se considerarán baseline y quién aprobará cambios intencionales?
+- Resuelto: `@playwright/test` queda aprobado como dependencia de desarrollo de `app/`.
+- Resuelto: Chromium empaquetado será el proyecto automatizado predeterminado; Chrome seguirá como gate runtime manual separado.
+- Resuelto para Fase B: las pruebas Playwright protegidas usarán un estado autenticado creado manualmente, local y excluido de Git; no escribirán datos.
+- Resuelto para Fase B: las capturas se limitarán al diálogo inicial, admisión y validación en los viewports definidos; cualquier actualización intencional se revisará en el diff.

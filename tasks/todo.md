@@ -19,7 +19,7 @@
 - [x] Integrar secciones accesibles y campos condicionales.
 - [x] Mejorar estados de carga, error y resultados vacíos.
 - [x] Implementar la primera tarea sin mezclar módulos.
-- [ ] Verificar pruebas de reglas y Chrome; typecheck/build pasan, Java 21 sigue pendiente y Chrome queda bloqueado por App Check para `localhost`.
+- [ ] Ejecutar pruebas de reglas con Java 21; typecheck, lint, build, pruebas enfocadas y QA Chrome de producción ya pasan.
 - [x] Entregar el reporte de impacto.
 
 ## Checkpoint: Foundation
@@ -30,6 +30,6 @@
 
 ## Checkpoint: Pilot
 
-- [ ] La rebanada funciona de extremo a extremo.
-- [ ] La spec coincide con el comportamiento implementado.
-- [ ] El reporte identifica archivos y flujos afectados.
+- [x] La rebanada funciona de extremo a extremo.
+- [x] La spec coincide con el comportamiento implementado.
+- [x] El reporte identifica archivos y flujos afectados.

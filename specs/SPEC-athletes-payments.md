@@ -197,6 +197,8 @@ The UI adds an explicit `Ninguna de las anteriores` choice for the condition and
 - Integration behavior must verify create and update payload boundaries without using production data.
 - Security tests or rule review must verify that health fields are readable only through `athletesIntake`, writable only through `athletesIntakeManage`, linked to an existing athlete and not exposed through unrelated summaries.
 - Chrome QA must cover opening, validation, successful create/edit, failed save, filter reset and responsive layouts.
+- If a segment of the athlete flow changes, Chrome QA must execute the complete affected flow from opening `Atletas` through its final result; validating only the changed component is insufficient.
+- Playwright may complement responsive checks at `320`, `768`, `1024` and `1440` px after its dependency and configuration are authorized; it does not replace Chrome QA.
 - Chrome QA must inspect console, network, DOM/accessibility tree and before/after screenshots.
 - For protected routes, the agent must pause before login and wait for the user's manual authorization as defined in `AGENTS.md`.
 

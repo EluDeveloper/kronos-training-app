@@ -15,7 +15,7 @@ Adoptar Spec-Driven Development para que los cambios de Kronos se definan, imple
 | `store-inventory` | POS, productos, inventario, ventas, deudas y créditos | `foundation` |
 | `operations` | Programación, visitas, comunidad y cierres operativos | `foundation`, `athletes-payments` |
 | `reports` | Dashboard, métricas financieras y reportes anuales | `athletes-payments`, `store-inventory`, `operations` |
-| `experience-quality` | Accesibilidad, responsive, estados de carga/error/vacío y consistencia visual | todos los módulos de aplicación |
+| `experience-quality` | Accesibilidad, responsive, estados de carga/error/vacío, consistencia visual y gates de QA web | todos los módulos de aplicación |
 
 ## Orden propuesto
 
@@ -32,6 +32,10 @@ experience-quality
 ```
 
 El mapa debe ser aprobado antes de crear specs de módulos. Si la arquitectura vigente demuestra otros límites, actualizar este mapa primero.
+
+## Regla transversal de calidad
+
+`experience-quality` participa en cada fase que cambie una interfaz. Chrome valida el flujo completo afectado; Playwright aporta una matriz repetible de responsive y regresión visual. La validación del navegador se limita al flujo en alcance y no exige recorrer toda la aplicación.
 
 ## Primer piloto recomendado
 

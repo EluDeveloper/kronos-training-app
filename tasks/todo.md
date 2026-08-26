@@ -9,6 +9,8 @@
 
 ## Roadmap funcional aprobado para planificación
 
+- [ ] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md` antes de implementar Fase B.
+- [ ] Revisar y autorizar `specs/SPEC-quality-gates.md` antes de integrar Playwright.
 - [ ] Fase B: dividir el formulario de atleta en pestañas.
 - [ ] Fase C: generar ficha de inscripción reutilizando el diseño de recibos.
 - [ ] Fase D: cambiar el código de quiosco al formato determinista solicitado.
@@ -20,6 +22,8 @@
 - [ ] Revisar y aprobar el capability map.
 - [x] Elegir la fuente de verdad para las skills.
 - [x] Configurar el flujo de QA con Chrome DevTools MCP.
+- [x] Documentar como regla global la validación del flujo completo afectado en Chrome.
+- [x] Documentar Playwright como complemento de responsive, no como sustituto de Chrome o `frontend-ui-engineering`.
 
 ## Pilot
 
@@ -48,3 +52,10 @@
 - [x] La rebanada funciona de extremo a extremo.
 - [x] La spec coincide con el comportamiento implementado.
 - [x] El reporte identifica archivos y flujos afectados.
+
+## Checkpoint: Antes de Fase B
+
+- [x] Las specs propuestas están disponibles para revisión.
+- [ ] El usuario autoriza `specs/SPEC-athlete-form-tabs.md`.
+- [ ] El usuario autoriza `specs/SPEC-quality-gates.md` y la dependencia `@playwright/test`.
+- [ ] Se confirma el entorno local/QA aislado para pruebas Playwright protegidas.

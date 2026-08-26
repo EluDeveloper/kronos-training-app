@@ -13,6 +13,8 @@ Cada implementación de aplicación debe terminar con un reporte de impacto en l
 - Typecheck: ✅/⚠️
 - Build: ✅/⚠️
 - Chrome QA: ✅/⚠️/No aplica
+- Flujo completo afectado en Chrome: ✅/⚠️/No aplica
+- Playwright responsive: ✅/⚠️/No aplica
 - Login manual requerido: Sí/No
 
 ## Árbol de archivos modificados
@@ -22,6 +24,11 @@ Cada implementación de aplicación debe terminar con un reporte de impacto en l
 
 ## Flujos afectados
 - ...
+
+## Recorrido completo validado
+- Entrada del flujo: ...
+- Resultado final: ...
+- Segmento modificado y pasos de integración comprobados: ...
 
 ## Flujos no afectados
 - ...
@@ -37,6 +44,7 @@ flowchart TD
 - Resultado de pruebas:
 - Viewports revisados:
 - Errores o warnings observados:
+- Evidencia Playwright/Chrome:
 
 ## Riesgos y pendientes
 - ...

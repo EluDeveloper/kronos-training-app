@@ -6,6 +6,14 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 ## Plan vigente: mantenimiento técnico y evolución funcional
 
+### Gate obligatorio antes de cada fase
+
+1. Crear o actualizar la spec de la fase con criterios de aceptación, límites, riesgos y QA web.
+2. Presentar al usuario la spec para revisión y autorización explícita.
+3. Sólo después de la autorización, crear/activar sus tareas e implementar en rebanadas pequeñas.
+4. Para cualquier cambio web, validar en Chrome el flujo completo afectado. Playwright complementa con responsive y regresión visual; no sustituye Chrome.
+5. El reporte final debe incluir árbol de archivos, flujos afectados/no afectados y un diagrama del impacto.
+
 ### Fase A: Dependencias y entorno de pruebas
 
 1. Declarar npm como gestor autoritativo de `app/`, usando `app/package-lock.json`; conservar `app/pnpm-lock.yaml` sin actualizar hasta decidir su retiro explícito.
@@ -18,9 +26,11 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 ### Fase B: Formulario de atleta por pestañas
 
-1. Actualizar la spec del formulario y dividirlo en pestañas: datos personales, membresía y admisión.
-2. Mantener validación por campo, navegación por teclado, indicador de pestaña con errores y compatibilidad con edición/lectura por permisos.
-3. Validar en Chrome los estados iniciales, errores, responsive y persistencia.
+1. Revisar y autorizar `specs/SPEC-athlete-form-tabs.md` y `specs/SPEC-quality-gates.md` antes de implementar.
+2. Dividirlo en pestañas: datos personales, membresía y admisión.
+3. Mantener validación por campo, navegación por teclado, indicador de pestaña con errores y compatibilidad con edición/lectura por permisos.
+4. Ejecutar Playwright como complemento en la matriz `320/768/1024/1440` px.
+5. Validar en Chrome el flujo completo de alta y edición, incluyendo estados iniciales, errores, responsive y persistencia.
 
 **Criterios de aceptación:** el diálogo reduce la altura visual, no pierde datos al cambiar de pestaña, permite llegar a cada error y conserva el contrato de admisión sensible.
 
@@ -59,6 +69,9 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - `tasks/plan.md` contiene decisiones y riesgos; `tasks/todo.md` contiene el checklist ejecutable.
 - La autenticación en Chrome será iniciada manualmente por el usuario en un perfil de pruebas.
 - El navegador será un gate obligatorio para cambios de aplicación, no para cambios puramente documentales.
+- Cada fase propuesta requiere revisión y autorización explícita de su spec antes de instalar dependencias o modificar comportamiento.
+- Si se modifica un segmento de un flujo, Chrome debe recorrer el flujo completo afectado; Playwright se reserva para responsive y regresión visual repetible.
+- Playwright se integrará como dependencia de desarrollo sólo después de autorizar `specs/SPEC-quality-gates.md`; no se reutilizarán credenciales ni datos reales.
 - Las skills externas no se duplicarán si ya existe una versión equivalente disponible.
 - `app/` usa npm como gestor autoritativo y `app/package-lock.json` como lock de instalación; el `app/pnpm-lock.yaml` legado no se actualiza en esta fase.
 
@@ -69,6 +82,7 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - [ ] Revisar y aprobar `specs/CAPABILITY-MAP.md`.
 - [x] Confirmar la fuente/versionado de skills.
 - [x] Configurar Chrome DevTools MCP para el primer cambio de interfaz.
+- [x] Documentar el gate global de aprobación de specs, flujo completo afectado en Chrome y complemento Playwright.
 
 ### Fase 1: Primer piloto
 
@@ -102,6 +116,8 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 
 ### Fases funcionales priorizadas
 
+- [ ] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md`.
+- [ ] Revisar y autorizar `specs/SPEC-quality-gates.md`.
 - [ ] Fase B: formulario por pestañas.
 - [ ] Fase C: ficha de inscripción y compartir por WhatsApp.
 - [ ] Fase D: código de quiosco determinista.
@@ -120,6 +136,7 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 | Vulnerabilidad sólo corregible con cambio mayor | Alto | No usar `npm audit fix --force`; actualizar por paquete, probar y documentar alcance |
 | WhatsApp expone PII o requiere secretos en cliente | Alto | Backend/Cloud Function, plantillas aprobadas, consentimiento y auditoría |
 | Push no soportado o revocado | Medio | Opt-in, fallback visible y estado de suscripción revocable |
+| Playwright no puede probar rutas protegidas sin sesión segura | Alto | Ejecutar responsive local/QA aislado; mantener login manual en Chrome y no versionar storageState |
 
 ## Known Baseline Findings
 
@@ -135,3 +152,4 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - ¿Se autoriza retirar el `app/pnpm-lock.yaml` legado después de confirmar que npm será el único gestor de `app/`?
 - ¿La ficha inicial se compartirá manualmente desde el navegador o se prioriza desde el inicio la API oficial de WhatsApp Business?
 - ¿Qué cuenta/número de WhatsApp Business y política de consentimiento se usarán para recordatorios?
+- ¿Se autoriza instalar `@playwright/test` y descargar Chromium para la primera implementación de Fase B?

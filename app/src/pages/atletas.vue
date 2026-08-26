@@ -751,6 +751,7 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
   }
 
   .athlete-form-tabs :deep(.v-tab:has(.v-chip) .v-btn__content > span:first-child) {
+    display: inline-block;
     max-inline-size: calc(100% - 1.25rem);
   }
 

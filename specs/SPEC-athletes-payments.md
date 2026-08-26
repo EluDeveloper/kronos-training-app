@@ -158,6 +158,7 @@ The UI adds an explicit `Ninguna de las anteriores` choice for the condition and
 - The form includes exercise symptoms checkboxes: dizziness, fainting, nausea, shortness of breath and none. `Ninguna` is mutually exclusive with the other symptoms.
 - The form includes sports activity and sports-facility yes/no questions. If the answer is yes, the corresponding activity or facility name is required.
 - Health answers must not default to `No` or `Ninguna`; the user must make an explicit selection.
+- Al abrir el formulario no se muestran errores de validación; los mensajes por campo aparecen después de intentar guardar con datos incompletos.
 - A user with `athletesManage` but without `athletesIntakeManage` can edit operational fields of an existing athlete, but cannot read or overwrite its sensitive intake record.
 - The save action shows a busy state and cannot submit the same form repeatedly.
 - On success, the dialog closes and the user receives a success notification.

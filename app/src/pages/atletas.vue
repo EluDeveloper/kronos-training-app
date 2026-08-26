@@ -42,6 +42,7 @@ const kioskCode = ref('')
 const kioskCodePersisted = ref(false)
 const kioskCodeCopied = ref(false)
 const intakeReady = ref(true)
+const validationAttempted = ref(false)
 
 const form = reactive({
   name: '', phone: '', birthDate: '', schedule: '06:00 AM', planId: '', agreedAmount: 0,
@@ -50,9 +51,14 @@ const form = reactive({
 
 const intakeForm = reactive(createEmptyAthleteIntakeForm())
 
-const formErrors = computed<AthleteFormErrors>(() => canManageIntake.value
-  ? validateAthleteForm({ ...form, ...intakeForm })
-  : validateAthleteOperationalForm(form))
+const formErrors = computed<AthleteFormErrors>(() => {
+  if (!validationAttempted.value)
+    return {}
+
+  return canManageIntake.value
+    ? validateAthleteForm({ ...form, ...intakeForm })
+    : validateAthleteOperationalForm(form)
+})
 
 const filtered = computed(() => athletes.sorted
   .filter(athlete => !statusFilter.value || athlete.status === statusFilter.value)
@@ -92,6 +98,7 @@ function openForm(athlete?: Athlete) {
   form.agreedAmount = athlete?.membership.agreedAmount ?? plans.active[0]?.price ?? 0
   form.paymentDay = athlete?.membership.paymentDay ?? 1
   form.registrationDate = athlete?.membership.registrationDate ?? new Date().toISOString().slice(0, 10)
+  validationAttempted.value = false
   resetIntakeForm()
   athleteIntake.clear()
   intakeReady.value = !athlete || !canReadIntake.value
@@ -120,6 +127,8 @@ async function save() {
 
     return
   }
+
+  validationAttempted.value = true
 
   const errors = formErrors.value
   if (Object.keys(errors).length) {

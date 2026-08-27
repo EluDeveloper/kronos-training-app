@@ -42,7 +42,7 @@ export default defineConfig({
     },
     {
       name: 'responsive',
-      testMatch: /athlete-form-responsive\.spec\.ts/,
+      testMatch: /(athlete-form|enrollment-sheet)-responsive\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

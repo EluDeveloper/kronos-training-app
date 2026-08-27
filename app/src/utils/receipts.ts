@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import type { Athlete, CombinedStorePayment, ISOTimestamp, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
+import { drawKronosPdfHeader, loadKronosLogoDataUrl } from '@/utils/kronos-pdf'
 import { formatCurrency, membershipBalance, membershipPaidAmount, membershipTotalAmount, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 
 export type ReceiptKind = 'membership' | 'sale' | 'sale-payment' | 'collection'
@@ -376,33 +377,8 @@ export function buildRenewalReminder(athlete: Athlete, renewalPeriod: string, pl
 
 const receiptFilename = (receipt: ReceiptData) => `${receipt.kind === 'collection' ? 'aviso-cobranza' : 'recibo'}-${receipt.folio.toLowerCase()}.pdf`
 
-let officialLogoPromise: Promise<string | null> | null = null
-
-const loadOfficialLogo = () => {
-  if (typeof window === 'undefined')
-    return Promise.resolve(null)
-
-  officialLogoPromise ??= fetch('/images/Kronos/V-16.png')
-    .then(response => {
-      if (!response.ok)
-        throw new Error('No fue posible cargar el logo oficial.')
-
-      return response.blob()
-    })
-    .then(blob => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-
-      reader.onload = () => resolve(String(reader.result))
-      reader.onerror = () => reject(reader.error)
-      reader.readAsDataURL(blob)
-    }))
-    .catch(() => null)
-
-  return officialLogoPromise
-}
-
 export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: string) {
-  const officialLogo = logoDataUrl ?? await loadOfficialLogo()
+  const officialLogo = logoDataUrl ?? await loadKronosLogoDataUrl()
   const pdf = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' })
   const width = pdf.internal.pageSize.getWidth()
   const margin = 14
@@ -411,26 +387,7 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
   const isCollection = receipt.kind === 'collection'
 
   const drawHeader = () => {
-    pdf.setFillColor(27, 29, 26)
-    pdf.rect(0, 0, width, 42, 'F')
-    if (officialLogo)
-      pdf.addImage(officialLogo, 'PNG', margin, 9, 54, 14.4)
-    else {
-      pdf.setTextColor(151, 213, 222)
-      pdf.setFont('helvetica', 'bold')
-      pdf.setFontSize(18)
-      pdf.text('KRONOS', margin, 17)
-      pdf.setTextColor(235, 235, 235)
-      pdf.setFontSize(8)
-      pdf.text('TRAINING CENTER', margin, 23)
-    }
-    pdf.setTextColor(255, 64, 27)
-    pdf.setFontSize(10)
-    pdf.text(isCollection ? 'AVISO DE PAGO' : 'RECIBO', width - margin, 17, { align: 'right' })
-    pdf.setTextColor(235, 235, 235)
-    pdf.setFontSize(8)
-    pdf.text(receipt.folio, width - margin, 24, { align: 'right' })
-    y = 52
+    y = drawKronosPdfHeader(pdf, isCollection ? 'AVISO DE PAGO' : 'RECIBO', receipt.folio, officialLogo)
   }
 
   const ensureSpace = (required: number) => {

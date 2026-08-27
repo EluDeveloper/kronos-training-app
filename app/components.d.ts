@@ -17,6 +17,7 @@ declare module 'vue' {
     ConnectionBadge: typeof import('./src/components/kronos/ConnectionBadge.vue')['default']
     DevicePending: typeof import('./src/components/kronos/DevicePending.vue')['default']
     EmptyState: typeof import('./src/components/kronos/EmptyState.vue')['default']
+    EnrollmentSheetDialog: typeof import('./src/components/kronos/EnrollmentSheetDialog.vue')['default']
     ErrorHeader: typeof import('./src/components/ErrorHeader.vue')['default']
     FirstAdminSetup: typeof import('./src/components/kronos/FirstAdminSetup.vue')['default']
     GlobalAlertCenter: typeof import('./src/components/kronos/GlobalAlertCenter.vue')['default']

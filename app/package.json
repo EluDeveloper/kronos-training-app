@@ -15,6 +15,7 @@
     "test:rules": "firebase emulators:exec --only database \"node --test tests/database.rules.test.mjs\"",
     "test:finance": "tsx --test tests/financial-reports.test.ts",
     "test:athlete-intake": "tsx --test tests/athlete-intake.test.ts",
+    "test:enrollment-sheet": "node --require ./scripts/node-userinfo-preload.cjs --import tsx --test tests/enrollment-sheet.test.ts",
     "test:iconify": "node --test tests/iconify-build.test.mjs",
     "test:e2e:auth": "playwright test --project=auth-setup --headed",
     "test:e2e:responsive": "playwright test --project=responsive-public --project=responsive",

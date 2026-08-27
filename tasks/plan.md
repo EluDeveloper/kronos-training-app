@@ -36,11 +36,14 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 ### Fase C: Ficha de inscripción
 
-1. Reutilizar el lenguaje visual de recibos para generar una ficha PDF con nombre, fecha de nacimiento, fecha de inscripción y fechas de pago.
-2. Entregar primero vista previa/descarga y compartir manual por WhatsApp, sin enviar información sensible automáticamente.
-3. Como segunda rebanada, evaluar WhatsApp Business Cloud API oficial para envío automatizado, con plantilla aprobada, consentimiento, secretos fuera de Git y auditoría de entregas.
+1. Definir y probar un contrato puro desde `Athlete` + una proyección de `EmergencyContact`, sin recibir salud ni historial de pagos.
+2. Mostrar nombre, fecha de nacimiento, fecha de inscripción, la frase recurrente `Tu fecha de pago será el {paymentDay} de cada mes.` y nombre/teléfono/parentesco del contacto de emergencia.
+3. Extraer una primitiva mínima del renderer PDF para compartir encabezado, logo y lenguaje visual con recibos sin cambiar su salida existente.
+4. Integrar una vista previa accesible en `Atletas`, con impresión, descarga y apertura manual de WhatsApp Web; el mensaje no incluirá contacto de emergencia y el PDF se adjuntará manualmente.
+5. Validar contrato, regresión de recibos, estados de carga/error/datos ausentes, responsive `320/768/1024/1440` y flujo completo en Chrome.
+6. Dejar WhatsApp Business Cloud API para una spec posterior con consentimiento, secretos fuera de Git y auditoría.
 
-**Criterios de aceptación:** la ficha no contiene datos de salud, se genera desde un contrato testeable, conserva el diseño Kronos de recibos y el usuario puede revisar antes de compartir.
+**Criterios de aceptación:** la ficha no contiene datos de salud ni historial de pagos, comunica el día recurrente, muestra el contacto de emergencia con permiso de admisión, conserva el diseño Kronos de recibos y permite revisar antes de compartir manualmente.
 
 ### Fase D: Código de quiosco determinista
 
@@ -119,7 +122,7 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - [x] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md`.
 - [x] Revisar y autorizar `specs/SPEC-quality-gates.md`.
 - [ ] Fase B: formulario por pestañas.
-- [ ] Fase C: ficha de inscripción y compartir por WhatsApp.
+- [x] Fase C: ficha de inscripción y compartir por WhatsApp.
 - [ ] Fase D: código de quiosco determinista.
 - [ ] Fase E: WhatsApp Business para notificaciones de pago.
 - [ ] Fase F: evaluación de notificaciones push.

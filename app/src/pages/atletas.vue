@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import EmptyState from '@/components/kronos/EmptyState.vue'
 import AthleteIntakeFields from '@/components/kronos/AthleteIntakeFields.vue'
+import EnrollmentSheetDialog from '@/components/kronos/EnrollmentSheetDialog.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthleteIntakeStore } from '@/stores/athlete-intake'
@@ -20,6 +21,7 @@ import {
   type AthleteFormErrors,
   type AthleteFormTab,
 } from '@/utils/athlete-intake'
+import { buildEnrollmentSheet, type EnrollmentSheetData } from '@/utils/enrollment-sheet'
 import { formatCurrency, normalizeSearchTerm } from '@/utils/kronos'
 
 const athleteIntake = useAthleteIntakeStore()
@@ -36,10 +38,13 @@ const planFilter = ref<string | null>(null)
 const page = ref(1)
 const perPage = 15
 const dialog = ref(false)
+const enrollmentSheetDialog = ref(false)
 const kioskCodeDialog = ref(false)
 const saving = ref(false)
 const kioskCodeSaving = ref(false)
 const editingId = ref<string | null>(null)
+const enrollmentSheetAthlete = ref<Athlete | null>(null)
+const activeEnrollmentSheet = ref<EnrollmentSheetData | null>(null)
 const kioskCodeAthlete = ref<Athlete | null>(null)
 const kioskCode = ref('')
 const kioskCodePersisted = ref(false)
@@ -128,6 +133,24 @@ function openForm(athlete?: Athlete) {
   }
 
   dialog.value = true
+}
+
+function openEnrollmentSheet(athlete: Athlete) {
+  if (!canReadIntake.value) {
+    failure('No tienes permiso para consultar la ficha de inscripción.')
+
+    return
+  }
+
+  enrollmentSheetAthlete.value = athlete
+  activeEnrollmentSheet.value = null
+  enrollmentSheetDialog.value = true
+  athleteIntake.subscribe(athlete.id, value => {
+    if (athleteIntake.error)
+      return
+
+    activeEnrollmentSheet.value = buildEnrollmentSheet(athlete, value?.emergencyContact ?? null)
+  })
 }
 
 function formTabAriaLabel(tab: { label: string; value: AthleteFormTab }) {
@@ -293,6 +316,15 @@ watch(dialog, value => {
     athleteIntake.clear()
 })
 
+watch(enrollmentSheetDialog, value => {
+  if (value)
+    return
+
+  athleteIntake.clear()
+  enrollmentSheetAthlete.value = null
+  activeEnrollmentSheet.value = null
+})
+
 onMounted(() => { athletes.subscribe(); plans.subscribe() })
 onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispose() })
 </script>
@@ -391,6 +423,14 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
                 </VChip>
               </td>
               <td class="text-right">
+                <VBtn
+                  v-if="canReadIntake"
+                  icon="ri-file-user-line"
+                  variant="text"
+                  :aria-label="`Ficha de inscripción de ${athlete.profile.name}`"
+                  title="Ficha de inscripción"
+                  @click="openEnrollmentSheet(athlete)"
+                />
                 <template v-if="canManage">
                   <VBtn
                     v-if="session.isAdmin"
@@ -425,6 +465,14 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
       </template>
     </VCardText>
   </VCard>
+
+  <EnrollmentSheetDialog
+    v-model="enrollmentSheetDialog"
+    :sheet="activeEnrollmentSheet"
+    :phone="enrollmentSheetAthlete?.profile.phone"
+    :loading="athleteIntake.loading"
+    :error="athleteIntake.error"
+  />
 
   <VDialog
     v-model="dialog"

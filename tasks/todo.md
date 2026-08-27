@@ -12,7 +12,7 @@
 - [x] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md` antes de implementar Fase B.
 - [x] Revisar y autorizar `specs/SPEC-quality-gates.md` antes de integrar Playwright.
 - [x] Fase B: dividir el formulario de atleta en pestañas.
-- [ ] Fase C: generar ficha de inscripción reutilizando el diseño de recibos.
+- [x] Fase C: generar ficha de inscripción reutilizando el diseño de recibos.
 - [ ] Fase D: cambiar el código de quiosco al formato determinista solicitado.
 - [ ] Fase E: implementar notificaciones de pagos con WhatsApp Business.
 - [ ] Fase F: evaluar notificaciones push como alternativa.
@@ -80,3 +80,35 @@
 - [x] B1–B3 pasan pruebas automatizadas, typecheck y build.
 - [x] B4 completa Playwright y Chrome con login manual autorizado.
 - [x] Reporte, commits y push quedan sincronizados en `develop` y `main`.
+
+## Fase C: Ficha de inscripción
+
+- [x] C0 — Revisar y autorizar `specs/SPEC-enrollment-sheet.md`.
+  - Aceptación: fecha recurrente, contacto de emergencia, permisos, privacidad y QA quedan definidos.
+  - Verificación: spec en estado `aprobada para implementación`.
+- [x] C1 — Probar y construir el contrato puro de ficha.
+  - Aceptación: mapea atleta, día recurrente y sólo la proyección del contacto; datos ausentes muestran `Sin capturar` y no entra historial/salud.
+  - Verificación: prueba RED/GREEN con `npm run test:enrollment-sheet`.
+  - Dependencias: C0.
+  - Archivos probables: `app/tests/enrollment-sheet.test.ts`, `app/src/utils/enrollment-sheet.ts`, `app/package.json`.
+- [x] C2 — Reutilizar el lenguaje visual de recibos y generar el PDF.
+  - Aceptación: PDF A5 con header Kronos, folio estable, descarga/impresión/WhatsApp manual y recibos sin regresión.
+  - Verificación: prueba enfocada de ambos documentos, typecheck y build.
+  - Dependencias: C1.
+  - Archivos probables: `app/src/utils/kronos-pdf.ts`, `app/src/utils/receipts.ts`, `app/src/utils/enrollment-sheet.ts`, `app/tests/enrollment-sheet.test.ts`.
+- [x] C3 — Integrar vista previa accesible en `Atletas`.
+  - Aceptación: acción visible con lectura de admisión, estados de carga/error/datos ausentes y datos sensibles limitados al contacto solicitado.
+  - Verificación: test enfocado, lint, typecheck y revisión de teclado/DOM.
+  - Dependencias: C2.
+  - Archivos probables: `app/src/components/kronos/EnrollmentSheetDialog.vue`, `app/src/pages/atletas.vue`.
+- [x] C4 — Ejecutar QA responsive y flujo completo afectado.
+  - Aceptación: Playwright pasa a `320/768/1024/1440`; Chrome valida vista previa, PDF, impresión y WhatsApp sin envío ni errores nuevos.
+  - Verificación: Playwright, Chrome DevTools y reporte de impacto.
+  - Dependencias: C3.
+  - Archivos probables: `app/e2e/responsive/enrollment-sheet-responsive.spec.ts`, `Docs/implementation-reports/2026-08-26-enrollment-sheet.md`.
+
+## Checkpoint: Fase C
+
+- [x] C1–C3 pasan pruebas automatizadas, lint, typecheck y build.
+- [x] C4 completa Playwright y Chrome con login manual autorizado.
+- [x] La spec coincide con el comportamiento y el reporte documenta privacidad, archivos, flujos y riesgos.

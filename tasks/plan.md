@@ -55,6 +55,17 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 **Criterios de aceptación:** Admin puede regenerar cuantas veces requiera; el código anterior permanece activo hasta guardar; el QR contiene sólo 6 dígitos aleatorios; la tarjeta refleja el diseño solicitado y Kiosco conserva escaneo QR y captura manual.
 
+### Mejora aprobada: Punto de Venta y Kiosco
+
+1. Definir contratos puros para ganancia bruta, productos disponibles, rol Coach y política fail-closed de `Pagar ahora`.
+2. Incorporar Coach con cero permisos iniciales y asignación manual por Admin, conservando reglas de mínimo privilegio.
+3. Mantener visible y reiniciar de forma segura el panel `Cobro`, filtrar stock agotado y mostrar la ganancia bruta sólo a Admin.
+4. Persistir la política de Kiosco en `v1/settings/kiosk`, con modos `disabled`, `all-admins` y `selected-admins`, lectura/escritura exclusiva de Admin y sólo UIDs de Admin habilitados.
+5. Abrir el lector QR al entrar a identificación, conservar código manual como alternativa y regresar al inicio cinco segundos después de una venta exitosa.
+6. Verificar contratos, reglas, typecheck, lint, build, responsive y flujo completo en Chrome antes de publicar.
+
+**Criterios de aceptación:** se cumplen los 13 criterios de `specs/SPEC-store-kiosk-improvements.md`; la configuración ausente o inválida deshabilita `Pagar ahora`; no se despliega ni se escriben ventas/configuración QA sin una autorización separada.
+
 ### Fase E: Notificaciones de pagos
 
 1. Definir el contrato de adeudos de mensualidad y tienda, factura PDF, consentimiento, opt-out, idempotencia y reintentos.
@@ -127,6 +138,8 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - [x] Fase C: ficha de inscripción y compartir por WhatsApp.
 - [x] Revisar y autorizar `specs/SPEC-kiosk-code.md`.
 - [x] Fase D: código aleatorio y credencial QR regenerable de quiosco.
+- [x] Revisar y autorizar `specs/SPEC-store-kiosk-improvements.md`.
+- [ ] Implementar mejoras de Punto de Venta, Kiosco y perfil Coach.
 - [ ] Fase E: WhatsApp Business para notificaciones de pago.
 - [ ] Fase F: evaluación de notificaciones push.
 

@@ -1,6 +1,6 @@
 import type { ISOTimestamp } from '@/types/domain'
 
-export type UserRole = 'admin' | 'reception'
+export type UserRole = 'admin' | 'reception' | 'coach'
 
 export const accessModules = [
   {
@@ -83,7 +83,11 @@ export interface AuthConfiguration {
   initializedAt?: ISOTimestamp
 }
 
-export const roleLabel = (role: UserRole) => role === 'admin' ? 'Admin' : 'Recepción'
+export const roleLabel = (role: UserRole) => ({
+  admin: 'Admin',
+  reception: 'Recepción',
+  coach: 'Coach',
+})[role]
 
 export const hasModuleAccess = (user: AppUser | null, module: AccessModule) => Boolean(
   user?.enabled && (user.role === 'admin' || user.permissions?.[module] === true),
@@ -130,6 +134,8 @@ export const defaultReceptionPermissions = (): UserPermissions => ({
   storeCollect: true,
   community: true,
 })
+
+export const defaultCoachPermissions = (): UserPermissions => ({})
 
 export const firstAllowedRoute = (user: AppUser | null) => {
   if (user?.role === 'admin')

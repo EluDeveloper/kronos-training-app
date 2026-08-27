@@ -7,6 +7,7 @@ export type PaymentStatus = 'paid' | 'pending' | 'not-applicable'
 export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'other' | 'store-credit'
 export type SaleStatus = 'paid' | 'credit' | 'cancelled'
 export type ExpenseStatus = 'paid' | 'pending' | 'scheduled'
+export type KioskPaymentNowMode = 'disabled' | 'all-admins' | 'selected-admins'
 export type PlanAccessType = 'unlimited' | 'visit-pack' | 'pay-per-visit'
 export type MaritalStatus = 'single' | 'married' | 'domestic-partnership' | 'divorced' | 'widowed' | 'separated' | 'prefer-not-to-say'
 export type ExerciseSymptom = 'dizziness' | 'fainting' | 'nausea' | 'shortness-of-breath' | 'none'
@@ -329,6 +330,13 @@ export interface AuthorizedDevice {
   label?: string
   createdAt?: ISOTimestamp
   lastSeenAt?: ISOTimestamp
+}
+
+export interface KioskSettings {
+  paymentNowMode: KioskPaymentNowMode
+  paymentNowUserIds?: Record<EntityId, true> | null
+  updatedBy: EntityId
+  updatedAt: ISOTimestamp
 }
 
 export const calculateAge = (birthDate?: ISODate | null, referenceDate = new Date()) => {

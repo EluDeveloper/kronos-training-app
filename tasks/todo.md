@@ -142,3 +142,42 @@
 - [x] D1–D3 pasan pruebas automatizadas, reglas, lint enfocado, typecheck y build; el lint global conserva deuda previa documentada en el reporte.
 - [x] D4 completa Chrome en la instancia autorizada y documenta la omisión de Playwright por seguridad de dispositivo.
 - [x] La spec coincide con el comportamiento y el reporte documenta seguridad, archivos, flujos y riesgos residuales.
+
+## Mejora Punto de Venta y Kiosco
+
+- [x] PK0 — Autorizar la spec, registrar el plan y modelar amenazas.
+  - Aceptación: alcance cerrado, Coach sin permisos implícitos, política fail-closed y despliegue/escrituras reales fuera de la autorización local.
+  - Verificación: `specs/SPEC-store-kiosk-improvements.md` aprobada y plan actualizado.
+  - Dependencias: Fase D.
+  - Archivos: spec, `tasks/plan.md`, `tasks/todo.md`.
+- [x] PK1 — Probar e implementar contratos puros de acceso, catálogo, ganancia y política.
+  - Aceptación: Coach no es Admin y empieza vacío; sólo stock activo mayor a cero se ofrece; ganancia usa snapshots y excluye canceladas; política inválida niega acceso.
+  - Verificación: prueba RED/GREEN enfocada.
+  - Dependencias: PK0.
+  - Archivos probables: `app/tests/store-kiosk-improvements.test.ts`, `app/src/types/access.ts`, `app/src/types/domain.ts`, `app/src/utils/store-kiosk.ts`, `app/package.json`.
+- [ ] PK2 — Integrar Coach y configuración de Kiosco para Admin.
+  - Aceptación: se puede guardar Coach sin permisos; Admin asigna permisos después; configuración valida modos y sólo UIDs de Admin habilitados.
+  - Verificación: pruebas de reglas y flujo de formulario sin escribir datos reales.
+  - Dependencias: PK1.
+  - Archivos probables: `app/src/pages/usuarios.vue`, servicio/store de configuración, `app/database.rules.json`, pruebas de reglas.
+- [ ] PK3 — Corregir y completar Punto de Venta.
+  - Aceptación: `Cobro` permanece visible y reiniciado al vaciar carrito; selector omite stock cero; Admin ve ganancia bruta de toda venta no cancelada.
+  - Verificación: prueba enfocada, DOM/responsive y consola limpia.
+  - Dependencias: PK1.
+  - Archivos probables: `app/src/pages/tienda.vue`, utilidad y prueba enfocada.
+- [ ] PK4 — Actualizar identificación y cierre del Kiosco.
+  - Aceptación: QR inicia al continuar, código manual es secundario, `Pagar ahora` respeta la política tras verificar Admin y éxito vuelve al inicio en 5 segundos.
+  - Verificación: prueba enfocada, flujo local y liberación de cámara.
+  - Dependencias: PK1 y PK2.
+  - Archivos probables: `app/src/pages/kiosco.vue`, store/utilidad de política y prueba enfocada.
+- [ ] PK5 — Ejecutar gates y entregar evidencia.
+  - Aceptación: reglas, pruebas, typecheck, lint enfocado y build pasan; Chrome cubre el flujo publicado cuando se autorice despliegue; reporte incluye árbol, diagrama, flujos y riesgos.
+  - Verificación: comandos del repositorio, revisión de cinco ejes y reporte de impacto.
+  - Dependencias: PK2–PK4.
+  - Archivos probables: `app/e2e/responsive/store-kiosk-improvements.spec.ts`, `Docs/implementation-reports/`.
+
+## Checkpoint: Mejora Punto de Venta y Kiosco
+
+- [ ] PK1–PK4 cumplen los 13 criterios de aceptación sin dependencias nuevas.
+- [ ] Reglas y controles de cliente niegan por defecto configuraciones ausentes o inválidas.
+- [ ] PK5 documenta QA ejecutado y cualquier validación publicada pendiente de autorización.

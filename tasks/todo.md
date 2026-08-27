@@ -155,7 +155,7 @@
   - Verificación: prueba RED/GREEN enfocada.
   - Dependencias: PK0.
   - Archivos probables: `app/tests/store-kiosk-improvements.test.ts`, `app/src/types/access.ts`, `app/src/types/domain.ts`, `app/src/utils/store-kiosk.ts`, `app/package.json`.
-- [ ] PK2 — Integrar Coach y configuración de Kiosco para Admin.
+- [x] PK2 — Integrar Coach y configuración de Kiosco para Admin.
   - Aceptación: se puede guardar Coach sin permisos; Admin asigna permisos después; configuración valida modos y sólo UIDs de Admin habilitados.
   - Verificación: pruebas de reglas y flujo de formulario sin escribir datos reales.
   - Dependencias: PK1.

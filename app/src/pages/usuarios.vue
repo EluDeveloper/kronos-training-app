@@ -3,10 +3,12 @@ import EmptyState from '@/components/kronos/EmptyState.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { authErrorMessage } from '@/firebase/auth'
+import { useKioskSettingsStore } from '@/stores/kiosk-settings'
 import { useSessionStore } from '@/stores/session'
 import { useUsersStore } from '@/stores/users'
 import {
   accessModules,
+  defaultCoachPermissions,
   defaultReceptionPermissions,
   roleLabel,
   type AccessModule,
@@ -14,9 +16,11 @@ import {
   type UserPermissions,
   type UserRole,
 } from '@/types/access'
+import type { KioskPaymentNowMode } from '@/types/domain'
 
 const session = useSessionStore()
 const users = useUsersStore()
+const kioskSettings = useKioskSettingsStore()
 const { success, failure, confirmAction } = useNotifications()
 const search = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
@@ -28,6 +32,9 @@ const showPassword = ref(false)
 const editingUid = ref<string | null>(null)
 const createdCredentials = ref<{ email: string; password: string } | null>(null)
 const copied = ref(false)
+const kioskSaving = ref(false)
+const kioskMode = ref<KioskPaymentNowMode>('disabled')
+const kioskSelectedAdminIds = ref<string[]>([])
 
 const form = reactive({
   displayName: '',
@@ -52,6 +59,20 @@ const filtered = computed(() => users.items.filter(user => {
 const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
 const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
 const editingSelf = computed(() => editingUid.value === session.uid)
+const enabledAdmins = computed(() => users.items.filter(user => user.role === 'admin' && user.enabled))
+const enabledAdminIds = computed(() => new Set(enabledAdmins.value.map(user => user.uid)))
+const unavailableSelectedAdmins = computed(() => kioskSelectedAdminIds.value.filter(uid => !enabledAdminIds.value.has(uid)).length)
+
+const kioskModeItems = [
+  { title: 'Deshabilitado para todos', value: 'disabled' },
+  { title: 'Todos los administradores', value: 'all-admins' },
+  { title: 'Administradores específicos', value: 'selected-admins' },
+]
+
+watch(() => kioskSettings.settings, settings => {
+  kioskMode.value = settings?.paymentNowMode ?? 'disabled'
+  kioskSelectedAdminIds.value = Object.keys(settings?.paymentNowUserIds ?? {})
+}, { immediate: true })
 
 watch([search, statusFilter], () => { page.value = 1 })
 
@@ -69,6 +90,19 @@ function resetPermissions(permissions: UserPermissions = {}) {
     for (const action of module.actions)
       form.permissions[action.key] = permissions[action.key] === true
   }
+}
+
+function handleRoleChange(role: UserRole) {
+  resetPermissions(role === 'reception' ? defaultReceptionPermissions() : defaultCoachPermissions())
+}
+
+function roleColor(role: UserRole) {
+  if (role === 'admin')
+    return 'primary'
+  if (role === 'coach')
+    return 'info'
+
+  return 'secondary'
 }
 
 function setModuleEnabled(moduleKey: AccessModule, actionKeys: readonly string[], enabled: boolean | null) {
@@ -183,6 +217,32 @@ async function copyCredentials() {
   window.setTimeout(() => { copied.value = false }, 2500)
 }
 
+async function saveKioskConfiguration() {
+  if (!session.uid)
+    return failure('No se encontró la sesión del Admin.')
+
+  const selectedIds = kioskSelectedAdminIds.value.filter(uid => enabledAdminIds.value.has(uid))
+  if (kioskMode.value === 'selected-admins' && !selectedIds.length)
+    return failure('Selecciona al menos un Admin habilitado para usar Pagar ahora.')
+
+  kioskSaving.value = true
+  try {
+    await kioskSettings.save({
+      paymentNowMode: kioskMode.value,
+      paymentNowUserIds: kioskMode.value === 'selected-admins'
+        ? Object.fromEntries(selectedIds.map(uid => [uid, true]))
+        : null,
+    }, session.uid)
+    success('Configuración de Kiosco actualizada.')
+  }
+  catch (error) {
+    failure(error instanceof Error ? error.message : 'No fue posible guardar la configuración del Kiosco.')
+  }
+  finally {
+    kioskSaving.value = false
+  }
+}
+
 async function sendReset(user: AppUser) {
   try {
     await session.sendPasswordReset(user.email)
@@ -193,8 +253,14 @@ async function sendReset(user: AppUser) {
   }
 }
 
-onMounted(() => users.subscribe())
-onBeforeUnmount(() => users.dispose())
+onMounted(() => {
+  users.subscribe()
+  kioskSettings.subscribe()
+})
+onBeforeUnmount(() => {
+  users.dispose()
+  kioskSettings.dispose()
+})
 </script>
 
 <template>
@@ -223,7 +289,7 @@ onBeforeUnmount(() => users.dispose())
         variant="tonal"
         icon="ri-shield-check-line"
       >
-        Admin siempre tiene acceso completo. En Recepción puedes separar consulta, captura y acciones sensibles.
+        Admin siempre tiene acceso completo. Recepción y Coach sólo reciben los módulos y acciones que asignes explícitamente.
       </VAlert>
     </VCol>
     <VCol
@@ -252,6 +318,97 @@ onBeforeUnmount(() => users.dispose())
       </VCard>
     </VCol>
   </VRow>
+
+  <VCard
+    class="kronos-card mb-5"
+    rounded="xl"
+  >
+    <VCardItem
+      title="Configuración de Kiosco"
+      subtitle="Controla qué administradores pueden confirmar la opción Pagar ahora."
+    >
+      <template #prepend>
+        <VAvatar
+          color="secondary"
+          variant="tonal"
+        >
+          <VIcon icon="ri-store-2-line" />
+        </VAvatar>
+      </template>
+    </VCardItem>
+    <VCardText>
+      <VProgressLinear
+        v-if="kioskSettings.loading"
+        indeterminate
+        color="secondary"
+        class="mb-4"
+      />
+      <VAlert
+        v-if="kioskSettings.error"
+        color="error"
+        variant="tonal"
+        class="mb-4"
+      >
+        No fue posible leer la configuración. Pagar ahora permanecerá deshabilitado.
+      </VAlert>
+      <VRow align="start">
+        <VCol
+          cols="12"
+          md="5"
+        >
+          <VSelect
+            v-model="kioskMode"
+            label="Disponibilidad de Pagar ahora"
+            :items="kioskModeItems"
+            :disabled="kioskSettings.loading || kioskSaving"
+          />
+        </VCol>
+        <VCol
+          v-if="kioskMode === 'selected-admins'"
+          cols="12"
+          md="7"
+        >
+          <VAutocomplete
+            v-model="kioskSelectedAdminIds"
+            label="Administradores autorizados"
+            :items="enabledAdmins"
+            item-title="displayName"
+            item-value="uid"
+            multiple
+            chips
+            closable-chips
+            :item-props="item => ({ subtitle: item.email })"
+            :disabled="kioskSettings.loading || kioskSaving"
+          />
+        </VCol>
+      </VRow>
+      <VAlert
+        v-if="unavailableSelectedAdmins"
+        color="warning"
+        variant="tonal"
+        class="mb-4"
+      >
+        {{ unavailableSelectedAdmins }} perfil(es) guardados ya no son administradores habilitados y no podrán autorizar pagos.
+      </VAlert>
+      <VAlert
+        color="info"
+        variant="tonal"
+        class="mb-4"
+      >
+        La configuración ausente o con error se interpreta como deshabilitada. Pagar después siempre permanece disponible.
+      </VAlert>
+      <div class="d-flex justify-end">
+        <VBtn
+          prepend-icon="ri-save-line"
+          :loading="kioskSaving"
+          :disabled="kioskSettings.loading"
+          @click="saveKioskConfiguration"
+        >
+          Guardar configuración
+        </VBtn>
+      </div>
+    </VCardText>
+  </VCard>
 
   <VCard
     class="kronos-card"
@@ -320,7 +477,7 @@ onBeforeUnmount(() => users.dispose())
               </td>
               <td>
                 <VChip
-                  :color="user.role === 'admin' ? 'primary' : 'secondary'"
+                  :color="roleColor(user.role)"
                   variant="tonal"
                   size="small"
                 >
@@ -459,7 +616,8 @@ onBeforeUnmount(() => users.dispose())
                 v-model="form.role"
                 label="Perfil"
                 :disabled="editingSelf"
-                :items="[{ title: 'Admin', value: 'admin' }, { title: 'Recepción', value: 'reception' }]"
+                :items="[{ title: 'Admin', value: 'admin' }, { title: 'Recepción', value: 'reception' }, { title: 'Coach', value: 'coach' }]"
+                @update:model-value="handleRoleChange"
               />
             </VCol>
             <VCol
@@ -494,12 +652,12 @@ onBeforeUnmount(() => users.dispose())
             :disabled="editingSelf"
           />
 
-          <div v-if="form.role === 'reception'">
+          <div v-if="form.role !== 'admin'">
             <p class="font-weight-bold mb-1">
               Permisos detallados
             </p>
             <p class="text-body-2 text-medium-emphasis mb-4">
-              Habilita primero el módulo y después únicamente las acciones que esta persona necesita.
+              {{ form.role === 'coach' ? 'Coach inicia sin permisos. Asigna únicamente los módulos y acciones que necesite.' : 'Habilita primero el módulo y después únicamente las acciones que esta persona necesita.' }}
             </p>
             <VRow>
               <VCol

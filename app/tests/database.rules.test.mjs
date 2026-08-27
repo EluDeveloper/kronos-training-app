@@ -72,7 +72,9 @@ beforeEach(async () => {
     await db.ref('v1/authorizedDevices/waiting').set(device(false))
     await db.ref('v1/authConfig').set({ initialized: true, initializedAt: now() })
     await db.ref('v1/users/admin').set(appUser('admin', 'admin'))
+    await db.ref('v1/users/admin-2').set(appUser('admin-2', 'admin'))
     await db.ref('v1/users/reception').set(appUser('reception', 'reception', { store: true, storeSell: true }, true, true))
+    await db.ref('v1/users/coach').set(appUser('coach', 'coach'))
     await db.ref('v1/users/athletes-only').set(appUser('athletes-only', 'reception', { athletes: true, athletesManage: true }))
     await db.ref('v1/users/intake-reader').set(appUser('intake-reader', 'reception', { athletes: true, athletesIntake: true }))
     await db.ref('v1/users/intake-manager').set(appUser('intake-manager', 'reception', { athletes: true, athletesIntake: true, athletesIntakeManage: true }))
@@ -231,6 +233,68 @@ test('Admin puede leer el negocio y administrar perfiles válidos', async () => 
   await assertSucceeds(db.ref('v1/users').once('value'))
   await assertSucceeds(db.ref('v1/athletes/athlete-1').set(athlete))
   await assertSucceeds(db.ref('v1/users/new-reception').set(appUser('new-reception', 'reception', { visits: true })))
+  await assertSucceeds(db.ref('v1/users/new-coach').set(appUser('new-coach', 'coach')))
+})
+
+test('Coach inicia sin acceso y sólo obtiene módulos asignados explícitamente', async () => {
+  const coachDb = env.authenticatedContext('coach').database()
+  const adminDb = env.authenticatedContext('admin').database()
+
+  await assertSucceeds(coachDb.ref('v1/users/coach').once('value'))
+  await assertFails(coachDb.ref('v1/products').once('value'))
+  await assertFails(coachDb.ref('v1/settings/kiosk').once('value'))
+  await assertFails(coachDb.ref('v1/users').once('value'))
+
+  await assertSucceeds(adminDb.ref('v1/users/coach').update({ permissions: { store: true }, updatedAt: now() }))
+  await assertSucceeds(coachDb.ref('v1/products').once('value'))
+  await assertFails(coachDb.ref('v1/sales/coach-sale').set(saleFixture('coach-sale')))
+})
+
+test('sólo Admin configura Pagar ahora con modos y perfiles válidos', async () => {
+  const adminDb = env.authenticatedContext('admin').database()
+  const receptionDb = env.authenticatedContext('reception').database()
+  const coachDb = env.authenticatedContext('coach').database()
+  const timestamp = now()
+  const disabled = { paymentNowMode: 'disabled', updatedBy: 'admin', updatedAt: timestamp }
+
+  await assertSucceeds(adminDb.ref('v1/settings/kiosk').set(disabled))
+  await assertSucceeds(adminDb.ref('v1/settings/kiosk').once('value'))
+  await assertFails(receptionDb.ref('v1/settings/kiosk').once('value'))
+  await assertFails(coachDb.ref('v1/settings/kiosk').set(disabled))
+  await assertFails(adminDb.ref('v1/settings/kiosk').set({ ...disabled, paymentNowMode: 'enabled' }))
+  await assertFails(adminDb.ref('v1/settings/kiosk').set({ ...disabled, paymentNowMode: 'selected-admins', paymentNowUserIds: {} }))
+  await assertFails(adminDb.ref('v1/settings/kiosk').set({ ...disabled, paymentNowMode: 'selected-admins', paymentNowUserIds: { reception: true } }))
+  await assertSucceeds(adminDb.ref('v1/settings/kiosk').set({ ...disabled, paymentNowMode: 'selected-admins', paymentNowUserIds: { 'admin-2': true } }))
+})
+
+test('las reglas bloquean una venta pagada de Kiosco si la política no autoriza al aprobador', async () => {
+  const db = env.authenticatedContext('admin').database()
+  const timestamp = now()
+  const paidSale = saleFixture('paid-kiosk')
+
+  paidSale.athleteId = 'athlete-1'
+  paidSale.source = 'kiosk'
+  paidSale.approvedBy = 'admin-2'
+  paidSale.payments = {
+    paid: { id: 'paid', amountApplied: 20, method: 'cash', receivedAmount: 20, changeGiven: 0, appliedAt: timestamp },
+  }
+
+  await assertFails(db.ref('v1/sales/paid-kiosk').set(paidSale))
+  await assertSucceeds(db.ref('v1/settings/kiosk').set({ paymentNowMode: 'all-admins', updatedBy: 'admin', updatedAt: timestamp }))
+  await assertSucceeds(db.ref('v1/sales/paid-kiosk').set(paidSale))
+
+  const deniedSale = structuredClone(paidSale)
+
+  deniedSale.id = 'denied-kiosk'
+  await assertSucceeds(db.ref('v1/settings/kiosk').set({ paymentNowMode: 'selected-admins', paymentNowUserIds: { admin: true }, updatedBy: 'admin', updatedAt: timestamp + 1 }))
+  await assertFails(db.ref('v1/sales/denied-kiosk').set(deniedSale))
+
+  const creditSale = saleFixture('credit-kiosk', 'credit')
+
+  creditSale.athleteId = 'athlete-1'
+  creditSale.source = 'kiosk'
+  await assertSucceeds(db.ref('v1/settings/kiosk').set({ paymentNowMode: 'disabled', updatedBy: 'admin', updatedAt: timestamp + 2 }))
+  await assertSucceeds(db.ref('v1/sales/credit-kiosk').set(creditSale))
 })
 
 test('los códigos personales y de barras deben tener un formato válido', async () => {

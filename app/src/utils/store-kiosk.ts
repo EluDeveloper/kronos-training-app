@@ -1,7 +1,10 @@
 import type { AppUser } from '@/types/access'
 import type { KioskSettings, Product, Sale } from '@/types/domain'
 
+export const KIOSK_SUCCESS_RESET_MS = 5_000
+
 const currency = (value: number) => Math.round(value * 100) / 100
+
 const finiteNumber = (value: unknown) => {
   const numeric = Number(value)
 
@@ -92,3 +95,8 @@ export const isKioskPaymentNowAllowed = (settings: KioskSettings | null, user: A
 
   return settings.paymentNowUserIds?.[user.uid] === true
 }
+
+export const isKioskPaymentNowAvailable = (settings: KioskSettings | null) => Boolean(
+  settings && (settings.paymentNowMode === 'all-admins'
+    || (settings.paymentNowMode === 'selected-admins' && Object.keys(settings.paymentNowUserIds ?? {}).length > 0)),
+)

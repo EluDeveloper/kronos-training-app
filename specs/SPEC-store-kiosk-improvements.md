@@ -1,6 +1,6 @@
 # Spec: Mejoras menores de Punto de Venta y Kiosco
 
-Estado: aprobada por el usuario para implementación local el 2026-08-27.
+Estado: implementada y desplegada con autorización del usuario el 2026-08-27; QA publicado en curso.
 Módulo principal: `store-inventory`.
 QA transversal: `experience-quality`.
 Dependencia de seguridad: `foundation` (sesión, perfiles y reglas de Firebase).

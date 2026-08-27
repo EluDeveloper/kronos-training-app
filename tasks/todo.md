@@ -160,12 +160,12 @@
   - Verificación: pruebas de reglas y flujo de formulario sin escribir datos reales.
   - Dependencias: PK1.
   - Archivos probables: `app/src/pages/usuarios.vue`, servicio/store de configuración, `app/database.rules.json`, pruebas de reglas.
-- [ ] PK3 — Corregir y completar Punto de Venta. Implementación local y pruebas enfocadas completas; DOM/consola publicados pendientes.
+- [ ] PK3 — Corregir y completar Punto de Venta. Desktop publicado aprobado; matriz responsive autenticada pendiente.
   - Aceptación: `Cobro` permanece visible y reiniciado al vaciar carrito; selector omite stock cero; Admin ve ganancia bruta de toda venta no cancelada.
   - Verificación: prueba enfocada, DOM/responsive y consola limpia.
   - Dependencias: PK1.
   - Archivos probables: `app/src/pages/tienda.vue`, utilidad y prueba enfocada.
-- [ ] PK4 — Actualizar identificación y cierre del Kiosco. Implementación local y pruebas enfocadas completas; flujo publicado pendiente.
+- [ ] PK4 — Actualizar identificación y cierre del Kiosco. Pantalla inicial publicada aprobada; identificación y pago requieren intervención manual sin completar venta.
   - Aceptación: QR inicia al continuar, código manual es secundario, `Pagar ahora` respeta la política tras verificar Admin y éxito vuelve al inicio en 5 segundos.
   - Verificación: prueba enfocada, flujo local y liberación de cámara.
   - Dependencias: PK1 y PK2.

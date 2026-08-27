@@ -2,12 +2,12 @@
 
 ## Estado
 
-- Spec: ✅ aprobada para implementación local
+- Spec: ✅ implementada y desplegada
 - Tests: ✅
 - Typecheck: ✅
 - Build: ✅
-- Chrome QA: ⚠️ pendiente de desplegar la versión implementada
-- Flujo completo afectado en Chrome: ⚠️ pendiente de autorización de despliegue
+- Chrome QA: ⚠️ Tienda, Usuarios y pantalla inicial de Kiosco aprobados; identificación pendiente
+- Flujo completo afectado en Chrome: ⚠️ requiere agregar un producto e identificar un atleta sin completar venta
 - Playwright responsive: ⚠️ 8 casos descubiertos; ejecución autenticada pendiente
 - Login manual requerido: Sí
 
@@ -51,7 +51,9 @@ tasks/todo.md
 - Entrada del flujo local: contratos puros y componentes de Tienda, Usuarios y Kiosco.
 - Resultado final local: 7 pruebas unitarias y 29 pruebas de reglas aprobadas; typecheck, lint enfocado y build aprobados.
 - Segmentos de integración comprobados: Coach sin permisos implícitos; configuración fail-closed; allowlist de Admin; `approvedBy === auth.uid`; catálogo con `stock > 0`; margen histórico; carrito idempotente; temporizador exacto de 5 segundos.
-- Chrome publicado: se reprodujo la versión anterior para confirmar el error `customerKey = null` y la presencia de productos agotados. La versión corregida todavía no se recorrió porque no se ha autorizado su despliegue.
+- Chrome publicado: Tienda mostró la tarjeta de ganancia; el selector ofreció 15 productos sin stock cero; el carrito recorrió `2 → 1 → 0`; `Cobro` permaneció visible en `$0`; consola limpia desde la carga del bundle nuevo.
+- Usuarios publicado: configuración fail-closed visible en `Deshabilitado para todos`; Coach seleccionable con aviso de cero permisos; el diálogo se canceló sin guardar y la consola quedó limpia.
+- Kiosco publicado: pantalla principal, cámara, carrito vacío y `Continuar` deshabilitado se renderizaron sin errores. La identificación QR y el estado de pago requieren agregar un producto con intervención manual.
 
 ## Flujos no afectados
 
@@ -87,10 +89,11 @@ flowchart TD
 - `npm run typecheck`: aprobado.
 - `npx eslint` sobre los archivos modificados: aprobado.
 - `npm run build`: aprobado; 1124 módulos transformados.
+- `npx firebase deploy --only hosting,database --project kronos-training-fd5e5`: Hosting y reglas publicados correctamente desde `dec97f8`.
 - `npx playwright test ... --list --reporter=line`: 8 casos descubiertos para 320, 768, 1024 y 1440 px.
-- Viewports revisados sobre la versión nueva: pendientes.
-- Errores o warnings nuevos en la versión nueva: pendientes de Chrome; el emulador sólo reportó denegaciones esperadas por las pruebas negativas.
-- Evidencia Playwright/Chrome: ejecución protegida pendiente porque no existe estado autenticado de Playwright y la versión nueva aún no está publicada.
+- Viewports revisados sobre la versión nueva: escritorio de Chrome aprobado; 320, 768, 1024 y 1440 px pendientes por ausencia de estado autenticado reutilizable en Playwright.
+- Errores o warnings nuevos en la versión nueva: ninguno en Tienda, Usuarios ni pantalla inicial de Kiosco. Los errores históricos observados pertenecían al bundle previo y desaparecieron al cargar el release `dec97f8`.
+- Evidencia Playwright/Chrome: DOM, accesibilidad básica, comportamiento y capturas revisados en la sesión Chrome autorizada; ejecución responsive protegida pendiente.
 
 ## Revisión de calidad
 
@@ -98,11 +101,11 @@ flowchart TD
 - Seguridad: la política falla cerrada, sólo acepta Admin habilitados y una venta pagada de Kiosco debe atribuir la aprobación al mismo UID autenticado.
 - Regresión: el esquema de ventas se conserva y las ventas de crédito no dependen de la política de pago inmediato.
 - Mantenibilidad: política, parseo y cálculos viven fuera de las vistas; la configuración usa servicio y store dedicados.
-- Cobertura: lógica y reglas están cubiertas; responsive y flujo runtime permanecen abiertos hasta publicar.
+- Cobertura: lógica, reglas y los tramos publicados sin escritura están cubiertos; responsive e identificación del Kiosco permanecen abiertos.
 
 ## Riesgos y pendientes
 
-- Se requiere autorización explícita para desplegar Hosting y reglas de Realtime Database en `kronos-training-fd5e5`.
-- Después del despliegue se debe recorrer Tienda, Usuarios y Kiosco en Chrome, revisar consola/red/DOM/accesibilidad y ejecutar la matriz responsive.
-- La configuración publicada seguirá ausente o en su valor anterior hasta que un Admin decida guardarla; por diseño eso mantiene `Pagar ahora` deshabilitado.
+- Hosting y reglas ya están publicados en `kronos-training-fd5e5`; la reversión preparada consiste en recompilar `4613e68` y redesplegar ambos destinos si aparece un fallo crítico.
+- Para completar Kiosco se debe agregar un producto y llegar a identificación con intervención manual; no se completará ninguna venta.
+- La configuración publicada permanece en `Deshabilitado para todos`; no se modificó durante QA y por diseño mantiene `Pagar ahora` deshabilitado.
 - La QA publicada no completará ventas ni guardará usuarios/configuración sin una autorización adicional y datos de prueba acordados.

@@ -5,6 +5,7 @@ import { useAthletesStore } from '@/stores/athletes'
 import { useCommerceStore } from '@/stores/commerce'
 import { useSessionStore } from '@/stores/session'
 import type { Athlete, PaymentMethod, Product, SaleItem } from '@/types/domain'
+import { parseKioskCodePayload } from '@/utils/kiosk-code'
 import { formatCurrency } from '@/utils/kronos'
 import { productBarcodes, productHasBarcode } from '@/utils/product-barcodes'
 
@@ -22,6 +23,7 @@ const manualAdminEmail = ref('')
 const manualAdminPassword = ref('')
 const showManualAdminPassword = ref(false)
 const cameraEnabled = ref(true)
+const athleteScannerEnabled = ref(false)
 const athleteCode = ref('')
 const selectedAthlete = ref<Athlete | null>(null)
 const saving = ref(false)
@@ -153,21 +155,27 @@ function continueToIdentification() {
     return showFeedback('Escanea al menos un producto para continuar.', 'warning')
 
   cameraEnabled.value = false
+  athleteScannerEnabled.value = false
   athleteCode.value = ''
   selectedAthlete.value = null
   step.value = 'identify'
 }
 
-function identifyAthlete() {
-  const code = athleteCode.value.replace(/\D/g, '')
-  const athlete = athletes.items.find(item => item.status === 'active' && item.kioskCode === code)
+function identifyAthlete(rawCode = athleteCode.value) {
+  const code = parseKioskCodePayload(rawCode)
 
-  if (code.length !== 6 || !athlete) {
+  const athlete = code
+    ? athletes.items.find(item => item.status === 'active' && item.kioskCode === code)
+    : null
+
+  if (!code || !athlete) {
     showFeedback('El código no es válido. Pide al administrador que revise o regenere tu código.', 'error')
 
     return
   }
 
+  athleteCode.value = code
+  athleteScannerEnabled.value = false
   selectedAthlete.value = athlete
   receivedAmount.value = cartTotal.value
   paymentMethod.value = 'cash'
@@ -176,6 +184,7 @@ function identifyAthlete() {
 
 function backToShopping() {
   selectedAthlete.value = null
+  athleteScannerEnabled.value = false
   athleteCode.value = ''
   step.value = 'shopping'
   cameraEnabled.value = true
@@ -528,8 +537,29 @@ onBeforeUnmount(() => {
             Identifica tu compra
           </p>
           <p class="text-body-1 text-medium-emphasis mb-7">
-            Ingresa el código personal de 6 dígitos que recibiste por WhatsApp.
+            Escanea la credencial QR o ingresa manualmente el código personal de 6 dígitos.
           </p>
+          <VBtn
+            class="mb-5"
+            :prepend-icon="athleteScannerEnabled ? 'ri-close-line' : 'ri-qr-scan-2-line'"
+            variant="tonal"
+            @click="athleteScannerEnabled = !athleteScannerEnabled"
+          >
+            {{ athleteScannerEnabled ? 'Cerrar cámara' : 'Escanear QR' }}
+          </VBtn>
+          <VExpandTransition>
+            <div
+              v-if="athleteScannerEnabled"
+              class="athlete-scanner mx-auto mb-6"
+            >
+              <BarcodeScanner
+                :active="athleteScannerEnabled"
+                format="qr"
+                purpose="la credencial QR"
+                @detected="identifyAthlete"
+              />
+            </div>
+          </VExpandTransition>
           <VTextField
             v-model="athleteCode"
             class="kiosk-code-input mx-auto"
@@ -538,7 +568,7 @@ onBeforeUnmount(() => {
             maxlength="6"
             label="Código personal"
             prepend-inner-icon="ri-key-2-line"
-            autofocus
+            :autofocus="!athleteScannerEnabled"
             @keyup.enter="identifyAthlete"
           />
           <div class="d-flex flex-column flex-sm-row justify-center ga-3 mt-3">
@@ -1024,6 +1054,10 @@ onBeforeUnmount(() => {
 
 .kiosk-code-input {
   max-inline-size: 360px;
+}
+
+.athlete-scanner {
+  max-inline-size: 520px;
 }
 
 .payment-total {

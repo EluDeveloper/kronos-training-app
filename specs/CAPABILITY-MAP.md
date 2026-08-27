@@ -1,6 +1,6 @@
 # Capability Map: Kronos Training
 
-Estado: borrador para revisión humana.
+Estado: aprobado el 2026-08-26.
 
 ## Objetivo de la iniciativa
 
@@ -41,9 +41,13 @@ El mapa debe ser aprobado antes de crear specs de módulos. Si la arquitectura v
 
 Implementar una sola rebanada vertical de `athletes-payments`: alta o edición de atleta con validación, estados de carga/error/vacío, persistencia y validación runtime en Chrome. No incluye rediseñar todo el módulo ni cambiar el modelo de Firebase.
 
-## Preguntas abiertas
+## Decisiones resueltas
 
-- ¿El primer piloto debe ser alta de atleta o registro de pago?
-- ¿Qué cuenta y datos de prueba se utilizarán en Chrome?
-- ¿Qué métricas de UX se convertirán en objetivos cuantitativos?
-- ¿Se instalarán skills sólo por proyecto, globalmente o mediante el plugin de Codex?
+- El primer piloto fue el flujo de alta y edición de atletas y ya quedó implementado y validado.
+- Chrome usará autenticación manual del usuario y un atleta QA sintético, claramente identificable y persistente para futuras validaciones; no se inspeccionarán credenciales, cookies ni tokens.
+- Por ahora no se fijan métricas UX numéricas adicionales. Cada spec definirá criterios funcionales, accesibilidad, consola limpia y la matriz responsive `320/768/1024/1440`; cualquier umbral de rendimiento requerirá una decisión posterior.
+- Los skills reutilizables se prefieren globales y no deben duplicarse si ya están disponibles. La versión instalada en el repositorio permanece documentada en `skills-lock.json` y no se actualizará durante una tarea de aplicación.
+
+## Authorization Gate
+
+El usuario respondió las preguntas abiertas y autorizó este capability map el 2026-08-26. Cada fase conserva su propio gate de spec antes de implementar o cambiar comportamiento.

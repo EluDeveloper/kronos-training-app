@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
+import { BrowserMultiFormatReader, BrowserQRCodeReader, type IScannerControls } from '@zxing/browser'
 
 const props = withDefaults(defineProps<{
   active?: boolean
+  format?: 'multi' | 'qr'
+  purpose?: string
 }>(), {
   active: true,
+  format: 'multi',
+  purpose: 'productos',
 })
 
 const emit = defineEmits<{
@@ -16,7 +20,7 @@ const video = ref<HTMLVideoElement | null>(null)
 const errorMessage = ref('')
 const starting = ref(false)
 let controls: IScannerControls | null = null
-let reader: BrowserMultiFormatReader | null = null
+let reader: BrowserMultiFormatReader | BrowserQRCodeReader | null = null
 let lastCode = ''
 let lastSeenAt = 0
 
@@ -24,6 +28,7 @@ function stop() {
   controls?.stop()
   controls = null
   reader = null
+  lastCode = ''
 
   const stream = video.value?.srcObject
   if (stream instanceof MediaStream)
@@ -53,10 +58,11 @@ async function start() {
 
   starting.value = true
   try {
-    reader = new BrowserMultiFormatReader(undefined, {
-      delayBetweenScanAttempts: 180,
-      delayBetweenScanSuccess: 900,
-    })
+    const options = { delayBetweenScanAttempts: 180, delayBetweenScanSuccess: 900 }
+
+    reader = props.format === 'qr'
+      ? new BrowserQRCodeReader(undefined, options)
+      : new BrowserMultiFormatReader(undefined, options)
 
     const scannerControls = await reader.decodeFromConstraints({
       audio: false,
@@ -74,7 +80,9 @@ async function start() {
         return
       }
 
-      const code = result?.getText().trim()
+      const rawCode = result?.getText()
+      const code = props.format === 'qr' ? rawCode : rawCode.trim()
+
       if (!code)
         return
 
@@ -93,7 +101,7 @@ async function start() {
   }
   catch (error) {
     const message = error instanceof DOMException && error.name === 'NotAllowedError'
-      ? 'Autoriza el uso de la cámara para escanear productos.'
+      ? `Autoriza el uso de la cámara para escanear ${props.purpose}.`
       : 'No fue posible iniciar la cámara. Puedes capturar el código manualmente.'
 
     errorMessage.value = message
@@ -104,7 +112,7 @@ async function start() {
   }
 }
 
-watch(() => props.active, active => {
+watch(() => [props.active, props.format] as const, ([active]) => {
   if (active)
     void start()
   else
@@ -123,12 +131,14 @@ onBeforeUnmount(stop)
     <video
       ref="video"
       class="barcode-video"
+      :aria-label="`Vista de cámara para escanear ${purpose}`"
       autoplay
       muted
       playsinline
     />
     <div
       class="scanner-guide"
+      :class="{ 'scanner-guide--qr': format === 'qr' }"
       aria-hidden="true"
     >
       <span />
@@ -188,6 +198,10 @@ onBeforeUnmount(stop)
   block-size: 2px;
   background: #ff401b;
   box-shadow: 0 0 12px rgba(255, 64, 27, 0.85);
+}
+
+.scanner-guide--qr {
+  inset: 12% 24%;
 }
 
 .scanner-status {

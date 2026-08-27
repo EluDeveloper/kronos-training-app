@@ -21,6 +21,8 @@ declare module 'vue' {
     ErrorHeader: typeof import('./src/components/ErrorHeader.vue')['default']
     FirstAdminSetup: typeof import('./src/components/kronos/FirstAdminSetup.vue')['default']
     GlobalAlertCenter: typeof import('./src/components/kronos/GlobalAlertCenter.vue')['default']
+    KioskCredentialCard: typeof import('./src/components/kronos/KioskCredentialCard.vue')['default']
+    KioskCredentialDialog: typeof import('./src/components/kronos/KioskCredentialDialog.vue')['default']
     KronosLogo: typeof import('./src/components/kronos/KronosLogo.vue')['default']
     LoginScreen: typeof import('./src/components/kronos/LoginScreen.vue')['default']
     MembershipPaymentDialog: typeof import('./src/components/kronos/MembershipPaymentDialog.vue')['default']

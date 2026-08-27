@@ -13,13 +13,14 @@
 - [x] Revisar y autorizar `specs/SPEC-quality-gates.md` antes de integrar Playwright.
 - [x] Fase B: dividir el formulario de atleta en pestañas.
 - [x] Fase C: generar ficha de inscripción reutilizando el diseño de recibos.
-- [ ] Fase D: cambiar el código de quiosco al formato determinista solicitado.
+- [x] Revisar y autorizar `specs/SPEC-kiosk-code.md` antes de implementar Fase D.
+- [x] Fase D: mantener el código aleatorio y añadir credencial QR regenerable para Kiosco.
 - [ ] Fase E: implementar notificaciones de pagos con WhatsApp Business.
 - [ ] Fase F: evaluar notificaciones push como alternativa.
 
 ## Foundation
 
-- [ ] Revisar y aprobar el capability map.
+- [x] Revisar y aprobar el capability map.
 - [x] Elegir la fuente de verdad para las skills.
 - [x] Configurar el flujo de QA con Chrome DevTools MCP.
 - [x] Documentar como regla global la validación del flujo completo afectado en Chrome.
@@ -44,7 +45,7 @@
 ## Checkpoint: Foundation
 
 - [x] Las reglas del agente están documentadas.
-- [ ] El mapa de capacidades está aprobado.
+- [x] El mapa de capacidades está aprobado.
 - [x] Los fallos previos del entorno están separados de los fallos nuevos.
 
 ## Checkpoint: Pilot
@@ -112,3 +113,32 @@
 - [x] C1–C3 pasan pruebas automatizadas, lint, typecheck y build.
 - [x] C4 completa Playwright y Chrome con login manual autorizado.
 - [x] La spec coincide con el comportamiento y el reporte documenta privacidad, archivos, flujos y riesgos.
+
+## Fase D: Código aleatorio y credencial QR
+
+- [x] D1 — Probar y extraer el contrato de código aleatorio y QR.
+  - Aceptación: genera exactamente 6 dígitos con fuente criptográfica, reintenta colisiones de forma acotada y el QR decodifica el mismo código sin PII.
+  - Verificación: evidencia RED/GREEN con `npm run test:kiosk-code`.
+  - Dependencias: spec aprobada.
+  - Archivos probables: `app/tests/kiosk-code.test.ts`, `app/src/utils/kiosk-code.ts`, `app/package.json`.
+- [x] D2 — Integrar credencial visual y regeneración ilimitada en Atletas.
+  - Aceptación: tarjeta PNG con textos autorizados; candidato pendiente no se comparte; el código anterior permanece hasta guardar exitosamente.
+  - Verificación: prueba enfocada, typecheck y revisión de accesibilidad/DOM.
+  - Dependencias: D1.
+  - Archivos probables: `app/src/components/kronos/KioskCredentialCard.vue`, `app/src/components/kronos/KioskCredentialDialog.vue`, `app/src/pages/atletas.vue`, `app/components.d.ts`.
+- [x] D3 — Integrar lectura QR segura en Kiosco.
+  - Aceptación: lector QR-only acepta seis dígitos, rechaza otros payloads, libera la cámara y conserva captura manual/productos.
+  - Verificación: prueba enfocada, typecheck, lint y build.
+  - Dependencias: D2.
+  - Archivos probables: `app/src/components/kronos/BarcodeScanner.vue`, `app/src/pages/kiosco.vue`, `app/tests/kiosk-code.test.ts`.
+- [x] D4 — Ejecutar QA responsive y flujo completo afectado.
+  - Aceptación: Chrome pasa en `320/768/1024/1440`; valida PNG, regeneración, código anterior/nuevo, QR y fallback sin completar venta. Playwright se descubre y omite por la restricción aprobada de dispositivo único.
+  - Verificación: Chrome en producción, cobertura Playwright descubierta y reporte de impacto.
+  - Dependencias: D3 y autorización separada de despliegue para validar la versión publicada.
+  - Archivos probables: `app/e2e/responsive/kiosk-credential-responsive.spec.ts`, `app/playwright.config.ts`, `Docs/implementation-reports/2026-08-26-kiosk-credential.md`.
+
+## Checkpoint: Fase D
+
+- [x] D1–D3 pasan pruebas automatizadas, reglas, lint enfocado, typecheck y build; el lint global conserva deuda previa documentada en el reporte.
+- [x] D4 completa Chrome en la instancia autorizada y documenta la omisión de Playwright por seguridad de dispositivo.
+- [x] La spec coincide con el comportamiento y el reporte documenta seguridad, archivos, flujos y riesgos residuales.

@@ -45,13 +45,15 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 **Criterios de aceptación:** la ficha no contiene datos de salud ni historial de pagos, comunica el día recurrente, muestra el contacto de emergencia con permiso de admisión, conserva el diseño Kronos de recibos y permite revisar antes de compartir manualmente.
 
-### Fase D: Código de quiosco determinista
+### Fase D: Código aleatorio y credencial QR de quiosco
 
-1. Definir y probar la fórmula: últimos 4 dígitos del teléfono + últimos 2 del año de nacimiento + día de nacimiento.
-2. Validar que teléfono y fecha de nacimiento existan y que el resultado no exceda 8 dígitos antes de generar o reemplazar un código.
-3. Mostrar alerta accionable y conservar el código existente si faltan datos; verificar compatibilidad con escaneo y compra.
+1. Revisar y autorizar `specs/SPEC-kiosk-code.md` antes de implementar.
+2. Mantener la generación aleatoria y única de 6 dígitos con `crypto.getRandomValues`, permitiendo regeneración ilimitada por Admin mediante candidato y confirmación.
+3. Generar localmente una credencial PNG vertical con QR, `Kiosco Kronos`, nombre del atleta, código visible y `https://kronos-training.com/`.
+4. Integrar lectura QR en la identificación de Kiosco y conservar la entrada manual, sin cambiar reglas, esquema o dependencias.
+5. Verificar generación, descarga, regeneración, revocación del código anterior e identificación dentro de una compra sin confirmar una venta real.
 
-**Criterios de aceptación:** `0634881` se produce para los datos del ejemplo, no se generan códigos incompletos y ningún atleta pierde un código por un intento inválido.
+**Criterios de aceptación:** Admin puede regenerar cuantas veces requiera; el código anterior permanece activo hasta guardar; el QR contiene sólo 6 dígitos aleatorios; la tarjeta refleja el diseño solicitado y Kiosco conserva escaneo QR y captura manual.
 
 ### Fase E: Notificaciones de pagos
 
@@ -82,7 +84,7 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 
 ### Fase 0: Base del proceso
 
-- [ ] Revisar y aprobar `specs/CAPABILITY-MAP.md`.
+- [x] Revisar y aprobar `specs/CAPABILITY-MAP.md`.
 - [x] Confirmar la fuente/versionado de skills.
 - [x] Configurar Chrome DevTools MCP para el primer cambio de interfaz.
 - [x] Documentar el gate global de aprobación de specs, flujo completo afectado en Chrome y complemento Playwright.
@@ -121,9 +123,10 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 
 - [x] Revisar y autorizar `specs/SPEC-athlete-form-tabs.md`.
 - [x] Revisar y autorizar `specs/SPEC-quality-gates.md`.
-- [ ] Fase B: formulario por pestañas.
+- [x] Fase B: formulario por pestañas.
 - [x] Fase C: ficha de inscripción y compartir por WhatsApp.
-- [ ] Fase D: código de quiosco determinista.
+- [x] Revisar y autorizar `specs/SPEC-kiosk-code.md`.
+- [x] Fase D: código aleatorio y credencial QR regenerable de quiosco.
 - [ ] Fase E: WhatsApp Business para notificaciones de pago.
 - [ ] Fase F: evaluación de notificaciones push.
 

@@ -2,6 +2,7 @@
 import EmptyState from '@/components/kronos/EmptyState.vue'
 import AthleteIntakeFields from '@/components/kronos/AthleteIntakeFields.vue'
 import EnrollmentSheetDialog from '@/components/kronos/EnrollmentSheetDialog.vue'
+import KioskCredentialDialog from '@/components/kronos/KioskCredentialDialog.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthleteIntakeStore } from '@/stores/athlete-intake'
@@ -22,6 +23,7 @@ import {
   type AthleteFormTab,
 } from '@/utils/athlete-intake'
 import { buildEnrollmentSheet, type EnrollmentSheetData } from '@/utils/enrollment-sheet'
+import { parseKioskCodePayload } from '@/utils/kiosk-code'
 import { formatCurrency, normalizeSearchTerm } from '@/utils/kronos'
 
 const athleteIntake = useAthleteIntakeStore()
@@ -46,9 +48,6 @@ const editingId = ref<string | null>(null)
 const enrollmentSheetAthlete = ref<Athlete | null>(null)
 const activeEnrollmentSheet = ref<EnrollmentSheetData | null>(null)
 const kioskCodeAthlete = ref<Athlete | null>(null)
-const kioskCode = ref('')
-const kioskCodePersisted = ref(false)
-const kioskCodeCopied = ref(false)
 const intakeReady = ref(true)
 const validationAttempted = ref(false)
 const activeFormTab = ref<AthleteFormTab>('personal')
@@ -89,6 +88,12 @@ const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / p
 const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
 const planItems = computed(() => plans.active.map(plan => ({ title: `${plan.name} · ${formatCurrency(plan.price)}`, value: plan.id })))
 const planFilterItems = computed(() => plans.items.map(plan => ({ title: plan.name, value: plan.id })))
+
+const occupiedKioskCodes = computed(() => athletes.items
+  .filter(athlete => athlete.id !== kioskCodeAthlete.value?.id)
+  .map(athlete => athlete.kioskCode ?? '')
+  .filter(Boolean))
+
 const planName = (id: string) => plans.items.find(plan => plan.id === id)?.name ?? 'Plan no disponible'
 
 watch(() => form.planId, id => {
@@ -246,69 +251,38 @@ async function toggleStatus(athlete: Athlete) {
   catch (error) { failure(error instanceof Error ? error.message : 'No fue posible cambiar el estado.') }
 }
 
-function generateKioskCode() {
-  const values = new Uint32Array(1)
-  let candidate = ''
-
-  do {
-    crypto.getRandomValues(values)
-    candidate = String(values[0] % 1_000_000).padStart(6, '0')
-  } while (athletes.items.some(athlete => athlete.id !== kioskCodeAthlete.value?.id && athlete.kioskCode === candidate))
-
-  kioskCode.value = candidate
-  kioskCodePersisted.value = false
-}
-
 function openKioskCode(athlete: Athlete) {
   kioskCodeAthlete.value = athlete
-  kioskCode.value = athlete.kioskCode ?? ''
-  kioskCodePersisted.value = Boolean(athlete.kioskCode)
-  kioskCodeCopied.value = false
   kioskCodeDialog.value = true
 }
 
-async function saveKioskCode() {
+async function saveKioskCode(code: string) {
   const athlete = kioskCodeAthlete.value
-  if (!athlete || !/^\d{6}$/.test(kioskCode.value)) {
+  const normalizedCode = parseKioskCodePayload(code)
+
+  if (!athlete || !normalizedCode) {
     failure('El código personal debe contener exactamente 6 dígitos.')
 
     return
   }
-  if (athletes.items.some(item => item.id !== athlete.id && item.kioskCode === kioskCode.value)) {
+  if (athletes.items.some(item => item.id !== athlete.id && item.kioskCode === normalizedCode)) {
     failure('Ese código ya pertenece a otro atleta. Genera uno nuevo.')
 
     return
   }
 
+  const replacingCode = Boolean(parseKioskCodePayload(athlete.kioskCode ?? ''))
+
   kioskCodeSaving.value = true
   try {
-    await athletes.update(athlete.id, { kioskCode: kioskCode.value })
-    kioskCodeAthlete.value = { ...athlete, kioskCode: kioskCode.value }
-    kioskCodePersisted.value = true
-    success('Código personal guardado. Ya puedes compartirlo con el atleta.')
+    await athletes.update(athlete.id, { kioskCode: normalizedCode })
+    kioskCodeAthlete.value = { ...athlete, kioskCode: normalizedCode }
+    success(replacingCode
+      ? 'Credencial QR guardada. El código anterior dejó de funcionar.'
+      : 'Credencial QR guardada y lista para compartir.')
   }
   catch (error) { failure(error instanceof Error ? error.message : 'No fue posible guardar el código personal.') }
   finally { kioskCodeSaving.value = false }
-}
-
-async function copyKioskCode() {
-  if (!kioskCodeAthlete.value || !kioskCodePersisted.value)
-    return
-
-  await navigator.clipboard.writeText(`Tu código personal para el kiosco de Kronos es: ${kioskCode.value}`)
-  kioskCodeCopied.value = true
-  window.setTimeout(() => { kioskCodeCopied.value = false }, 2200)
-}
-
-function sendKioskCodeByWhatsApp() {
-  const athlete = kioskCodeAthlete.value
-  if (!athlete || !kioskCodePersisted.value)
-    return
-
-  const phone = athlete.profile.phone.replace(/\D/g, '')
-  const message = encodeURIComponent(`Hola ${athlete.profile.name}. Tu código personal para registrar compras en el kiosco de Kronos es: ${kioskCode.value}. No lo compartas con otras personas.`)
-
-  window.open(`https://web.whatsapp.com/send?phone=52${phone}&text=${message}`, '_blank', 'noopener,noreferrer')
 }
 
 watch(dialog, value => {
@@ -434,9 +408,10 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
                 <template v-if="canManage">
                   <VBtn
                     v-if="session.isAdmin"
-                    icon="ri-key-2-line"
+                    icon="ri-qr-code-line"
                     variant="text"
-                    aria-label="Código de kiosco"
+                    :aria-label="`Credencial QR de ${athlete.profile.name}`"
+                    title="Credencial QR de Kiosco"
                     @click="openKioskCode(athlete)"
                   />
                   <VBtn
@@ -683,86 +658,13 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
     </VCard>
   </VDialog>
 
-  <VDialog
+  <KioskCredentialDialog
     v-model="kioskCodeDialog"
-    max-width="560"
-    persistent
-  >
-    <VCard
-      class="kronos-card"
-      rounded="xl"
-    >
-      <VCardItem
-        class="pa-6 pb-2"
-        title="Código personal del kiosco"
-        :subtitle="kioskCodeAthlete?.profile.name"
-      />
-      <VCardText class="pa-6 d-flex flex-column ga-5">
-        <VAlert
-          color="info"
-          variant="tonal"
-          icon="ri-shield-keyhole-line"
-        >
-          El atleta utilizará este código para asignar sus compras. Puedes regenerarlo si deja de ser privado.
-        </VAlert>
-        <VTextField
-          v-model="kioskCode"
-          inputmode="numeric"
-          maxlength="6"
-          label="Código de 6 dígitos"
-          prepend-inner-icon="ri-key-2-line"
-          :hint="kioskCodePersisted ? 'Código guardado y listo para compartir.' : 'Guarda el código antes de compartirlo.'"
-          persistent-hint
-          @update:model-value="kioskCodePersisted = false"
-        >
-          <template #append>
-            <VBtn
-              icon="ri-magic-line"
-              variant="text"
-              aria-label="Generar código"
-              @click="generateKioskCode"
-            />
-          </template>
-        </VTextField>
-        <div
-          v-if="kioskCodePersisted"
-          class="d-flex flex-column flex-sm-row ga-3"
-        >
-          <VBtn
-            variant="tonal"
-            :prepend-icon="kioskCodeCopied ? 'ri-check-line' : 'ri-file-copy-line'"
-            @click="copyKioskCode"
-          >
-            {{ kioskCodeCopied ? 'Copiado' : 'Copiar mensaje' }}
-          </VBtn>
-          <VBtn
-            color="success"
-            variant="tonal"
-            prepend-icon="ri-whatsapp-line"
-            @click="sendKioskCodeByWhatsApp"
-          >
-            Enviar por WhatsApp
-          </VBtn>
-        </div>
-      </VCardText>
-      <VCardActions class="pa-6 pt-0">
-        <VSpacer />
-        <VBtn
-          variant="text"
-          :disabled="kioskCodeSaving"
-          @click="kioskCodeDialog = false"
-        >
-          Cerrar
-        </VBtn>
-        <VBtn
-          :loading="kioskCodeSaving"
-          @click="saveKioskCode"
-        >
-          Guardar código
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
+    :athlete="kioskCodeAthlete"
+    :occupied-codes="occupiedKioskCodes"
+    :saving="kioskCodeSaving"
+    @save="saveKioskCode"
+  />
 </template>
 
 <style scoped>

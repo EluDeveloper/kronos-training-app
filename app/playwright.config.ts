@@ -42,7 +42,7 @@ export default defineConfig({
     },
     {
       name: 'responsive',
-      testMatch: /(athlete-form|enrollment-sheet|kiosk-credential)-responsive\.spec\.ts/,
+      testMatch: /(athlete-form|enrollment-sheet|kiosk-credential|store-kiosk-improvements)-responsive\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],

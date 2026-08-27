@@ -3,16 +3,21 @@ import { onBeforeRouteLeave } from 'vue-router'
 import BarcodeScanner from '@/components/kronos/BarcodeScanner.vue'
 import { useAthletesStore } from '@/stores/athletes'
 import { useCommerceStore } from '@/stores/commerce'
+import { useKioskSettingsStore } from '@/stores/kiosk-settings'
 import { useSessionStore } from '@/stores/session'
+import { kioskSettingsService } from '@/services/kiosk-settings.service'
+import { usersService } from '@/services/users.service'
 import type { Athlete, PaymentMethod, Product, SaleItem } from '@/types/domain'
 import { parseKioskCodePayload } from '@/utils/kiosk-code'
 import { formatCurrency } from '@/utils/kronos'
 import { productBarcodes, productHasBarcode } from '@/utils/product-barcodes'
+import { isKioskPaymentNowAllowed, isKioskPaymentNowAvailable, KIOSK_SUCCESS_RESET_MS } from '@/utils/store-kiosk'
 
 type KioskStep = 'shopping' | 'identify' | 'payment' | 'success'
 
 const athletes = useAthletesStore()
 const commerce = useCommerceStore()
+const kioskSettings = useKioskSettingsStore()
 const session = useSessionStore()
 const router = useRouter()
 const step = ref<KioskStep>('shopping')
@@ -24,6 +29,7 @@ const manualAdminPassword = ref('')
 const showManualAdminPassword = ref(false)
 const cameraEnabled = ref(true)
 const athleteScannerEnabled = ref(false)
+const athleteCodeInput = ref<{ focus: () => void } | null>(null)
 const athleteCode = ref('')
 const selectedAthlete = ref<Athlete | null>(null)
 const saving = ref(false)
@@ -48,6 +54,10 @@ const cartTotal = computed(() => cartItems.value.reduce((total, item) => total +
 const itemCount = computed(() => cartItems.value.reduce((total, item) => total + item.quantity, 0))
 const changeAmount = computed(() => paymentMethod.value === 'cash' ? Math.max(0, Number(receivedAmount.value || 0) - cartTotal.value) : 0)
 const productsWithBarcode = computed(() => commerce.products.filter(product => product.status === 'active' && productBarcodes(product).length))
+
+const paymentNowAvailable = computed(() => kioskSettings.loaded
+  && !kioskSettings.error
+  && isKioskPaymentNowAvailable(kioskSettings.settings))
 
 const manualProductItems = computed(() => commerce.products
   .filter(product => product.status === 'active')
@@ -155,10 +165,20 @@ function continueToIdentification() {
     return showFeedback('Escanea al menos un producto para continuar.', 'warning')
 
   cameraEnabled.value = false
-  athleteScannerEnabled.value = false
+  athleteScannerEnabled.value = true
   athleteCode.value = ''
   selectedAthlete.value = null
   step.value = 'identify'
+}
+
+function focusManualAthleteCode() {
+  athleteScannerEnabled.value = false
+  void nextTick(() => athleteCodeInput.value?.focus())
+}
+
+function handleAthleteScannerError(message: string) {
+  showFeedback(`${message} Puedes ingresar tu código manualmente.`, 'warning')
+  focusManualAthleteCode()
 }
 
 function identifyAthlete(rawCode = athleteCode.value) {
@@ -191,6 +211,12 @@ function backToShopping() {
 }
 
 function openPaymentApproval() {
+  if (!paymentNowAvailable.value) {
+    showFeedback('Pagar ahora está deshabilitado por la configuración del Kiosco.', 'warning')
+
+    return
+  }
+
   paymentMethod.value = 'cash'
   receivedAmount.value = cartTotal.value
   paymentEmail.value = session.authEmail ?? ''
@@ -263,6 +289,14 @@ async function approvePayment() {
   try {
     const approvedBy = await session.verifyAdminCredentials(paymentEmail.value, paymentPassword.value)
 
+    const [latestSettings, approvedProfile] = await Promise.all([
+      kioskSettingsService.get(),
+      usersService.getProfile(approvedBy),
+    ])
+
+    if (!isKioskPaymentNowAllowed(latestSettings, approvedProfile))
+      throw new Error('Este Admin no está autorizado para confirmar Pagar ahora.')
+
     await createKioskSale(true, approvedBy)
   }
   catch (error) {
@@ -284,6 +318,7 @@ function resetSale() {
   manualProductDialog.value = false
   manualAdminPassword.value = ''
   paymentDialog.value = false
+  athleteScannerEnabled.value = false
   step.value = 'shopping'
   cameraEnabled.value = true
 }
@@ -291,7 +326,7 @@ function resetSale() {
 function scheduleSuccessReset() {
   if (successTimer)
     window.clearTimeout(successTimer)
-  successTimer = window.setTimeout(resetSale, 12_000)
+  successTimer = window.setTimeout(resetSale, KIOSK_SUCCESS_RESET_MS)
 }
 
 function schedulePrivacyReset() {
@@ -342,6 +377,7 @@ onBeforeRouteLeave(() => exitAuthorized.value)
 onMounted(() => {
   commerce.subscribe()
   athletes.subscribe()
+  kioskSettings.subscribe()
   window.addEventListener('pointerdown', schedulePrivacyReset)
   window.addEventListener('keydown', schedulePrivacyReset)
   window.addEventListener('beforeunload', preventWindowClose)
@@ -352,6 +388,7 @@ onBeforeUnmount(() => {
   cameraEnabled.value = false
   commerce.dispose()
   athletes.dispose()
+  kioskSettings.dispose()
   window.removeEventListener('pointerdown', schedulePrivacyReset)
   window.removeEventListener('keydown', schedulePrivacyReset)
   window.removeEventListener('beforeunload', preventWindowClose)
@@ -539,14 +576,19 @@ onBeforeUnmount(() => {
           <p class="text-body-1 text-medium-emphasis mb-7">
             Escanea la credencial QR o ingresa manualmente el código personal de 6 dígitos.
           </p>
-          <VBtn
-            class="mb-5"
-            :prepend-icon="athleteScannerEnabled ? 'ri-close-line' : 'ri-qr-scan-2-line'"
-            variant="tonal"
-            @click="athleteScannerEnabled = !athleteScannerEnabled"
-          >
-            {{ athleteScannerEnabled ? 'Cerrar cámara' : 'Escanear QR' }}
-          </VBtn>
+          <div class="d-flex flex-column flex-sm-row align-center justify-center ga-3 mb-5">
+            <p class="font-weight-bold mb-0">
+              Escanea tu credencial QR
+            </p>
+            <VBtn
+              size="small"
+              :prepend-icon="athleteScannerEnabled ? 'ri-close-line' : 'ri-qr-scan-2-line'"
+              variant="tonal"
+              @click="athleteScannerEnabled ? focusManualAthleteCode() : athleteScannerEnabled = true"
+            >
+              {{ athleteScannerEnabled ? 'Cerrar cámara' : 'Reactivar cámara' }}
+            </VBtn>
+          </div>
           <VExpandTransition>
             <div
               v-if="athleteScannerEnabled"
@@ -557,16 +599,21 @@ onBeforeUnmount(() => {
                 format="qr"
                 purpose="la credencial QR"
                 @detected="identifyAthlete"
+                @error="handleAthleteScannerError"
               />
             </div>
           </VExpandTransition>
+          <p class="text-overline text-medium-emphasis mb-3">
+            O ingresa tu código
+          </p>
           <VTextField
+            ref="athleteCodeInput"
             v-model="athleteCode"
             class="kiosk-code-input mx-auto"
             type="password"
             inputmode="numeric"
             maxlength="6"
-            label="Código personal"
+            label="Código personal de 6 dígitos"
             prepend-inner-icon="ri-key-2-line"
             :autofocus="!athleteScannerEnabled"
             @keyup.enter="identifyAthlete"
@@ -652,12 +699,13 @@ onBeforeUnmount(() => {
                 size="x-large"
                 height="72"
                 prepend-icon="ri-hand-coin-line"
+                :disabled="!paymentNowAvailable"
                 @click="openPaymentApproval"
               >
                 Pagar ahora
               </VBtn>
               <p class="text-caption text-medium-emphasis mt-2 mb-0">
-                Un administrador confirmará el pago.
+                {{ paymentNowAvailable ? 'Un administrador autorizado confirmará el pago.' : 'Deshabilitado por la configuración del Kiosco.' }}
               </p>
             </VCol>
           </VRow>
@@ -665,7 +713,7 @@ onBeforeUnmount(() => {
             class="mt-6"
             variant="text"
             prepend-icon="ri-arrow-left-line"
-            @click="step = 'identify'; selectedAthlete = null"
+            @click="step = 'identify'; selectedAthlete = null; athleteScannerEnabled = true"
           >
             Usar otro código
           </VBtn>
@@ -715,7 +763,7 @@ onBeforeUnmount(() => {
             Nueva compra
           </VBtn>
           <p class="text-caption text-medium-emphasis mt-4 mb-0">
-            Esta pantalla se reiniciará automáticamente.
+            Esta pantalla se reiniciará automáticamente en 5 segundos.
           </p>
         </VCardText>
       </VCard>

@@ -14,6 +14,7 @@ import type { PaymentMethod, Product, Sale, SaleItem, SalePayment, StoreCreditEn
 import { buildGroupedSalePaymentReceipt, buildSalePaymentReceipt, buildSaleReceipt, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 import { generateInternalBarcode, normalizeProductBarcode, productBarcodes, productHasBarcode } from '@/utils/product-barcodes'
+import { availableStoreProducts, calculateGrossProfit, normalizeCustomerKey, removeCartItem } from '@/utils/store-kiosk'
 
 const commerce = useCommerceStore()
 const athletes = useAthletesStore()
@@ -58,7 +59,7 @@ const barcodeLabel = reactive({ name: '', variant: '', price: 0, code: '' })
 const stockForm = reactive({ product: null as Product | null, quantity: 1 })
 const paymentForm = reactive({ sale: null as Sale | null, amount: 0, method: 'cash' as PaymentMethod, received: 0, saveExcessAsCredit: false })
 
-const activeProducts = computed(() => commerce.products.filter(item => item.status === 'active'))
+const activeProducts = computed(() => availableStoreProducts(commerce.products))
 
 const customerItems = computed(() => [
   ...athletes.sorted.map(athlete => ({ title: athlete.profile.name, value: `athlete:${athlete.id}`, subtitle: `Miembro · ${athlete.profile.phone}` })),
@@ -71,7 +72,9 @@ const paginatedCartItems = computed(() => cartItems.value.slice((cartPage.value 
 const cartTotal = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0))
 const inventoryValue = computed(() => commerce.products.reduce((sum, item) => sum + item.stock * item.unitCost, 0))
 const outstanding = computed(() => commerce.openCredit.reduce((sum, sale) => sum + saleBalance(sale), 0))
-const selectedSaleAthleteId = computed(() => saleForm.customerKey.startsWith('athlete:') ? saleForm.customerKey.slice(8) : '')
+const grossProfit = computed(() => calculateGrossProfit(commerce.sales))
+const selectedCustomerKey = computed(() => normalizeCustomerKey(saleForm.customerKey))
+const selectedSaleAthleteId = computed(() => selectedCustomerKey.value.startsWith('athlete:') ? selectedCustomerKey.value.slice(8) : '')
 const availableStoreCredit = computed(() => commerce.creditForAthlete(selectedSaleAthleteId.value))
 const cashExcess = computed(() => saleForm.method === 'cash' ? Math.max(0, Number(saleForm.received || 0) - Number(saleForm.initialPayment || 0)) : 0)
 const cashShortfall = computed(() => saleForm.method === 'cash' ? Math.max(0, Number(saleForm.initialPayment || 0) - Number(saleForm.received || 0)) : 0)
@@ -211,7 +214,11 @@ watch(() => route.query.tab, requestedTab => {
     tab.value = requestedTab
 }, { immediate: true })
 
-watch(() => saleForm.customerKey, key => {
+watch(() => saleForm.customerKey, value => {
+  const key = normalizeCustomerKey(value)
+
+  if (value !== key)
+    saleForm.customerKey = key
   if (key.startsWith('visitor:'))
     saleForm.customerName = visitors.items.find(item => item.id === key.slice(8))?.name ?? ''
   else if (key.startsWith('athlete:'))
@@ -288,10 +295,13 @@ function addToCart() {
 }
 
 function removeFromCart(id: string) {
-  const next = { ...cart.value }
-
-  delete next[id]
-  cart.value = next
+  cart.value = removeCartItem(cart.value, id)
+  if (!Object.keys(cart.value).length) {
+    cartPage.value = 1
+    selectedProductId.value = ''
+    selectedQuantity.value = 1
+    Object.assign(saleForm, { customerKey: '', customerName: '', method: 'cash', initialPayment: 0, received: 0, creditApplied: 0, saveExcessAsCredit: false })
+  }
 }
 
 async function completeSale() {
@@ -323,8 +333,8 @@ async function completeSale() {
     }
 
     const salePayload = {
-      athleteId: saleForm.customerKey.startsWith('athlete:') ? saleForm.customerKey.slice(8) : null,
-      visitorId: saleForm.customerKey.startsWith('visitor:') ? saleForm.customerKey.slice(8) : null,
+      athleteId: selectedCustomerKey.value.startsWith('athlete:') ? selectedCustomerKey.value.slice(8) : null,
+      visitorId: selectedCustomerKey.value.startsWith('visitor:') ? selectedCustomerKey.value.slice(8) : null,
       customerName: saleForm.customerName.trim(),
       items: cart.value,
       total,
@@ -642,7 +652,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
   <VRow class="mb-2">
     <VCol
       cols="12"
-      md="4"
+      :md="session.isAdmin ? 3 : 4"
     >
       <MetricCard
         label="Valor de inventario"
@@ -651,7 +661,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
       />
     </VCol><VCol
       cols="12"
-      md="4"
+      :md="session.isAdmin ? 3 : 4"
     >
       <MetricCard
         label="Stock bajo"
@@ -661,13 +671,26 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
       />
     </VCol><VCol
       cols="12"
-      md="4"
+      :md="session.isAdmin ? 3 : 4"
     >
       <MetricCard
         label="Por cobrar"
         :value="formatCurrency(outstanding)"
         icon="ri-hand-coin-line"
         color="error"
+      />
+    </VCol>
+    <VCol
+      v-if="session.isAdmin"
+      cols="12"
+      md="3"
+    >
+      <MetricCard
+        label="Ganancia bruta"
+        :value="formatCurrency(grossProfit)"
+        icon="ri-funds-line"
+        color="success"
+        detail="Ventas POS y Kiosco no canceladas"
       />
     </VCol>
   </VRow>
@@ -756,6 +779,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                           icon="ri-close-line"
                           variant="text"
                           size="small"
+                          :aria-label="`Quitar ${item.name}`"
                           @click="removeFromCart(item.productId)"
                         />
                       </td>
@@ -787,6 +811,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
           <VCard
             class="kronos-card checkout-card pa-6"
             rounded="xl"
+            data-testid="pos-checkout"
           >
             <p class="text-overline text-kronos-cyan mb-1">
               Cobro

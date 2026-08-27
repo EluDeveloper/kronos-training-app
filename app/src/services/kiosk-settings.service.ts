@@ -9,9 +9,25 @@ export interface KioskSettingsInput {
 }
 
 function payload(input: KioskSettingsInput, updatedBy: string) {
+  if (!updatedBy)
+    throw new Error('No fue posible identificar al Admin que cambia la configuración.')
+
+  if (input.paymentNowMode !== 'disabled'
+    && input.paymentNowMode !== 'all-admins'
+    && input.paymentNowMode !== 'selected-admins')
+    throw new Error('La modalidad de Pagar ahora no es válida.')
+
+  const selectedIds = Object.entries(input.paymentNowUserIds ?? {})
+    .filter(([uid, allowed]) => Boolean(uid) && allowed === true)
+
+  if (input.paymentNowMode === 'selected-admins' && !selectedIds.length)
+    throw new Error('Selecciona al menos un Admin para habilitar Pagar ahora.')
+
   return {
     paymentNowMode: input.paymentNowMode,
-    ...(input.paymentNowMode === 'selected-admins' ? { paymentNowUserIds: input.paymentNowUserIds ?? {} } : {}),
+    ...(input.paymentNowMode === 'selected-admins'
+      ? { paymentNowUserIds: Object.fromEntries(selectedIds) as Record<string, true> }
+      : {}),
     updatedBy,
     updatedAt: serverTimestamp(),
   }

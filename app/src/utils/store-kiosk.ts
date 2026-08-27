@@ -95,8 +95,3 @@ export const isKioskPaymentNowAllowed = (settings: KioskSettings | null, user: A
 
   return settings.paymentNowUserIds?.[user.uid] === true
 }
-
-export const isKioskPaymentNowAvailable = (settings: KioskSettings | null) => Boolean(
-  settings && (settings.paymentNowMode === 'all-admins'
-    || (settings.paymentNowMode === 'selected-admins' && Object.keys(settings.paymentNowUserIds ?? {}).length > 0)),
-)

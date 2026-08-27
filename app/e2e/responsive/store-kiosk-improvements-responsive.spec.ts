@@ -33,18 +33,25 @@ for (const viewport of viewports) {
 
     const options = page.getByRole('option')
 
-    await expect(options.first()).toBeVisible()
+    await expect(options.nth(1)).toBeVisible()
 
     const optionTexts = await options.allTextContents()
 
     expect(optionTexts.some(text => text.includes('0 disponibles'))).toBe(false)
     await options.first().click()
     await page.getByRole('button', { name: 'Agregar', exact: true }).click()
+    await productInput.click()
+    await expect(options.nth(1)).toBeVisible()
+    await options.nth(1).click()
+    await page.getByRole('button', { name: 'Agregar', exact: true }).click()
 
-    const removeButton = page.getByRole('button', { name: /^Quitar / }).first()
+    const removeButtons = page.getByRole('button', { name: /^Quitar / })
 
-    await expect(removeButton).toBeVisible()
-    await removeButton.click()
+    await expect(removeButtons).toHaveCount(2)
+    await removeButtons.first().click()
+    await expect(removeButtons).toHaveCount(1)
+    await removeButtons.first().click()
+    await expect(removeButtons).toHaveCount(0)
     await expect(page.getByTestId('pos-checkout')).toBeVisible()
     await expect(page.getByTestId('pos-checkout')).toContainText('$0')
     expect(pageErrors).toEqual([])

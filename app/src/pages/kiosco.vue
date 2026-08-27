@@ -11,7 +11,7 @@ import type { Athlete, PaymentMethod, Product, SaleItem } from '@/types/domain'
 import { parseKioskCodePayload } from '@/utils/kiosk-code'
 import { formatCurrency } from '@/utils/kronos'
 import { productBarcodes, productHasBarcode } from '@/utils/product-barcodes'
-import { isKioskPaymentNowAllowed, isKioskPaymentNowAvailable, KIOSK_SUCCESS_RESET_MS } from '@/utils/store-kiosk'
+import { isKioskPaymentNowAllowed, KIOSK_SUCCESS_RESET_MS } from '@/utils/store-kiosk'
 
 type KioskStep = 'shopping' | 'identify' | 'payment' | 'success'
 
@@ -57,7 +57,7 @@ const productsWithBarcode = computed(() => commerce.products.filter(product => p
 
 const paymentNowAvailable = computed(() => kioskSettings.loaded
   && !kioskSettings.error
-  && isKioskPaymentNowAvailable(kioskSettings.settings))
+  && isKioskPaymentNowAllowed(kioskSettings.settings, session.profile))
 
 const manualProductItems = computed(() => commerce.products
   .filter(product => product.status === 'active')
@@ -210,6 +210,14 @@ function backToShopping() {
   cameraEnabled.value = true
 }
 
+function useAnotherAthlete() {
+  selectedAthlete.value = null
+  athleteCode.value = ''
+  receivedAmount.value = 0
+  athleteScannerEnabled.value = true
+  step.value = 'identify'
+}
+
 function openPaymentApproval() {
   if (!paymentNowAvailable.value) {
     showFeedback('Pagar ahora está deshabilitado por la configuración del Kiosco.', 'warning')
@@ -289,6 +297,9 @@ async function approvePayment() {
   try {
     const approvedBy = await session.verifyAdminCredentials(paymentEmail.value, paymentPassword.value)
 
+    if (approvedBy !== session.uid)
+      throw new Error('Confirma el pago con la misma cuenta Admin que mantiene abierta esta sesión.')
+
     const [latestSettings, approvedProfile] = await Promise.all([
       kioskSettingsService.get(),
       usersService.getProfile(approvedBy),
@@ -302,7 +313,10 @@ async function approvePayment() {
   catch (error) {
     showFeedback(error instanceof Error ? error.message : 'No fue posible autorizar el pago.', 'error')
   }
-  finally { saving.value = false }
+  finally {
+    paymentPassword.value = ''
+    saving.value = false
+  }
 }
 
 function resetSale() {
@@ -318,6 +332,8 @@ function resetSale() {
   manualProductDialog.value = false
   manualAdminPassword.value = ''
   paymentDialog.value = false
+  paymentPassword.value = ''
+  paymentEmail.value = ''
   athleteScannerEnabled.value = false
   step.value = 'shopping'
   cameraEnabled.value = true
@@ -713,7 +729,7 @@ onBeforeUnmount(() => {
             class="mt-6"
             variant="text"
             prepend-icon="ri-arrow-left-line"
-            @click="step = 'identify'; selectedAthlete = null; athleteScannerEnabled = true"
+            @click="useAnotherAthlete"
           >
             Usar otro código
           </VBtn>

@@ -11,7 +11,6 @@ import type { KioskSettings, Product, Sale } from '../src/types/domain'
 import {
   availableStoreProducts,
   calculateGrossProfit,
-  isKioskPaymentNowAvailable,
   isKioskPaymentNowAllowed,
   KIOSK_SUCCESS_RESET_MS,
   normalizeCustomerKey,
@@ -131,10 +130,6 @@ test('la política de Pagar ahora falla cerrada y sólo autoriza Admin habilitad
   assert.equal(isKioskPaymentNowAllowed(selected, anotherAdmin), false)
   assert.equal(isKioskPaymentNowAllowed(selected, disabledAdmin), false)
   assert.equal(isKioskPaymentNowAllowed(selected, coach), false)
-  assert.equal(isKioskPaymentNowAvailable(null), false)
-  assert.equal(isKioskPaymentNowAvailable({ ...selected, paymentNowMode: 'disabled', paymentNowUserIds: null }), false)
-  assert.equal(isKioskPaymentNowAvailable({ ...selected, paymentNowMode: 'all-admins', paymentNowUserIds: null }), true)
-  assert.equal(isKioskPaymentNowAvailable(selected), true)
 })
 
 test('la confirmación del Kiosco se reinicia exactamente a los cinco segundos', () => {

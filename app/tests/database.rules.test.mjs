@@ -281,12 +281,14 @@ test('las reglas bloquean una venta pagada de Kiosco si la política no autoriza
 
   await assertFails(db.ref('v1/sales/paid-kiosk').set(paidSale))
   await assertSucceeds(db.ref('v1/settings/kiosk').set({ paymentNowMode: 'all-admins', updatedBy: 'admin', updatedAt: timestamp }))
+  await assertFails(db.ref('v1/sales/paid-kiosk').set(paidSale))
+  paidSale.approvedBy = 'admin'
   await assertSucceeds(db.ref('v1/sales/paid-kiosk').set(paidSale))
 
   const deniedSale = structuredClone(paidSale)
 
   deniedSale.id = 'denied-kiosk'
-  await assertSucceeds(db.ref('v1/settings/kiosk').set({ paymentNowMode: 'selected-admins', paymentNowUserIds: { admin: true }, updatedBy: 'admin', updatedAt: timestamp + 1 }))
+  await assertSucceeds(db.ref('v1/settings/kiosk').set({ paymentNowMode: 'selected-admins', paymentNowUserIds: { 'admin-2': true }, updatedBy: 'admin', updatedAt: timestamp + 1 }))
   await assertFails(db.ref('v1/sales/denied-kiosk').set(deniedSale))
 
   const creditSale = saleFixture('credit-kiosk', 'credit')

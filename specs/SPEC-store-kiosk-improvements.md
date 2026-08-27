@@ -30,7 +30,7 @@ La imagen adjunta se interpreta únicamente como referencia visual del panel vac
 2. La tarjeta acumula ventas `paid` y `credit` no canceladas, de Punto de Venta y Kiosco, usando el costo/precio guardados en cada `SaleItem`; no representa flujo de efectivo ni utilidad neta.
 3. Sólo cuentas Admin pueden entrar en la lista de perfiles autorizables para `Pagar ahora`; la ruta del Kiosco conserva `adminOnly`.
 4. `Coach` será un rol distinto de Admin y Recepción; se creará con una matriz de permisos vacía. El Admin podrá asignarle permisos explícitos durante el alta o posteriormente al editarlo; sin permisos asignados no tendrá acceso a módulos ni acciones.
-5. La política se vuelve a comprobar con el UID del Admin que autoriza el cobro.
+5. La política se vuelve a comprobar con el UID del Admin autenticado en la sesión del Kiosco; la autorización secundaria debe corresponder a esa misma cuenta.
 6. La ausencia o carga incompleta de la configuración equivale a función deshabilitada (fail-closed).
 7. La configuración vivirá dentro de `Usuarios y permisos`, que ya es una superficie `adminOnly`.
 
@@ -108,7 +108,7 @@ La ruta propuesta es `v1/settings/kiosk`. El valor ausente, inválido o en carga
 7. Al pulsar `Continuar` desde el carrito del Kiosco, el lector QR está visible/iniciándose sin requerir un segundo clic; la entrada manual queda disponible como alternativa secundaria.
 8. Un permiso de cámara denegado o un navegador sin cámara no bloquea la captura manual ni deja la cámara activa.
 9. Con `paymentNowMode = disabled`, `Pagar ahora` queda deshabilitado para todos y no puede abrir el diálogo de autorización.
-10. Con `all-admins`, los perfiles Admin habilitados pueden usarlo; con `selected-admins`, sólo los UIDs seleccionados de Admin pueden usarlo. La comprobación se repite justo antes de crear la venta pagada.
+10. Con `all-admins`, los perfiles Admin habilitados pueden usarlo; con `selected-admins`, sólo los UIDs seleccionados de Admin pueden usarlo. La comprobación se repite justo antes de crear la venta pagada y `approvedBy` debe coincidir con el UID autenticado.
 11. La configuración ausente, en error, con Coach, con Recepción o con un Admin no seleccionado mantiene `Pagar ahora` deshabilitado y no impide `Pagar después`.
 12. Tras una venta exitosa, la pantalla de confirmación vuelve a `shopping` a los 5 segundos; `Nueva compra` cancela el temporizador y reinicia inmediatamente.
 13. No se modifica el formato de ventas existente, no se crean ventas durante QA web y no se cambian reglas de Firebase sin pruebas de autorización.
@@ -119,7 +119,7 @@ La ruta propuesta es `v1/settings/kiosk`. El valor ausente, inválido o en carga
 - Activos protegidos: privilegios Admin, habilitación de cobro inmediato, inventario, historial de ventas, margen comercial y credenciales. La configuración sólo conserva UIDs y metadatos de auditoría.
 - Abusos cubiertos: Coach que intenta elevarse, UID no Admin insertado en el allowlist, configuración manipulada o incompleta, Admin deshabilitado después de seleccionarse y llamada a pago con una política que cambió durante el diálogo.
 - La configuración es una regla de negocio sensible: la deshabilitación visual no será la única validación; el flujo de autorización debe comprobarla antes de persistir el pago.
-- Las reglas deben impedir que un perfil no Admin modifique `v1/settings/kiosk` o eluda el modo configurado desde el cliente.
+- Las reglas deben impedir que un perfil no Admin modifique `v1/settings/kiosk` o eluda el modo configurado desde el cliente; una venta pagada de Kiosco sólo puede atribuir `approvedBy` al mismo `auth.uid` que realiza la escritura.
 - `Coach` se crea con cero permisos y no se tratará como Admin por coincidencia de etiqueta, permiso de módulo o configuración del cliente; cualquier capacidad posterior debe ser una asignación explícita del Admin y las reglas deben validar literalmente el rol autorizado.
 - Sólo Admin verá margen de ventas; el cálculo no debe filtrarse en mensajes, errores ni datos de interfaz a otros perfiles.
 - Los IDs de perfiles son datos de configuración; no se duplicarán contraseñas, correos ni credenciales dentro del nodo de kiosco.

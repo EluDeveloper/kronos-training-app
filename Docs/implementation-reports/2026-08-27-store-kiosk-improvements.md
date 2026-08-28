@@ -6,9 +6,9 @@
 - Tests: ✅
 - Typecheck: ✅
 - Build: ✅
-- Chrome QA: ⚠️ Tienda, Usuarios y pantalla inicial de Kiosco aprobados; identificación pendiente
-- Flujo completo afectado en Chrome: ⚠️ requiere agregar un producto e identificar un atleta sin completar venta
-- Playwright responsive: ⚠️ 8 casos descubiertos; ejecución autenticada pendiente
+- Chrome QA: ✅
+- Flujo completo afectado en Chrome: ⚠️ recorrido hasta elección de pago; confirmación/éxito no ejecutados para evitar crear una venta
+- Playwright responsive: ✅ matriz autenticada ejecutada mediante la API Playwright de Chrome
 - Login manual requerido: Sí
 
 ## Árbol de archivos modificados
@@ -53,7 +53,7 @@ tasks/todo.md
 - Segmentos de integración comprobados: Coach sin permisos implícitos; configuración fail-closed; allowlist de Admin; `approvedBy === auth.uid`; catálogo con `stock > 0`; margen histórico; carrito idempotente; temporizador exacto de 5 segundos.
 - Chrome publicado: Tienda mostró la tarjeta de ganancia; el selector ofreció 15 productos sin stock cero; el carrito recorrió `2 → 1 → 0`; `Cobro` permaneció visible en `$0`; consola limpia desde la carga del bundle nuevo.
 - Usuarios publicado: configuración fail-closed visible en `Deshabilitado para todos`; Coach seleccionable con aviso de cero permisos; el diálogo se canceló sin guardar y la consola quedó limpia.
-- Kiosco publicado: pantalla principal, cámara, carrito vacío y `Continuar` deshabilitado se renderizaron sin errores. La identificación QR y el estado de pago requieren agregar un producto con intervención manual.
+- Kiosco publicado: se agregó un producto con intervención manual, `Continuar` abrió inmediatamente el lector QR, cerrar la cámara enfocó el código manual y reactivarla restauró el lector. Tras identificar al atleta, `Pagar ahora` quedó deshabilitado por configuración y `Pagar después` permaneció disponible. Se regresó sin pagar y el carrito local quedó vacío.
 
 ## Flujos no afectados
 
@@ -91,9 +91,9 @@ flowchart TD
 - `npm run build`: aprobado; 1124 módulos transformados.
 - `npx firebase deploy --only hosting,database --project kronos-training-fd5e5`: Hosting y reglas publicados correctamente desde `dec97f8`.
 - `npx playwright test ... --list --reporter=line`: 8 casos descubiertos para 320, 768, 1024 y 1440 px.
-- Viewports revisados sobre la versión nueva: escritorio de Chrome aprobado; 320, 768, 1024 y 1440 px pendientes por ausencia de estado autenticado reutilizable en Playwright.
-- Errores o warnings nuevos en la versión nueva: ninguno en Tienda, Usuarios ni pantalla inicial de Kiosco. Los errores históricos observados pertenecían al bundle previo y desaparecieron al cargar el release `dec97f8`.
-- Evidencia Playwright/Chrome: DOM, accesibilidad básica, comportamiento y capturas revisados en la sesión Chrome autorizada; ejecución responsive protegida pendiente.
+- Viewports revisados sobre la versión nueva: 320, 768, 1024 y 1440 px en Tienda, Usuarios y pantalla principal del Kiosco; sin desbordamiento horizontal.
+- Errores o warnings nuevos en la versión nueva: ninguno durante Tienda, Usuarios, identificación/pago del Kiosco ni la matriz responsive. Los errores históricos observados pertenecían al bundle previo y desaparecieron al cargar el release `dec97f8`.
+- Evidencia Playwright/Chrome: DOM, accesibilidad básica, comportamiento y capturas revisados en la sesión Chrome autorizada; 12 combinaciones superficie/viewport aprobadas.
 
 ## Revisión de calidad
 
@@ -101,11 +101,11 @@ flowchart TD
 - Seguridad: la política falla cerrada, sólo acepta Admin habilitados y una venta pagada de Kiosco debe atribuir la aprobación al mismo UID autenticado.
 - Regresión: el esquema de ventas se conserva y las ventas de crédito no dependen de la política de pago inmediato.
 - Mantenibilidad: política, parseo y cálculos viven fuera de las vistas; la configuración usa servicio y store dedicados.
-- Cobertura: lógica, reglas y los tramos publicados sin escritura están cubiertos; responsive e identificación del Kiosco permanecen abiertos.
+- Cobertura: lógica, reglas, responsive e integración publicada sin escritura están cubiertos. El retorno de éxito a 5 segundos se valida con la prueba automatizada del contrato, no con una venta real.
 
 ## Riesgos y pendientes
 
 - Hosting y reglas ya están publicados en `kronos-training-fd5e5`; la reversión preparada consiste en recompilar `4613e68` y redesplegar ambos destinos si aparece un fallo crítico.
-- Para completar Kiosco se debe agregar un producto y llegar a identificación con intervención manual; no se completará ninguna venta.
+- La pantalla posterior a una venta y su retorno a 5 segundos no se ejecutaron en producción porque la spec prohíbe crear ventas durante QA; el temporizador exacto está cubierto por prueba automatizada.
 - La configuración publicada permanece en `Deshabilitado para todos`; no se modificó durante QA y por diseño mantiene `Pagar ahora` deshabilitado.
-- La QA publicada no completará ventas ni guardará usuarios/configuración sin una autorización adicional y datos de prueba acordados.
+- La QA publicada no completó ventas ni guardó usuarios/configuración.

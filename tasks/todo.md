@@ -160,17 +160,17 @@
   - Verificación: pruebas de reglas y flujo de formulario sin escribir datos reales.
   - Dependencias: PK1.
   - Archivos probables: `app/src/pages/usuarios.vue`, servicio/store de configuración, `app/database.rules.json`, pruebas de reglas.
-- [ ] PK3 — Corregir y completar Punto de Venta. Desktop publicado aprobado; matriz responsive autenticada pendiente.
+- [x] PK3 — Corregir y completar Punto de Venta.
   - Aceptación: `Cobro` permanece visible y reiniciado al vaciar carrito; selector omite stock cero; Admin ve ganancia bruta de toda venta no cancelada.
   - Verificación: prueba enfocada, DOM/responsive y consola limpia.
   - Dependencias: PK1.
   - Archivos probables: `app/src/pages/tienda.vue`, utilidad y prueba enfocada.
-- [ ] PK4 — Actualizar identificación y cierre del Kiosco. Pantalla inicial publicada aprobada; identificación y pago requieren intervención manual sin completar venta.
+- [x] PK4 — Actualizar identificación y cierre del Kiosco.
   - Aceptación: QR inicia al continuar, código manual es secundario, `Pagar ahora` respeta la política tras verificar Admin y éxito vuelve al inicio en 5 segundos.
   - Verificación: prueba enfocada, flujo local y liberación de cámara.
   - Dependencias: PK1 y PK2.
   - Archivos probables: `app/src/pages/kiosco.vue`, store/utilidad de política y prueba enfocada.
-- [ ] PK5 — Ejecutar gates y entregar evidencia.
+- [x] PK5 — Ejecutar gates y entregar evidencia.
   - Aceptación: reglas, pruebas, typecheck, lint enfocado y build pasan; Chrome cubre el flujo publicado cuando se autorice despliegue; reporte incluye árbol, diagrama, flujos y riesgos.
   - Verificación: comandos del repositorio, revisión de cinco ejes y reporte de impacto.
   - Dependencias: PK2–PK4.
@@ -178,6 +178,6 @@
 
 ## Checkpoint: Mejora Punto de Venta y Kiosco
 
-- [ ] PK1–PK4 cumplen los 13 criterios de aceptación sin dependencias nuevas.
-- [ ] Reglas y controles de cliente niegan por defecto configuraciones ausentes o inválidas.
-- [ ] PK5 documenta QA ejecutado y cualquier validación publicada pendiente de autorización.
+- [x] PK1–PK4 cumplen los 13 criterios de aceptación sin dependencias nuevas; el temporizador de éxito se verificó por contrato automatizado para respetar la prohibición de crear ventas durante QA.
+- [x] Reglas y controles de cliente niegan por defecto configuraciones ausentes o inválidas.
+- [x] PK5 documenta QA local y publicada, incluida la matriz responsive autenticada y el límite de no completar ventas.

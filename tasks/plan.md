@@ -139,7 +139,7 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - [x] Revisar y autorizar `specs/SPEC-kiosk-code.md`.
 - [x] Fase D: código aleatorio y credencial QR regenerable de quiosco.
 - [x] Revisar y autorizar `specs/SPEC-store-kiosk-improvements.md`.
-- [ ] Implementar mejoras de Punto de Venta, Kiosco y perfil Coach. Código local completo; despliegue y QA publicado pendientes de autorización.
+- [x] Implementar mejoras de Punto de Venta, Kiosco y perfil Coach.
 - [ ] Fase E: WhatsApp Business para notificaciones de pago.
 - [ ] Fase F: evaluación de notificaciones push.
 

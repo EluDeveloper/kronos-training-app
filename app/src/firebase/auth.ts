@@ -1,5 +1,6 @@
 import {
   browserLocalPersistence,
+  connectAuthEmulator,
   createUserWithEmailAndPassword,
   deleteUser,
   EmailAuthProvider,
@@ -14,12 +15,21 @@ import {
   signOut,
   updatePassword,
   updateProfile,
+  type Auth,
   type User,
 } from 'firebase/auth'
 import { deleteApp, initializeApp } from 'firebase/app'
-import { firebaseApp, firebaseOptions } from './config'
+import { FIREBASE_AUTH_EMULATOR_URL } from './emulator-config'
+import { firebaseApp, firebaseOptions, useFirebaseEmulators } from './config'
 
 export const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null
+
+function configureAuthEmulator(auth: Auth | null) {
+  if (auth && useFirebaseEmulators)
+    connectAuthEmulator(auth, FIREBASE_AUTH_EMULATOR_URL, { disableWarnings: true })
+}
+
+configureAuthEmulator(firebaseAuth)
 
 export function authErrorMessage(error: unknown) {
   const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : ''
@@ -111,6 +121,8 @@ export async function verifyPasswordCredentials(email: string, password: string)
   const secondaryApp = initializeApp(firebaseOptions, appName)
   const secondaryAuth = getAuth(secondaryApp)
 
+  configureAuthEmulator(secondaryAuth)
+
   try {
     await setPersistence(secondaryAuth, inMemoryPersistence)
 
@@ -132,6 +144,8 @@ export async function createManagedPasswordUser<T>(
   const appName = `kronos-user-creation-${crypto.randomUUID()}`
   const secondaryApp = initializeApp(firebaseOptions, appName)
   const secondaryAuth = getAuth(secondaryApp)
+
+  configureAuthEmulator(secondaryAuth)
   let createdUser: User | null = null
 
   try {

@@ -74,6 +74,16 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 **Criterios de aceptación:** cada mensaje tiene destinatario y factura correctos, no se duplica ante reintentos, queda trazabilidad y los fallos no bloquean el registro del pago.
 
+### QA local: bootstrap seguro de dispositivo
+
+Para validar flujos protegidos sin desplegar:
+
+1. Mantener `v1/authorizedDevices` como escritura prohibida desde el cliente.
+2. Ejecutar Auth y Realtime Database sólo en los emuladores de loopback con un proyecto demo.
+3. Usar un helper externo de QA que acepte el UID visible y rechace cualquier endpoint que no sea `127.0.0.1`.
+4. Ejecutar el flujo local completo de UID, autorización, primer Admin y login; no usar datos ni credenciales reales.
+5. Diseñar el futuro módulo de gestión de dispositivos con autorización del lado servidor/reglas, revocación y auditoría; la URL y el UID no serán secretos.
+
 #### Plan autorizado de implementación incremental
 
 - E0 — actualizar la spec autorizada y registrar tareas sin cambiar comportamiento.

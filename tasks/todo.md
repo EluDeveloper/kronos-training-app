@@ -73,6 +73,21 @@
 - [x] No se modifican Firebase, dependencias, funciones, credenciales, datos publicados ni despliegues.
 - [x] Revisar el contrato antes de avanzar a E3, que requiere un gate de reglas/esquema.
 
+### QA local: bootstrap de dispositivo
+
+- [x] QA1 — Documentar el alcance aprobado y la decisión de seguridad para emuladores locales.
+  - Aceptación: modo emulator opt-in, helper externo y rechazo de producción quedan documentados; gestión futura de dispositivos fuera de alcance.
+  - Verificación: `specs/SPEC-local-device-qa-bootstrap.md` y ADR.
+- [x] QA2 — Conectar Auth y Realtime Database a emuladores locales sólo en modo explícito.
+  - Aceptación: configuración demo sin secretos, modo normal sin cambios y puertos de loopback fijos.
+  - Verificación: typecheck y arranque de emuladores.
+- [x] QA3 — Crear helper para autorizar un UID en el emulador.
+  - Aceptación: escribe sólo `v1/authorizedDevices/{uid}` local; valida UID y bloquea producción antes de la petición.
+  - Verificación: pruebas unitarias del helper.
+- [ ] QA4 — Ejecutar el recorrido completo local en Chrome.
+  - Aceptación: logo/UID, autorización, primer Admin y login local; sin credenciales automatizadas ni datos reales.
+  - Verificación: evidencia de consola, DOM y resultado final.
+
 ## Foundation
 
 - [x] Revisar y aprobar el capability map.

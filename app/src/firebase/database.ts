@@ -1,9 +1,13 @@
-import { getDatabase, onValue, ref, type Database, type Unsubscribe } from 'firebase/database'
+import { connectDatabaseEmulator, getDatabase, onValue, ref, type Database, type Unsubscribe } from 'firebase/database'
 import type { AuthorizedDevice } from '@/types/domain'
-import { firebaseApp } from './config'
+import { firebaseApp, useFirebaseEmulators } from './config'
+import { FIREBASE_DATABASE_EMULATOR_HOST, FIREBASE_DATABASE_EMULATOR_PORT } from './emulator-config'
 
 export const firebaseDatabase: Database | null = firebaseApp ? getDatabase(firebaseApp) : null
 export const BUSINESS_ROOT = 'v1'
+
+if (firebaseDatabase && useFirebaseEmulators)
+  connectDatabaseEmulator(firebaseDatabase, FIREBASE_DATABASE_EMULATOR_HOST, FIREBASE_DATABASE_EMULATOR_PORT)
 
 export function subscribeToConnection(callback: (connected: boolean) => void): Unsubscribe {
   if (!firebaseDatabase) {

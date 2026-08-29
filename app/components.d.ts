@@ -39,5 +39,6 @@ declare module 'vue' {
     UpgradeToPro: typeof import('./src/components/UpgradeToPro.vue')['default']
     VisitorPaymentDialog: typeof import('./src/components/kronos/VisitorPaymentDialog.vue')['default']
     VueApexCharts: typeof import('vue3-apexcharts')['default']
+    WhatsAppConsentDialog: typeof import('./src/components/kronos/WhatsAppConsentDialog.vue')['default']
   }
 }

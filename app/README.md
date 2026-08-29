@@ -19,6 +19,28 @@ npm run dev
 
 El servidor sólo escucha en localhost. Para probarlo desde otro dispositivo de la red usa `npm run dev:host`.
 
+## QA local del primer acceso
+
+El flujo de autorización del primer dispositivo puede validarse sin desplegar y sin tocar Firebase de producción:
+
+```powershell
+# Terminal 1: Auth y Realtime Database en loopback
+npm run emulators
+
+# Terminal 2: Vite con la configuración demo del emulador
+npm run dev:emulator
+```
+
+Abre `http://127.0.0.1:5173`, selecciona **Configurar el primer acceso** y espera la pantalla con el logo y el UID. En una tercera terminal autoriza ese UID:
+
+```powershell
+npm run qa:authorize-device -- <UID_MOSTRADO>
+```
+
+Actualiza la pantalla para continuar con **Crea el primer Admin**. El usuario, la contraseña y los datos creados en este recorrido existen sólo en los emuladores y se pierden al detenerlos. El comando acepta únicamente el UID; su destino está fijado a `http://127.0.0.1:9000` y no puede escribir en producción. `npm run dev` conserva el modo normal configurado por `.env.local`.
+
+No se debe cambiar `database.rules.json` para facilitar este flujo: el cliente sigue sin permiso para escribir `v1/authorizedDevices`.
+
 ## Validación
 
 ```sh

@@ -51,6 +51,7 @@ const canSave = computed(() => Boolean(
   props.athlete
   && !props.loading
   && !props.saving
+  && !props.error
   && (!hasOptIn.value || Boolean(currentPhoneE164.value))
   && (!requiresConsentConfirmation.value || consentConfirmed.value)
   && (!isWithdrawing.value || withdrawalConfirmed.value),

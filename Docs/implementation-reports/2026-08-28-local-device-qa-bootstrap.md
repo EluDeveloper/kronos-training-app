@@ -1,7 +1,7 @@
 # Reporte de implementación: bootstrap local de dispositivo para QA
 
 Fecha: 2026-08-28
-Estado: implementación local completada; Chrome pendiente de sesión/herramienta disponible.
+Estado: implementación local y recorrido manual completados; DevTools MCP no disponible para inspección automatizada.
 Spec: `specs/SPEC-local-device-qa-bootstrap.md`
 ADR: `Docs/decisions/ADR-002-local-device-emulator-bootstrap.md`
 
@@ -67,7 +67,7 @@ Vite --mode emulator
 
 ## QA Chrome
 
-Pendiente: se debe abrir `http://127.0.0.1:5173` en Chrome, ejecutar manualmente el flujo completo y revisar consola, red, DOM/accesibilidad y evidencia visual. La sesión actual no tiene Chrome DevTools MCP disponible y no se automatizaron credenciales.
+El usuario confirmó el recorrido local y compartió una captura desde Chrome del diálogo de consentimiento de E3, con teléfono enmascarado y propósitos separados. No se automatizaron credenciales. La sesión del agente no tiene Chrome DevTools MCP disponible, por lo que la inspección automatizada de consola, red y accesibilidad queda fuera de esta evidencia.
 
 ## Riesgos pendientes
 

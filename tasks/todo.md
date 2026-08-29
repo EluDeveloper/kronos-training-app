@@ -36,9 +36,11 @@
   - Archivos probables: app/src/utils/payment-notification.ts, app/src/utils/receipts.ts, app/tests/payment-notification.test.ts.
 - [ ] E3 — Integrar consentimiento y opt-out en la aplicación.
   - Aceptación: consentimiento explícito ligado al teléfono E.164, retiro visible, permisos mínimos y persistencia separada.
-  - Verificación: pruebas de permisos y reglas con emulador; requiere autorización de cambios Firebase.
+  - Implementación: diálogo dedicado en Atletas, dos propósitos independientes, teléfono enmascarado, opt-in/opt-out explícitos y persistencia en v1/notificationPreferences/{athleteId}.
+  - Verificación parcial: 13/13 contratos enfocados, 30/30 reglas con emulador/JDK21, typecheck y lint; regresiones enrollment, kiosk y store kiosk pasan.
+  - Pendiente de cierre: QA visual/runtime en Chrome con sesión manual; no se hicieron writes QA, envíos Meta ni despliegues.
   - Dependencias: E1 y E2.
-  - Archivos probables: app/src/types/domain.ts, app/src/pages/atletas.vue, app/src/services/notification-preferences.service.ts, app/src/stores/notification-preferences.ts, app/database.rules.json.
+  - Archivos: app/src/pages/atletas.vue, app/src/components/kronos/WhatsAppConsentDialog.vue, app/src/services/notification-preferences.service.ts, app/src/stores/notification-preferences.ts, app/src/utils/payment-notification.ts, app/database.rules.json, app/tests/database.rules.test.mjs, app/tests/payment-notification.test.ts.
 - [ ] E4 — Crear frontera de Cloud Functions y adaptador fake de WhatsApp.
   - Aceptación: ningún secreto llega al cliente; el fake permite probar respuestas accepted/rejected/unknown sin red externa.
   - Verificación: typecheck/tests de functions y auditoría de bundle; requiere autorización de dependencias e infraestructura.

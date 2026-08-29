@@ -175,7 +175,8 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - `npm run build` falla antes de estos cambios al intentar escribir en `app/node_modules/.vite-temp` con `EPERM`.
 - `npm run test:finance` falla antes de estos cambios con `uv_os_get_passwd returned ENOMEM`.
 - En la regresión de Fase E, `npm run test:athlete-intake` presenta el mismo `uv_os_get_passwd returned ENOMEM` antes de cargar las pruebas; los tests enfocados de Fase E usan el preload local existente.
-- En el sandbox actual, `npm run test:iconify` no puede escribir su archivo temporal en `app/node_modules` y `npm run test:rules` no puede leer `C:/Users/inged/.config/configstore/firebase-tools.json`; no se modificaron Iconify, reglas ni datos.
+- En el sandbox sin escalada, `npm run test:iconify` no puede escribir su archivo temporal en `app/node_modules` y Firebase CLI no puede leer `C:/Users/inged/.config/configstore/firebase-tools.json`; con el JDK21 ya instalado y ejecución autorizada del emulador, `npm run test:rules` de Fase E pasa 30/30. No se modificaron Iconify ni datos reales.
+- La validación visual de E3 en Chrome queda pendiente: el flujo protegido requiere login manual y la sesión actual no tiene Chrome DevTools MCP disponible; no se automatizaron credenciales ni se usó la instancia publicada.
 
 ## Open Questions
 

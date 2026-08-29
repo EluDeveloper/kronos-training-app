@@ -322,6 +322,27 @@ test('un opt-out visible conserva el teléfono y registra la baja sin borrar el 
   })
 })
 
+test('retirar un propósito no reescribe el actor del consentimiento que sigue activo', () => {
+  assert.deepEqual(buildNotificationConsentMutation({
+    athleteId: athlete.id,
+    phone: athlete.profile.phone,
+    current: optedInConsent,
+    receiptOptIn: false,
+    reminderOptIn: true,
+    consentConfirmed: false,
+    withdrawalConfirmed: true,
+    recordedBy: 'reception-1',
+    now: 20,
+  }), {
+    ...optedInConsent,
+    receiptStatus: 'opted-out',
+    optedOutAt: 20,
+    optOutSource: 'staff',
+    updatedAt: 20,
+    updatedBy: 'reception-1',
+  })
+})
+
 test('el consentimiento rechaza opt-in sin confirmación o sin teléfono válido', () => {
   assert.throws(() => buildNotificationConsentMutation({
     athleteId: athlete.id,

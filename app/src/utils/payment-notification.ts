@@ -224,13 +224,20 @@ export function buildNotificationConsentMutation(input: NotificationConsentMutat
   const phoneE164 = normalizePhoneE164(input.phone)
   const hasOptIn = input.receiptOptIn || input.reminderOptIn
 
+  const isGranting = hasOptIn && (
+    !current
+    || phoneE164 !== current.consentedPhoneE164
+    || (input.receiptOptIn && current.receiptStatus !== 'opted-in')
+    || (input.reminderOptIn && current.reminderStatus !== 'opted-in')
+  )
+
   const isWithdrawing = (current?.receiptStatus === 'opted-in' && !input.receiptOptIn)
     || (current?.reminderStatus === 'opted-in' && !input.reminderOptIn)
 
-  if (hasOptIn && !phoneE164)
+  if (isGranting && !phoneE164)
     throw new Error('Se requiere un teléfono válido para activar el consentimiento.')
 
-  if (hasOptIn && !input.consentConfirmed)
+  if (isGranting && !input.consentConfirmed)
     throw new Error('Se requiere confirmación explícita del consentimiento.')
 
   if (isWithdrawing && !input.withdrawalConfirmed)
@@ -247,8 +254,8 @@ export function buildNotificationConsentMutation(input: NotificationConsentMutat
   const hasOptedOut = receiptStatus === 'opted-out' || reminderStatus === 'opted-out'
   const consentedPhoneE164 = hasOptIn ? phoneE164 : current?.consentedPhoneE164 ?? null
 
-  const consentedAt = hasOptIn
-    ? current?.consentedPhoneE164 === phoneE164 && current.consentedAt != null ? current.consentedAt : input.now
+  const consentedAt = isGranting
+    ? input.now
     : current?.consentedAt ?? null
 
   return {
@@ -258,8 +265,8 @@ export function buildNotificationConsentMutation(input: NotificationConsentMutat
     reminderStatus,
     consentedPhoneE164,
     consentedAt,
-    consentSource: hasOptIn ? 'staff' : current?.consentSource ?? null,
-    recordedBy: hasOptIn ? input.recordedBy : current?.recordedBy ?? null,
+    consentSource: isGranting ? 'staff' : current?.consentSource ?? null,
+    recordedBy: isGranting ? input.recordedBy : current?.recordedBy ?? null,
     optedOutAt: hasOptedOut ? current?.optedOutAt ?? input.now : current?.optedOutAt ?? null,
     optOutSource: hasOptedOut ? current?.optOutSource ?? 'staff' : current?.optOutSource ?? null,
     updatedAt: input.now,

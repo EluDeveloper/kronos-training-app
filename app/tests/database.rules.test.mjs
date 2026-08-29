@@ -24,6 +24,22 @@ const appUser = (uid, role = 'reception', permissions = {}, enabled = true, must
 const product = stock => ({ id: 'product-1', name: 'Producto de prueba', category: 'Prueba', barcode: '7501234567890', barcodes: { 'KR-00000001': true }, size: null, stock, alertLevel: 1, unitCost: 10, salePrice: 20, status: 'active', createdAt: now(), updatedAt: now() })
 const athlete = { id: 'athlete-1', profile: { name: 'Atleta de prueba', phone: '0000000000', birthDate: '2000-01-01' }, membership: { schedule: 'Matutino', planId: 'plan-1', agreedAmount: 500, paymentDay: 5, registrationDate: '2026-01-01' }, kioskCode: '123456', status: 'active', createdAt: now(), updatedAt: now() }
 
+const notificationConsent = (overrides = {}) => ({
+  athleteId: 'athlete-1',
+  receiptStatus: 'opted-in',
+  reminderStatus: 'unknown',
+  consentedPhoneE164: '520000000000',
+  consentedAt: now(),
+  consentSource: 'staff',
+  recordedBy: 'athletes-only',
+  optedOutAt: null,
+  optOutSource: null,
+  createdAt: now(),
+  updatedAt: now(),
+  updatedBy: 'athletes-only',
+  ...overrides,
+})
+
 const athleteIntake = {
   athleteId: 'athlete-1',
   maritalStatus: 'single',
@@ -166,6 +182,41 @@ test('los datos de admisión tienen lectura y escritura separadas del registro o
   await assertFails(readerDb.ref('v1/athleteIntake/athlete-1').set(athleteIntake))
   await assertSucceeds(managerDb.ref('v1/athleteIntake/athlete-1').set(athleteIntake))
   await assertSucceeds(adminDb.ref('v1/athleteIntake/athlete-1').once('value'))
+})
+
+test('el consentimiento de WhatsApp queda separado y sólo lo administra personal autorizado de Atletas', async () => {
+  const unauthenticatedDb = env.unauthenticatedContext().database()
+  const coachDb = env.authenticatedContext('coach').database()
+  const disabledDb = env.authenticatedContext('disabled').database()
+  const intakeManagerDb = env.authenticatedContext('intake-manager').database()
+  const athletesManagerDb = env.authenticatedContext('athletes-only').database()
+  const adminDb = env.authenticatedContext('admin').database()
+
+  await assertFails(unauthenticatedDb.ref('v1/notificationPreferences/athlete-1').once('value'))
+  await assertFails(unauthenticatedDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent()))
+  await assertFails(coachDb.ref('v1/notificationPreferences/athlete-1').once('value'))
+  await assertFails(disabledDb.ref('v1/notificationPreferences/athlete-1').once('value'))
+  await assertFails(intakeManagerDb.ref('v1/notificationPreferences/athlete-1').once('value'))
+
+  await assertSucceeds(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent()))
+  await assertSucceeds(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').once('value'))
+  await assertSucceeds(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({
+    receiptStatus: 'opted-out',
+    reminderStatus: 'opted-out',
+    optedOutAt: now(),
+    optOutSource: 'staff',
+  })))
+  await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').remove())
+  await assertSucceeds(adminDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({
+    recordedBy: 'admin',
+    updatedBy: 'admin',
+  })))
+
+  await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ receiptStatus: 'sent' })))
+  await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ consentedPhoneE164: '5512345678' })))
+  await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ athleteId: 'athlete-2' })))
+  await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set({ ...notificationConsent(), unexpected: true }))
+  await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ recordedBy: 'admin' })))
 })
 
 test('las reglas rechazan respuestas de admisión inconsistentes', async () => {

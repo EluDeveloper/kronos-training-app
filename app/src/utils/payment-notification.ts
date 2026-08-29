@@ -11,7 +11,7 @@ export interface NotificationConsent {
   reminderStatus: NotificationConsentStatus
   consentedPhoneE164: string | null
   consentedAt?: number | string | null
-  consentSource?: 'athlete' | 'guardian' | 'staff' | null
+  consentSource?: 'athlete' | 'guardian' | 'staff' | 'webhook' | null
   recordedBy?: string | null
   optedOutAt?: number | string | null
   optOutSource?: 'athlete' | 'guardian' | 'staff' | 'webhook' | null
@@ -251,11 +251,72 @@ export function buildNotificationConsentMutation(input: NotificationConsentMutat
     consentedPhoneE164,
     consentedAt,
     consentSource: hasOptIn ? 'staff' : current?.consentSource ?? null,
-    recordedBy: hasOptIn ? current?.recordedBy ?? input.recordedBy : current?.recordedBy ?? null,
+    recordedBy: hasOptIn ? input.recordedBy : current?.recordedBy ?? null,
     optedOutAt: hasOptedOut ? current?.optedOutAt ?? input.now : current?.optedOutAt ?? null,
     optOutSource: hasOptedOut ? current?.optOutSource ?? 'staff' : current?.optOutSource ?? null,
     updatedAt: input.now,
     updatedBy: input.recordedBy,
+  }
+}
+
+const consentStatuses: NotificationConsentStatus[] = ['unknown', 'opted-in', 'opted-out']
+const consentSources = ['athlete', 'guardian', 'staff', 'webhook'] as const
+const optOutSources = ['athlete', 'guardian', 'staff', 'webhook'] as const
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object'
+const isTimestamp = (value: unknown): value is number | string => typeof value === 'number' || typeof value === 'string'
+const nullableString = (value: unknown): string | null => value == null ? null : typeof value === 'string' ? value : null
+
+export function parseNotificationConsent(value: unknown, athleteId?: string): NotificationConsent | null {
+  if (!isRecord(value) || typeof value.athleteId !== 'string' || (athleteId && value.athleteId !== athleteId))
+    return null
+
+  if (!consentStatuses.includes(value.receiptStatus as NotificationConsentStatus) || !consentStatuses.includes(value.reminderStatus as NotificationConsentStatus))
+    return null
+
+  if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt))
+    return null
+
+  const consentedPhoneE164 = value.consentedPhoneE164 == null ? null : normalizePhoneE164(String(value.consentedPhoneE164))
+  if (value.consentedPhoneE164 != null && consentedPhoneE164 !== value.consentedPhoneE164)
+    return null
+
+  const consentSource = nullableString(value.consentSource)
+  const optOutSource = nullableString(value.optOutSource)
+  if (consentSource && !consentSources.includes(consentSource as typeof consentSources[number]))
+    return null
+
+  if (optOutSource && !optOutSources.includes(optOutSource as typeof optOutSources[number]))
+    return null
+
+  const normalizedConsentSource = consentSource as NotificationConsent['consentSource'] ?? null
+  const normalizedOptOutSource = optOutSource as NotificationConsent['optOutSource'] ?? null
+
+  if (value.consentedAt != null && !isTimestamp(value.consentedAt))
+    return null
+
+  if (value.optedOutAt != null && !isTimestamp(value.optedOutAt))
+    return null
+
+  if (value.recordedBy != null && typeof value.recordedBy !== 'string')
+    return null
+
+  if (value.updatedBy != null && typeof value.updatedBy !== 'string')
+    return null
+
+  return {
+    athleteId: value.athleteId,
+    createdAt: value.createdAt,
+    receiptStatus: value.receiptStatus as NotificationConsentStatus,
+    reminderStatus: value.reminderStatus as NotificationConsentStatus,
+    consentedPhoneE164,
+    consentedAt: value.consentedAt == null ? null : value.consentedAt as number | string,
+    consentSource: normalizedConsentSource,
+    recordedBy: nullableString(value.recordedBy),
+    optedOutAt: value.optedOutAt == null ? null : value.optedOutAt as number | string,
+    optOutSource: normalizedOptOutSource,
+    updatedAt: value.updatedAt,
+    updatedBy: nullableString(value.updatedBy),
   }
 }
 

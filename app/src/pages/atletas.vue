@@ -4,11 +4,13 @@ import AthleteIntakeFields from '@/components/kronos/AthleteIntakeFields.vue'
 import EnrollmentSheetDialog from '@/components/kronos/EnrollmentSheetDialog.vue'
 import KioskCredentialDialog from '@/components/kronos/KioskCredentialDialog.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
+import WhatsAppConsentDialog from '@/components/kronos/WhatsAppConsentDialog.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthleteIntakeStore } from '@/stores/athlete-intake'
 import { useAthletesStore } from '@/stores/athletes'
 import { usePlansStore } from '@/stores/plans'
 import { useSessionStore } from '@/stores/session'
+import { useNotificationPreferencesStore } from '@/stores/notification-preferences'
 import type { Athlete } from '@/types/domain'
 import { calculateAge } from '@/types/domain'
 import {
@@ -25,11 +27,13 @@ import {
 import { buildEnrollmentSheet, type EnrollmentSheetData } from '@/utils/enrollment-sheet'
 import { parseKioskCodePayload } from '@/utils/kiosk-code'
 import { formatCurrency, normalizeSearchTerm } from '@/utils/kronos'
+import type { NotificationConsent } from '@/utils/payment-notification'
 
 const athleteIntake = useAthleteIntakeStore()
 const athletes = useAthletesStore()
 const plans = usePlansStore()
 const session = useSessionStore()
+const notificationPreferences = useNotificationPreferencesStore()
 const canManage = computed(() => session.can('athletesManage'))
 const canReadIntake = computed(() => session.can('athletesIntake') || session.can('athletesIntakeManage'))
 const canManageIntake = computed(() => session.can('athletesIntakeManage'))
@@ -42,12 +46,14 @@ const perPage = 15
 const dialog = ref(false)
 const enrollmentSheetDialog = ref(false)
 const kioskCodeDialog = ref(false)
+const whatsappConsentDialog = ref(false)
 const saving = ref(false)
 const kioskCodeSaving = ref(false)
 const editingId = ref<string | null>(null)
 const enrollmentSheetAthlete = ref<Athlete | null>(null)
 const activeEnrollmentSheet = ref<EnrollmentSheetData | null>(null)
 const kioskCodeAthlete = ref<Athlete | null>(null)
+const whatsappConsentAthlete = ref<Athlete | null>(null)
 const intakeReady = ref(true)
 const validationAttempted = ref(false)
 const activeFormTab = ref<AthleteFormTab>('personal')
@@ -256,6 +262,29 @@ function openKioskCode(athlete: Athlete) {
   kioskCodeDialog.value = true
 }
 
+function openWhatsAppConsent(athlete: Athlete) {
+  if (!canManage.value) {
+    failure('No tienes permiso para administrar autorizaciones de WhatsApp.')
+
+    return
+  }
+
+  whatsappConsentAthlete.value = athlete
+  notificationPreferences.subscribe(athlete.id)
+  whatsappConsentDialog.value = true
+}
+
+async function saveWhatsAppConsent(preference: NotificationConsent) {
+  try {
+    await notificationPreferences.save(preference)
+    success('Autorización de WhatsApp guardada.')
+    whatsappConsentDialog.value = false
+  }
+  catch (error) {
+    failure(error instanceof Error ? error.message : 'No fue posible guardar la autorización de WhatsApp.')
+  }
+}
+
 async function saveKioskCode(code: string) {
   const athlete = kioskCodeAthlete.value
   const normalizedCode = parseKioskCodePayload(code)
@@ -299,8 +328,16 @@ watch(enrollmentSheetDialog, value => {
   activeEnrollmentSheet.value = null
 })
 
+watch(whatsappConsentDialog, value => {
+  if (value)
+    return
+
+  notificationPreferences.clear()
+  whatsappConsentAthlete.value = null
+})
+
 onMounted(() => { athletes.subscribe(); plans.subscribe() })
-onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispose() })
+onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispose(); notificationPreferences.clear() })
 </script>
 
 <template>
@@ -419,6 +456,14 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
                     variant="text"
                     aria-label="Editar atleta"
                     @click="openForm(athlete)"
+                  /><VBtn
+                    icon="ri-whatsapp-line"
+                    variant="text"
+                    color="success"
+                    :aria-label="`Consentimiento de WhatsApp de ${athlete.profile.name}`"
+                    title="Consentimiento de WhatsApp"
+                    :data-testid="`whatsapp-consent-${athlete.id}`"
+                    @click="openWhatsAppConsent(athlete)"
                   /><VBtn
                     :icon="athlete.status === 'active' ? 'ri-pause-circle-line' : 'ri-play-circle-line'"
                     variant="text"
@@ -664,6 +709,17 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
     :occupied-codes="occupiedKioskCodes"
     :saving="kioskCodeSaving"
     @save="saveKioskCode"
+  />
+
+  <WhatsAppConsentDialog
+    v-model="whatsappConsentDialog"
+    :athlete="whatsappConsentAthlete"
+    :preference="notificationPreferences.item"
+    :operator-uid="session.uid"
+    :loading="notificationPreferences.loading"
+    :saving="notificationPreferences.saving"
+    :error="notificationPreferences.error"
+    @save="saveWhatsAppConsent"
   />
 </template>
 

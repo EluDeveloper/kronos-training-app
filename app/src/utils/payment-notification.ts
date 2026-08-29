@@ -193,6 +193,14 @@ export function normalizePhoneE164(value: string | null | undefined, countryCode
   return null
 }
 
+export function maskPhoneE164(value: string | null | undefined): string {
+  const normalized = normalizePhoneE164(value)
+  if (!normalized)
+    return 'Teléfono no válido'
+
+  return `+${normalized.slice(0, 2)} •••• ${normalized.slice(-4)}`
+}
+
 export interface NotificationConsentMutationInput {
   athleteId: string
   phone: string | null | undefined

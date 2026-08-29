@@ -216,7 +216,7 @@ test('el consentimiento de WhatsApp queda separado y sólo lo administra persona
   await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ consentedPhoneE164: '5512345678' })))
   await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ athleteId: 'athlete-2' })))
   await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set({ ...notificationConsent(), unexpected: true }))
-  await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ recordedBy: 'admin' })))
+  await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ updatedBy: 'admin' })))
 })
 
 test('las reglas rechazan respuestas de admisión inconsistentes', async () => {

@@ -78,7 +78,19 @@
           ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || (root.child('v1/users').child(auth.uid).child('permissions/athletes').val() === true && root.child('v1/users').child(auth.uid).child('permissions/athletesManage').val() === true))",
           ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && newData.exists() && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || (root.child('v1/users').child(auth.uid).child('permissions/athletes').val() === true && root.child('v1/users').child(auth.uid).child('permissions/athletesManage').val() === true))",
           ".validate": "newData.hasChildren(['athleteId','receiptStatus','reminderStatus','createdAt','updatedAt','updatedBy']) && newData.child('athleteId').val() === $athleteId && root.child('v1/athletes').child($athleteId).exists() && (newData.child('receiptStatus').val() === 'unknown' || newData.child('receiptStatus').val() === 'opted-in' || newData.child('receiptStatus').val() === 'opted-out') && (newData.child('reminderStatus').val() === 'unknown' || newData.child('reminderStatus').val() === 'opted-in' || newData.child('reminderStatus').val() === 'opted-out') && (!newData.child('consentedPhoneE164').exists() || (newData.child('consentedPhoneE164').isString() && newData.child('consentedPhoneE164').val().matches(/^52[0-9]{10}$/))) && (!newData.child('consentedAt').exists() || newData.child('consentedAt').isNumber() || newData.child('consentedAt').isString()) && (!newData.child('consentSource').exists() || newData.child('consentSource').val() === 'athlete' || newData.child('consentSource').val() === 'guardian' || newData.child('consentSource').val() === 'staff' || newData.child('consentSource').val() === 'webhook') && (!newData.child('recordedBy').exists() || newData.child('recordedBy').isString()) && (!newData.child('optedOutAt').exists() || newData.child('optedOutAt').isNumber() || newData.child('optedOutAt').isString()) && (!newData.child('optOutSource').exists() || newData.child('optOutSource').val() === 'athlete' || newData.child('optOutSource').val() === 'guardian' || newData.child('optOutSource').val() === 'staff' || newData.child('optOutSource').val() === 'webhook') && (newData.child('receiptStatus').val() !== 'opted-in' && newData.child('reminderStatus').val() !== 'opted-in' || (newData.child('consentedPhoneE164').exists() && newData.child('consentedAt').exists() && newData.child('consentSource').exists() && newData.child('recordedBy').exists())) && (newData.child('receiptStatus').val() !== 'opted-out' && newData.child('reminderStatus').val() !== 'opted-out' || (newData.child('optedOutAt').exists() && newData.child('optOutSource').exists())) && (newData.child('createdAt').isNumber() || newData.child('createdAt').isString()) && (newData.child('updatedAt').isNumber() || newData.child('updatedAt').isString()) && newData.child('updatedBy').isString() && newData.child('updatedBy').val() === auth.uid"
-          ,"$other": { ".validate": false }
+          ,"athleteId": {},
+          "receiptStatus": {},
+          "reminderStatus": {},
+          "consentedPhoneE164": {},
+          "consentedAt": {},
+          "consentSource": {},
+          "recordedBy": {},
+          "optedOutAt": {},
+          "optOutSource": {},
+          "createdAt": {},
+          "updatedAt": {},
+          "updatedBy": {},
+          "$other": { ".validate": false }
         }
       },
       "visitors": {

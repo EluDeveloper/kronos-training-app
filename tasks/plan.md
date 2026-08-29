@@ -74,6 +74,18 @@ Establecer un flujo de desarrollo basado en specs, tareas verificables, implemen
 
 **Criterios de aceptación:** cada mensaje tiene destinatario y factura correctos, no se duplica ante reintentos, queda trazabilidad y los fallos no bloquean el registro del pago.
 
+#### Plan autorizado de implementación incremental
+
+- E0 — actualizar la spec autorizada y registrar tareas sin cambiar comportamiento.
+- E1 — construir contratos puros de deuda, elegibilidad, cadencia, correlación, idempotencia, estados y sanitización; sin Firebase, Meta ni dependencias nuevas.
+- E2 — construir el contrato puro de recibo/apunte de pago y aviso de deuda PDF, reutilizando los datos financieros existentes y preservando la privacidad; sin envío.
+- E3 — integrar consentimiento y opt-out en la aplicación y su persistencia aislada; requiere revisión de esquema, permisos y reglas antes de modificar Firebase.
+- E4 — crear la frontera backend/Cloud Functions y el adaptador fake de WhatsApp; requiere autorización para functions/, runtime, dependencias y configuración.
+- E5 — integrar detección de pagos aplicados, jobs, locks, reintentos y webhooks contra emuladores/fakes; requiere contrato de reglas aprobado.
+- E6 — integrar recordatorios programados, límites y estado de cuenta; requiere aprobación de cadencia, scheduler y retención.
+- E7 — integrar plantillas y el proveedor Meta sólo con recursos, secretos y destinatario QA expresamente autorizados.
+- E8 — ejecutar regresión, QA Chrome completo en https://kronos-training-fd5e5.web.app/ con gate manual, Playwright complementario y reporte de impacto; despliegue sólo con autorización separada.
+
 ### Fase F: Alternativa push
 
 Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirmaciones si WhatsApp no resulta viable. Debe incluir permiso explícito, revocación, asociación segura del dispositivo y una política para navegadores sin soporte.
@@ -162,6 +174,8 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - `npm run typecheck` pasa en `app/`.
 - `npm run build` falla antes de estos cambios al intentar escribir en `app/node_modules/.vite-temp` con `EPERM`.
 - `npm run test:finance` falla antes de estos cambios con `uv_os_get_passwd returned ENOMEM`.
+- En la regresión de Fase E, `npm run test:athlete-intake` presenta el mismo `uv_os_get_passwd returned ENOMEM` antes de cargar las pruebas; los tests enfocados de Fase E usan el preload local existente.
+- En el sandbox actual, `npm run test:iconify` no puede escribir su archivo temporal en `app/node_modules` y `npm run test:rules` no puede leer `C:/Users/inged/.config/configstore/firebase-tools.json`; no se modificaron Iconify, reglas ni datos.
 
 ## Open Questions
 

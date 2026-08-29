@@ -18,6 +18,59 @@
 - [ ] Fase E: implementar notificaciones de pagos con WhatsApp Business.
 - [ ] Fase F: evaluar notificaciones push como alternativa.
 
+## Fase E: Notificaciones de pagos por WhatsApp Business
+
+- [x] E0 — Revisar y autorizar specs/SPEC-payment-notifications-whatsapp.md; mantener fuera de alcance los secretos, recursos Meta, writes QA y despliegue.
+  - Aceptación: spec en estado aprobada, alcance y gates registrados en plan.
+  - Verificación: revisión documental y árbol limpio salvo cambios de documentación.
+  - Archivos: specs/SPEC-payment-notifications-whatsapp.md, tasks/plan.md, tasks/todo.md.
+- [x] E1 — Construir contratos puros de deuda, elegibilidad, cadencia, correlación e idempotencia.
+  - Aceptación: mensualidad/tienda se calculan desde datos canónicos; opt-out, teléfono cambiado, athleteId ausente y estados inválidos fallan cerrado; las claves y transiciones son deterministas.
+  - Verificación: RED confirmado; GREEN con 7/7 pruebas enfocadas, typecheck y lint del alcance. Build bloqueado por el fallo basal EPERM de app/node_modules/.vite-temp, documentado en tasks/plan.md.
+  - Dependencias: E0.
+  - Archivos probables: app/src/utils/payment-notification.ts, app/tests/payment-notification.test.ts.
+- [x] E2 — Construir el contrato de comprobante y aviso informativo para backend.
+  - Aceptación: pago aplicado y recordatorio distinguen recibo de aviso; no entra healthHistory, athleteIntake, emergencyContact, kioskCode ni secretos.
+  - Verificación: 9/9 pruebas enfocadas, lint y typecheck. Build bloqueado por el fallo basal EPERM de app/node_modules/.vite-temp, documentado en tasks/plan.md.
+  - Dependencias: E1.
+  - Archivos probables: app/src/utils/payment-notification.ts, app/src/utils/receipts.ts, app/tests/payment-notification.test.ts.
+- [ ] E3 — Integrar consentimiento y opt-out en la aplicación.
+  - Aceptación: consentimiento explícito ligado al teléfono E.164, retiro visible, permisos mínimos y persistencia separada.
+  - Verificación: pruebas de permisos y reglas con emulador; requiere autorización de cambios Firebase.
+  - Dependencias: E1 y E2.
+  - Archivos probables: app/src/types/domain.ts, app/src/pages/atletas.vue, app/src/services/notification-preferences.service.ts, app/src/stores/notification-preferences.ts, app/database.rules.json.
+- [ ] E4 — Crear frontera de Cloud Functions y adaptador fake de WhatsApp.
+  - Aceptación: ningún secreto llega al cliente; el fake permite probar respuestas accepted/rejected/unknown sin red externa.
+  - Verificación: typecheck/tests de functions y auditoría de bundle; requiere autorización de dependencias e infraestructura.
+  - Dependencias: E1–E3.
+  - Archivos probables: app/firebase.json, functions/package.json, functions/package-lock.json, functions/src/index.ts, functions/src/whatsapp/client.ts.
+- [ ] E5 — Integrar eventos, jobs, locks, reintentos y webhook.
+  - Aceptación: triggers concurrentes y webhooks duplicados no duplican mensajes; unknown no se reintenta ciegamente; estados sólo avanzan.
+  - Verificación: integración con emuladores/fakes y reglas; sin credenciales Meta.
+  - Dependencias: E4.
+  - Archivos probables: functions/src/notifications/payment-events.ts, functions/src/notifications/jobs.ts, functions/src/notifications/consent.ts, functions/src/whatsapp/webhook.ts, functions/tests/payment-notifications.test.ts.
+- [ ] E6 — Integrar scheduler y recordatorios de adeudos.
+  - Aceptación: cadencia aprobada, límites por atleta/día, vencimientos 28/30/31 y mensualidad+tienda combinadas sin duplicar.
+  - Verificación: pruebas con reloj inyectable y scheduler fake; configuración real requiere autorización.
+  - Dependencias: E5.
+  - Archivos probables: functions/src/notifications/reminders.ts, functions/src/notifications/jobs.ts, functions/tests/payment-notifications.test.ts.
+- [ ] E7 — Integrar plantillas, PDF backend y proveedor Meta.
+  - Aceptación: sólo plantilla Utility aprobada y documento privado compatible; no hay fallback libre ni secretos en logs; proveedor real queda apagado hasta autorizarlo.
+  - Verificación: contract tests con fake y prueba aislada del proveedor; configuración/credenciales requieren autorización.
+  - Dependencias: E4–E6.
+  - Archivos probables: functions/src/whatsapp/client.ts, functions/src/whatsapp/templates.ts, functions/src/pdf/payment-receipts.ts, functions/tests/pdf-receipts.test.ts.
+- [ ] E8 — Ejecutar gates y cerrar la fase.
+  - Aceptación: pruebas, typecheck, build, reglas, QA Chrome del flujo completo, Playwright complementario y reporte de impacto.
+  - Verificación: comandos de app/functions, Chrome en https://kronos-training-fd5e5.web.app/ y evidencia sin datos reales.
+  - Dependencias: E7 y autorizaciones de QA/despliegue.
+  - Archivos probables: app/e2e/responsive/payment-notifications-responsive.spec.ts, Docs/implementation-reports/YYYY-MM-DD-payment-notifications-whatsapp.md.
+
+### Checkpoint: Fase E — contratos locales
+
+- [x] E1 y E2 pasan pruebas enfocadas, typecheck y lint.
+- [ ] No se modifican Firebase, dependencias, funciones, credenciales, datos publicados ni despliegues.
+- [ ] Revisar el contrato antes de avanzar a E3, que requiere un gate de reglas/esquema.
+
 ## Foundation
 
 - [x] Revisar y aprobar el capability map.

@@ -68,8 +68,8 @@
 ### Checkpoint: Fase E — contratos locales
 
 - [x] E1 y E2 pasan pruebas enfocadas, typecheck y lint.
-- [ ] No se modifican Firebase, dependencias, funciones, credenciales, datos publicados ni despliegues.
-- [ ] Revisar el contrato antes de avanzar a E3, que requiere un gate de reglas/esquema.
+- [x] No se modifican Firebase, dependencias, funciones, credenciales, datos publicados ni despliegues.
+- [x] Revisar el contrato antes de avanzar a E3, que requiere un gate de reglas/esquema.
 
 ## Foundation
 

@@ -6,6 +6,7 @@ export type NotificationConsentStatus = 'unknown' | 'opted-in' | 'opted-out'
 
 export interface NotificationConsent {
   athleteId: string
+  createdAt: number | string
   receiptStatus: NotificationConsentStatus
   reminderStatus: NotificationConsentStatus
   consentedPhoneE164: string | null
@@ -190,6 +191,72 @@ export function normalizePhoneE164(value: string | null | undefined, countryCode
     return digits
 
   return null
+}
+
+export interface NotificationConsentMutationInput {
+  athleteId: string
+  phone: string | null | undefined
+  current: NotificationConsent | null | undefined
+  receiptOptIn: boolean
+  reminderOptIn: boolean
+  consentConfirmed: boolean
+  withdrawalConfirmed: boolean
+  recordedBy: string
+  now: number | string
+}
+
+export function buildNotificationConsentMutation(input: NotificationConsentMutationInput): NotificationConsent {
+  if (!input.athleteId.trim())
+    throw new Error('El atleta es obligatorio.')
+
+  if (!input.recordedBy.trim())
+    throw new Error('El operador es obligatorio.')
+
+  const current = input.current
+  const phoneE164 = normalizePhoneE164(input.phone)
+  const hasOptIn = input.receiptOptIn || input.reminderOptIn
+
+  const isWithdrawing = (current?.receiptStatus === 'opted-in' && !input.receiptOptIn)
+    || (current?.reminderStatus === 'opted-in' && !input.reminderOptIn)
+
+  if (hasOptIn && !phoneE164)
+    throw new Error('Se requiere un teléfono válido para activar el consentimiento.')
+
+  if (hasOptIn && !input.consentConfirmed)
+    throw new Error('Se requiere confirmación explícita del consentimiento.')
+
+  if (isWithdrawing && !input.withdrawalConfirmed)
+    throw new Error('Confirma el retiro del consentimiento antes de guardar.')
+
+  const receiptStatus: NotificationConsentStatus = input.receiptOptIn
+    ? 'opted-in'
+    : current?.receiptStatus === 'opted-in' ? 'opted-out' : current?.receiptStatus ?? 'unknown'
+
+  const reminderStatus: NotificationConsentStatus = input.reminderOptIn
+    ? 'opted-in'
+    : current?.reminderStatus === 'opted-in' ? 'opted-out' : current?.reminderStatus ?? 'unknown'
+
+  const hasOptedOut = receiptStatus === 'opted-out' || reminderStatus === 'opted-out'
+  const consentedPhoneE164 = hasOptIn ? phoneE164 : current?.consentedPhoneE164 ?? null
+
+  const consentedAt = hasOptIn
+    ? current?.consentedPhoneE164 === phoneE164 && current.consentedAt != null ? current.consentedAt : input.now
+    : current?.consentedAt ?? null
+
+  return {
+    athleteId: input.athleteId,
+    createdAt: current?.createdAt ?? input.now,
+    receiptStatus,
+    reminderStatus,
+    consentedPhoneE164,
+    consentedAt,
+    consentSource: hasOptIn ? 'staff' : current?.consentSource ?? null,
+    recordedBy: hasOptIn ? current?.recordedBy ?? input.recordedBy : current?.recordedBy ?? null,
+    optedOutAt: hasOptedOut ? current?.optedOutAt ?? input.now : current?.optedOutAt ?? null,
+    optOutSource: hasOptedOut ? current?.optOutSource ?? 'staff' : current?.optOutSource ?? null,
+    updatedAt: input.now,
+    updatedBy: input.recordedBy,
+  }
 }
 
 export function resolveWhatsAppEligibility(input: {

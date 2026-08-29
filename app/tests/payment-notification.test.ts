@@ -5,6 +5,7 @@ import {
   buildPaymentNotificationKey,
   buildPaymentReceiptDocument,
   buildPaymentReminderDocument,
+  buildNotificationConsentMutation,
   buildReminderNotificationKey,
   calculateDebtSnapshot,
   getScheduledReminderKinds,
@@ -61,6 +62,7 @@ const storeSale = (id: string, status: Sale['status'], total: number, amountAppl
 
 const optedInConsent: NotificationConsent = {
   athleteId: athlete.id,
+  createdAt: 1,
   receiptStatus: 'opted-in',
   reminderStatus: 'opted-in',
   consentedPhoneE164: '525512345678',
@@ -269,4 +271,79 @@ test('construye un aviso de pago consolidado y lo distingue de un comprobante', 
     monthlyDebt: 0,
     storeDebt: 0,
   }), null)
+})
+
+test('construye un opt-in explícito ligado al teléfono y audita al operador', () => {
+  assert.deepEqual(buildNotificationConsentMutation({
+    athleteId: athlete.id,
+    phone: athlete.profile.phone,
+    current: null,
+    receiptOptIn: true,
+    reminderOptIn: false,
+    consentConfirmed: true,
+    withdrawalConfirmed: false,
+    recordedBy: 'admin-1',
+    now: 10,
+  }), {
+    athleteId: athlete.id,
+    createdAt: 10,
+    receiptStatus: 'opted-in',
+    reminderStatus: 'unknown',
+    consentedPhoneE164: '525512345678',
+    consentedAt: 10,
+    consentSource: 'staff',
+    recordedBy: 'admin-1',
+    optedOutAt: null,
+    optOutSource: null,
+    updatedAt: 10,
+    updatedBy: 'admin-1',
+  })
+})
+
+test('un opt-out visible conserva el teléfono y registra la baja sin borrar el consentimiento', () => {
+  assert.deepEqual(buildNotificationConsentMutation({
+    athleteId: athlete.id,
+    phone: athlete.profile.phone,
+    current: optedInConsent,
+    receiptOptIn: false,
+    reminderOptIn: false,
+    consentConfirmed: false,
+    withdrawalConfirmed: true,
+    recordedBy: 'reception-1',
+    now: 20,
+  }), {
+    ...optedInConsent,
+    receiptStatus: 'opted-out',
+    reminderStatus: 'opted-out',
+    optedOutAt: 20,
+    optOutSource: 'staff',
+    updatedAt: 20,
+    updatedBy: 'reception-1',
+  })
+})
+
+test('el consentimiento rechaza opt-in sin confirmación o sin teléfono válido', () => {
+  assert.throws(() => buildNotificationConsentMutation({
+    athleteId: athlete.id,
+    phone: athlete.profile.phone,
+    current: null,
+    receiptOptIn: true,
+    reminderOptIn: false,
+    consentConfirmed: false,
+    withdrawalConfirmed: false,
+    recordedBy: 'admin-1',
+    now: 10,
+  }), /confirmación explícita/)
+
+  assert.throws(() => buildNotificationConsentMutation({
+    athleteId: athlete.id,
+    phone: '551234567',
+    current: null,
+    receiptOptIn: true,
+    reminderOptIn: false,
+    consentConfirmed: true,
+    withdrawalConfirmed: false,
+    recordedBy: 'admin-1',
+    now: 10,
+  }), /teléfono válido/)
 })

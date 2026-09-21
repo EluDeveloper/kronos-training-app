@@ -2,6 +2,7 @@
 import EmptyState from '@/components/kronos/EmptyState.vue'
 import MembershipPaymentDialog from '@/components/kronos/MembershipPaymentDialog.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
+import PaymentNotificationStatusDialog from '@/components/kronos/PaymentNotificationStatusDialog.vue'
 import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
@@ -21,6 +22,10 @@ const plans = usePlansStore()
 const visitors = useVisitorsStore()
 const session = useSessionStore()
 const canManage = computed(() => session.can('paymentsManage'))
+const canReadNotifications = computed(() => session.isReady && session.canAccess('payments'))
+const notificationDialog = ref(false)
+const notificationAthleteId = ref('')
+const notificationAthlete = computed(() => athletes.items.find(item => item.id === notificationAthleteId.value))
 const { failure } = useNotifications()
 const route = useRoute()
 const router = useRouter()
@@ -88,6 +93,18 @@ function openForm(athleteId = '', paymentPeriod = currentPeriod()) {
 function openEmptyForm() {
   openForm()
 }
+
+function openNotifications(payment: Payment) {
+  if (!canReadNotifications.value || payment.visitorId || !paymentAthlete(payment))
+    return
+  notificationAthleteId.value = payment.athleteId
+  notificationDialog.value = true
+}
+
+watch(notificationDialog, open => {
+  if (!open)
+    notificationAthleteId.value = ''
+})
 
 function openCollectionFromRoute() {
   const athleteId = typeof route.query.athleteId === 'string' ? route.query.athleteId : ''
@@ -223,6 +240,14 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
               </td>
               <td class="text-right">
                 <VBtn
+                  v-if="canReadNotifications && !payment.visitorId && paymentAthlete(payment)"
+                  icon="ri-notification-3-line"
+                  variant="text"
+                  title="Notificaciones del atleta"
+                  :aria-label="`Notificaciones de ${payerName(payment)}`"
+                  @click="openNotifications(payment)"
+                />
+                <VBtn
                   v-if="canManage && !payment.visitorId && balanceFor(payment) > 0"
                   icon="ri-add-circle-line"
                   variant="text"
@@ -262,5 +287,12 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
   <ReceiptDialog
     v-model="receiptDialog"
     :receipt="activeReceipt"
+  />
+  <PaymentNotificationStatusDialog
+    v-model="notificationDialog"
+    :athlete-id="notificationAthleteId"
+    :athlete-name="notificationAthlete?.profile.name ?? 'Atleta'"
+    :can-read="canReadNotifications && Boolean(notificationAthlete)"
+    :identity-key="session.uid ?? ''"
   />
 </template>

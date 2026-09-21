@@ -74,9 +74,10 @@
         }
       },
       "notificationPreferences": {
+        ".indexOn": ["consentedPhoneE164"],
         "$athleteId": {
           ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || (root.child('v1/users').child(auth.uid).child('permissions/athletes').val() === true && root.child('v1/users').child(auth.uid).child('permissions/athletesManage').val() === true))",
-          ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && newData.exists() && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || (root.child('v1/users').child(auth.uid).child('permissions/athletes').val() === true && root.child('v1/users').child(auth.uid).child('permissions/athletesManage').val() === true))",
+          ".write": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && newData.exists() && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || (root.child('v1/users').child(auth.uid).child('permissions/athletes').val() === true && root.child('v1/users').child(auth.uid).child('permissions/athletesManage').val() === true)) && (data.child('optOutSource').val() !== 'webhook' || (newData.child('optOutSource').val() === 'webhook' && newData.child('optedOutAt').val() === data.child('optedOutAt').val() && ((newData.child('receiptStatus').val() !== 'opted-in' && newData.child('reminderStatus').val() !== 'opted-in') || (newData.child('consentedAt').isNumber() && data.child('optedOutAt').isNumber() && newData.child('consentedAt').val() > data.child('optedOutAt').val() && newData.child('consentedAt').val() <= now)))) && (data.child('optOutSource').val() !== 'webhook' || ((newData.child('receiptStatus').val() !== 'opted-in' || data.child('receiptStatus').val() === 'opted-in') && (newData.child('reminderStatus').val() !== 'opted-in' || data.child('reminderStatus').val() === 'opted-in')) || !data.child('consentedAt').isNumber() || newData.child('consentedAt').val() > data.child('consentedAt').val())",
           ".validate": "newData.hasChildren(['athleteId','receiptStatus','reminderStatus','createdAt','updatedAt','updatedBy']) && newData.child('athleteId').val() === $athleteId && root.child('v1/athletes').child($athleteId).exists() && (newData.child('receiptStatus').val() === 'unknown' || newData.child('receiptStatus').val() === 'opted-in' || newData.child('receiptStatus').val() === 'opted-out') && (newData.child('reminderStatus').val() === 'unknown' || newData.child('reminderStatus').val() === 'opted-in' || newData.child('reminderStatus').val() === 'opted-out') && (!newData.child('consentedPhoneE164').exists() || (newData.child('consentedPhoneE164').isString() && newData.child('consentedPhoneE164').val().matches(/^52[0-9]{10}$/))) && (!newData.child('consentedAt').exists() || newData.child('consentedAt').isNumber() || newData.child('consentedAt').isString()) && (!newData.child('consentSource').exists() || newData.child('consentSource').val() === 'athlete' || newData.child('consentSource').val() === 'guardian' || newData.child('consentSource').val() === 'staff' || newData.child('consentSource').val() === 'webhook') && (!newData.child('recordedBy').exists() || newData.child('recordedBy').isString()) && (!newData.child('optedOutAt').exists() || newData.child('optedOutAt').isNumber() || newData.child('optedOutAt').isString()) && (!newData.child('optOutSource').exists() || newData.child('optOutSource').val() === 'athlete' || newData.child('optOutSource').val() === 'guardian' || newData.child('optOutSource').val() === 'staff' || newData.child('optOutSource').val() === 'webhook') && (newData.child('receiptStatus').val() !== 'opted-in' && newData.child('reminderStatus').val() !== 'opted-in' || (newData.child('consentedPhoneE164').exists() && newData.child('consentedAt').exists() && newData.child('consentSource').exists() && newData.child('recordedBy').exists())) && (newData.child('receiptStatus').val() !== 'opted-out' && newData.child('reminderStatus').val() !== 'opted-out' || (newData.child('optedOutAt').exists() && newData.child('optOutSource').exists())) && (newData.child('createdAt').isNumber() || newData.child('createdAt').isString()) && (newData.child('updatedAt').isNumber() || newData.child('updatedAt').isString()) && newData.child('updatedBy').isString() && newData.child('updatedBy').val() === auth.uid"
           ,"athleteId": {},
           "receiptStatus": {},
@@ -92,6 +93,36 @@
           "updatedBy": {},
           "$other": { ".validate": false }
         }
+      },
+      "notificationStatus": {
+        ".read": false,
+        ".write": false,
+        "$athleteId": {
+          ".read": "auth != null && auth.token.firebase.sign_in_provider !== 'anonymous' && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/payments').val() === true) && query.orderByChild === 'updatedAt' && query.limitToLast === 20 && query.limitToFirst === null && query.startAt === null && query.endAt === null && query.equalTo === null",
+          ".indexOn": ["updatedAt"]
+        }
+      },
+      "notificationJobs": {
+        ".read": false,
+        ".write": false,
+        ".indexOn": ["providerMessageId", "recoveryAt"]
+      },
+      "notificationStatusInbox": {
+        ".read": false,
+        ".write": false,
+        "$scope": {
+          ".indexOn": ["messageKey", "expiresAt"]
+        }
+      },
+      "notificationWebhookEvents": {
+        ".read": false,
+        ".write": false,
+        ".indexOn": ["expiresAt"]
+      },
+      "notificationOptOutEvents": {
+        ".read": false,
+        ".write": false,
+        ".indexOn": ["expiresAt"]
       },
       "visitors": {
         ".read": "auth != null && root.child('v1/users').child(auth.uid).child('enabled').val() === true && (root.child('v1/users').child(auth.uid).child('role').val() === 'admin' || root.child('v1/users').child(auth.uid).child('permissions/dashboard').val() === true || root.child('v1/users').child(auth.uid).child('permissions/visits').val() === true || root.child('v1/users').child(auth.uid).child('permissions/store').val() === true)",

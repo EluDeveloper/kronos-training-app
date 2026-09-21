@@ -67,6 +67,45 @@
   - Verificación: comandos de app/functions, Chrome en https://kronos-training-fd5e5.web.app/ y evidencia sin datos reales.
   - Dependencias: E7 y autorizaciones de QA/despliegue.
   - Archivos probables: app/e2e/responsive/payment-notifications-responsive.spec.ts, Docs/implementation-reports/YYYY-MM-DD-payment-notifications-whatsapp.md.
+- [x] E8-PROD-1 — Consolidar el contrato operativo de recordatorios automáticos.
+  - Aceptación: spec matriz, runtime y pruebas coinciden en 09:00 America/Mexico_City; mensualidad -3/0/+3 días; tienda miércoles/viernes; un recordatorio diario combinado por atleta.
+  - Verificación: bordes 28/29/30/31, elegibilidad fail-closed, idempotencia, suite de Functions, typecheck, build, lint focalizado y whitespace.
+  - Dependencias: E8-MANT local completada y autorización de SPEC-whatsapp-production-configuration.md recibida el 2026-09-10.
+  - Archivos: app/functions/SPEC-whatsapp-production-configuration.md, app/functions/src/notifications/reminders.ts, app/functions/tests/reminders.test.ts, specs/SPEC-payment-notifications-whatsapp.md, tasks/plan.md, tasks/todo.md.
+  - Límites: sin Meta, secretos, infraestructura remota, datos reales, mensajes, cambios de reglas/esquema ni despliegue.
+- [x] E8-PROD-2 — Implementar el transporte Meta local, aislado y deshabilitado.
+  - Aceptación: host Graph fijo; versión, IDs y entradas validadas; upload PDF multipart y envío de plantilla exactos; respuestas acotadas; errores sanitizados; incertidumbre fail-closed.
+  - Verificación: RED/GREEN con `fetch` fake, regresión del proveedor, suite de Functions, typecheck, build, lint focalizado, whitespace y revisión de cinco ejes.
+  - Dependencias: E8-PROD-1 completada y autorización de `app/functions/SPEC-whatsapp-meta-transport.md` recibida el 2026-09-10.
+  - Archivos probables: app/functions/SPEC-whatsapp-meta-transport.md, app/functions/src/whatsapp/meta-graph-api-transport.ts, app/functions/tests/meta-graph-api-transport.test.ts, app/functions/src/index.ts, tasks/plan.md, tasks/todo.md.
+  - Límites: sin red real, secretos, recursos Meta, conexión al worker, mensajes, datos productivos, cambios de reglas/esquema, CI/hosting ni despliegue.
+- [x] E8-PROD-3 — Integrar el runtime productivo seguro, apagado por defecto.
+  - Aceptación: modos cerrados y fail-closed; fake sólo en demo+loopback; Meta sólo con entorno/configuración explícitos; secreto leído dentro del handler; un solo trigger de jobs.
+  - Verificación: RED/GREEN del resolver/factory, integración del worker con fetch fake, suite de Functions, typecheck, build, lint, whitespace e inspección de exports.
+  - Dependencias: E8-PROD-2 completada y autorización de `app/functions/SPEC-whatsapp-production-runtime.md` recibida el 2026-09-11.
+  - Archivos: app/functions/SPEC-whatsapp-production-runtime.md, app/functions/src/whatsapp/provider-runtime.ts, app/functions/src/whatsapp/meta-graph-api-transport.ts, app/functions/src/notifications/local-worker.ts, app/functions/tests/provider-runtime.test.ts, app/functions/tests/notification-runtime-worker.test.ts, app/functions/tests/local-worker.test.ts, tasks/plan.md, tasks/todo.md, Docs/implementation-reports/2026-09-11-whatsapp-production-runtime.md.
+  - Límites: sin crear/asignar secretos, red real, recursos Meta, mensajes, datos productivos, cambios de reglas/esquema, CI/hosting ni despliegue.
+- [x] E8-PROD-4 — Integrar el webhook productivo seguro y opt-out.
+  - Estado: implementada y verificada localmente el 2026-09-21.
+  - Aceptación: dos secretos con lectura por rama; raw body autenticado y acotado; match exacto de WABA/número; estados monotónicos y BAJA deduplicada; un solo endpoint.
+  - Verificación: RED/GREEN de frontera y stores, integraciones RTDB Emulator, suite de Functions, typecheck, build, lint, whitespace e inspección de metadata.
+  - Dependencias: E8-PROD-3 completada; requiere autorización de `app/functions/SPEC-whatsapp-production-webhook.md`.
+  - Archivos: app/functions/SPEC-whatsapp-production-webhook.md, app/functions/src/whatsapp/http.ts, app/functions/src/whatsapp/webhook-runtime.ts, app/functions/src/whatsapp/realtime-opt-out.ts, app/functions/src/whatsapp/realtime-status-inbox.ts, app/functions/src/whatsapp/local-status-inbox.ts, app/functions/tests/whatsapp-production-webhook.test.ts, app/functions/tests/opt-out-http.integration.ts, app/functions/tests/status-inbox-http.integration.ts, tasks/plan.md, tasks/todo.md, Docs/implementation-reports/2026-09-21-whatsapp-production-webhook.md.
+  - Límites: sin crear/asignar secretos, registrar webhook, red Meta, mensajes, datos publicados, cambios de reglas/esquema/dependencias, CI/hosting ni despliegue.
+- [x] E8-PROD-5 — Recuperar automáticamente jobs pendientes y reintentos vencidos.
+  - Estado: implementada y verificada localmente el 2026-09-21.
+  - Aceptación: `recoveryAt` indexado; scheduler cada cinco minutos apagado por defecto; lotes de 25 y grupos de tres; leases concurrentes; backoff 1/5/30/180, cuatro reintentos y ventana de 24 horas; `unknown` nunca se reenvía.
+  - Verificación: 9/9 pruebas focalizadas, 211/211 Functions, 40/40 Rules + RTDB, 1/1 recorrido automático Functions + RTDB, typecheck, build, lint, whitespace, metadata y revisión de cinco ejes.
+  - Dependencias: E8-PROD-4 completada y autorización de `app/functions/SPEC-whatsapp-production-recovery.md` recibida el 2026-09-21.
+  - Archivos: app/functions/SPEC-whatsapp-production-recovery.md, app/functions/src/notifications/jobs.ts, app/functions/src/notifications/realtime-job-store.ts, app/functions/src/notifications/production-recovery.ts, app/functions/src/index.ts, app/functions/tests/notification-recovery.test.ts, app/functions/tests/notification-recovery.integration.ts, app/database.rules.json, app/tests/database.rules.test.mjs, tasks/plan.md, tasks/todo.md, Docs/implementation-reports/2026-09-21-whatsapp-production-recovery.md.
+  - Límites: sin crear/habilitar recursos remotos, asignar secretos, migrar datos publicados, red Meta, mensajes, dependencias, CI/hosting ni despliegue.
+- [x] E8-PROD-6 — Añadir mantenimiento y telemetría operativa productiva.
+  - Estado: implementada y verificada localmente el 2026-09-21.
+  - Aceptación: fallback de estados y limpieza acotada; TTL de 30 días para nuevos marcadores webhook; scheduler apagado; telemetría allowlist sin PII ni secretos; fallos observables.
+  - Verificación: 7/7 pruebas focalizadas, 218/218 Functions, 44/44 Rules + RTDB, typecheck, build, lint, whitespace, metadata y revisión de cinco ejes.
+  - Dependencias: E8-PROD-5 completada y autorización de `app/functions/SPEC-whatsapp-production-operations.md` recibida el 2026-09-21.
+  - Archivos: app/functions/SPEC-whatsapp-production-operations.md, app/functions/src/operations/telemetry.ts, app/functions/src/whatsapp/production-maintenance.ts, app/functions/src/whatsapp/realtime-webhook-events.ts, app/functions/src/whatsapp/http.ts, app/functions/src/notifications/production-recovery.ts, app/functions/src/index.ts, app/functions/tests/whatsapp-production-operations.test.ts, app/functions/tests/whatsapp-production-operations.integration.ts, app/functions/tests/whatsapp-webhook.integration.ts, app/database.rules.json, app/tests/database.rules.test.mjs, tasks/plan.md, tasks/todo.md, Docs/implementation-reports/2026-09-21-whatsapp-production-operations.md.
+  - Límites: sin recursos o datos productivos, backfill, borrado real, secretos, Meta, mensajes, alertas Cloud, dependencias, CI/hosting ni despliegue.
 
 ### Checkpoint: Fase E — contratos locales
 

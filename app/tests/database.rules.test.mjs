@@ -110,6 +110,64 @@ beforeEach(async () => {
 
 after(async () => env?.cleanup())
 
+test('notification status allows only the latest 20 for enabled admin or payments', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('v1/users/payments-reader').set(appUser('payments-reader', 'coach', { payments: true }))
+    await context.database().ref('v1/notificationStatus/athlete-1').set(Object.fromEntries(
+      Array.from({ length: 25 }, (_, i) => [`job-${String(i).padStart(32, '0')}`, { type: 'payment-receipt', status: 'accepted', updatedAt: i }]),
+    ))
+  })
+  for (const uid of ['admin', 'cashier', 'payments-reader']) {
+    const snapshot = await assertSucceeds(env.authenticatedContext(uid).database().ref('v1/notificationStatus/athlete-1').orderByChild('updatedAt').limitToLast(20).once('value'))
+
+    assert.equal(snapshot.numChildren(), 20)
+    assert.equal(snapshot.child(`job-${'0'.repeat(32)}`).exists(), false)
+  }
+})
+
+test('notification status denies other modules, consent-only, disabled and anonymous', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('v1/users/disabled-admin').set(appUser('disabled-admin', 'admin', { payments: true }, false))
+  })
+  for (const uid of ['coach', 'athletes-only', 'collector', 'disabled', 'disabled-admin'])
+    await assertFails(env.authenticatedContext(uid).database().ref('v1/notificationStatus/athlete-1').orderByChild('updatedAt').limitToLast(20).once('value'))
+  await assertFails(env.unauthenticatedContext().database().ref('v1/notificationStatus/athlete-1').orderByChild('updatedAt').limitToLast(20).once('value'))
+  await assertFails(env.authenticatedContext('anonymous', { firebase: { sign_in_provider: 'anonymous' } }).database().ref('v1/notificationStatus/athlete-1').orderByChild('updatedAt').limitToLast(20).once('value'))
+})
+
+test('notification status denies wide, unordered, unbounded and direct child reads', async () => {
+  const root = env.authenticatedContext('admin').database().ref('v1/notificationStatus')
+  const athleteStatuses = root.child('athlete-1')
+
+  await assertFails(root.orderByChild('updatedAt').limitToLast(20).once('value'))
+  await assertFails(athleteStatuses.once('value'))
+  await assertFails(athleteStatuses.limitToLast(20).once('value'))
+  await assertFails(athleteStatuses.orderByChild('updatedAt').limitToLast(21).once('value'))
+  await assertFails(athleteStatuses.orderByChild('updatedAt').limitToFirst(20).once('value'))
+  await assertFails(athleteStatuses.orderByChild('updatedAt').endAt(10).limitToLast(20).once('value'))
+  await assertFails(athleteStatuses.orderByChild('updatedAt').startAt(10).limitToLast(20).once('value'))
+  await assertFails(athleteStatuses.orderByChild('updatedAt').equalTo(10).limitToLast(20).once('value'))
+  await assertFails(athleteStatuses.child('job-one').once('value'))
+})
+
+test('notification status cannot be forged or deleted even by an admin client', async () => {
+  for (const uid of ['admin', 'cashier']) {
+    const target = env.authenticatedContext(uid).database().ref('v1/notificationStatus/athlete-1/job-one')
+
+    await assertFails(target.set({ type: 'payment-receipt', status: 'read', updatedAt: now() }))
+    await assertFails(target.update({ status: 'read' }))
+    await assertFails(target.remove())
+  }
+})
+
+test('notification status access ends when payments permission is revoked', async () => {
+  const query = env.authenticatedContext('cashier').database().ref('v1/notificationStatus/athlete-1').orderByChild('updatedAt').limitToLast(20)
+
+  await assertSucceeds(query.once('value'))
+  await env.withSecurityRulesDisabled(context => context.database().ref('v1/users/cashier/permissions/payments').set(false))
+  await assertFails(query.once('value'))
+})
+
 const cashClosure = {
   id: '2026-08-06',
   date: '2026-08-06',
@@ -217,6 +275,41 @@ test('el consentimiento de WhatsApp queda separado y sólo lo administra persona
   await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ athleteId: 'athlete-2' })))
   await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set({ ...notificationConsent(), unexpected: true }))
   await assertFails(athletesManagerDb.ref('v1/notificationPreferences/athlete-1').set(notificationConsent({ updatedBy: 'admin' })))
+})
+
+test('los jobs de notificación sólo son accesibles desde Functions/Admin SDK', async () => {
+  const unauthenticatedDb = env.unauthenticatedContext().database()
+  const adminDb = env.authenticatedContext('admin').database()
+
+  await assertFails(unauthenticatedDb.ref('v1/notificationJobs/job-test').once('value'))
+  await assertFails(adminDb.ref('v1/notificationJobs/job-test').once('value'))
+  await assertFails(adminDb.ref('v1/notificationJobs/job-test').set({ status: 'queued' }))
+  await assertFails(adminDb.ref('v1/notificationJobs/job-test').remove())
+})
+
+test('los jobs conservan índices privados para correlación y recuperación', async () => {
+  const rules = JSON.parse(await readFile(new URL('../database.rules.json', import.meta.url), 'utf8'))
+
+  assert.deepEqual(rules.rules.v1.notificationJobs['.indexOn'], [
+    'providerMessageId',
+    'recoveryAt',
+  ])
+  assert.equal(rules.rules.v1.notificationJobs['.read'], false)
+  assert.equal(rules.rules.v1.notificationJobs['.write'], false)
+})
+
+test('los marcadores webhook conservan privacidad e índice de expiración', async () => {
+  const rules = JSON.parse(await readFile(new URL('../database.rules.json', import.meta.url), 'utf8'))
+  const webhookEvents = rules.rules.v1.notificationWebhookEvents
+
+  assert.deepEqual(webhookEvents['.indexOn'], ['expiresAt'])
+  assert.equal(webhookEvents['.read'], false)
+  assert.equal(webhookEvents['.write'], false)
+
+  const client = env.authenticatedContext('admin').database().ref('v1/notificationWebhookEvents')
+
+  await assertFails(client.orderByChild('expiresAt').endAt(now()).limitToFirst(50).once('value'))
+  await assertFails(client.child('a'.repeat(64)).set({ receivedAt: now(), expiresAt: now() }))
 })
 
 test('las reglas rechazan respuestas de admisión inconsistentes', async () => {

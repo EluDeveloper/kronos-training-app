@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>E8-UI · QA local del componente</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      if (!import.meta.env.DEV || import.meta.env.MODE !== 'emulator' || !['127.0.0.1', 'localhost'].includes(location.hostname)) {
+        document.getElementById('app').textContent = 'Fixture deshabilitado: requiere Vite emulator en loopback.'
+      } else {
+        const { mountFixture } = await import('./payment-notifications')
+        mountFixture()
+      }
+    </script>
+  </body>
+</html>

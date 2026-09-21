@@ -96,6 +96,130 @@ Para validar flujos protegidos sin desplegar:
 - E7 — integrar plantillas y el proveedor Meta sólo con recursos, secretos y destinatario QA expresamente autorizados.
 - E8 — ejecutar regresión, QA Chrome completo en https://kronos-training-fd5e5.web.app/ con gate manual, Playwright complementario y reporte de impacto; despliegue sólo con autorización separada.
 
+#### Continuación autorizada: E8-PROD-1 — contrato operativo
+
+El 2026-09-10 se autorizó consolidar la cadencia ya implementada localmente antes
+de conectar Meta o desplegar: 09:00 America/Mexico_City; mensualidad tres días
+antes, el día de vencimiento y tres días después; tienda miércoles y viernes;
+máximo de un recordatorio por atleta y fecha, combinando deudas coincidentes.
+
+Orden de implementación: (1) registrar spec/tarea, (2) completar pruebas del
+contrato, (3) corregir sólo divergencias demostradas, (4) ejecutar gates y reporte.
+La dependencia es estrictamente secuencial. No se habilitan proveedor real,
+mensajes, recursos remotos, datos productivos ni despliegue.
+
+#### Continuación autorizada: E8-PROD-2 — transporte Meta local
+
+El 2026-09-10 se autorizó implementar el transporte HTTP concreto contra un `fetch`
+inyectado. La rebanada construye y valida las solicitudes de upload PDF y plantilla,
+limita respuestas y traduce resultados a códigos internos sin conectar la clase al
+worker ni ejecutar red real.
+
+Orden de implementación: (1) request y validación con RED/GREEN, (2) respuesta,
+errores e incertidumbre con RED/GREEN, (3) export compatible con la interfaz existente,
+(4) regresión, revisión y reporte. No se autorizan secretos, recursos Meta, mensajes,
+datos productivos, cambios de infraestructura, conexión al worker ni despliegue.
+
+**Resultado 2026-09-10:** transporte implementado y exportado sin activar una
+Function. Upload y plantilla, validación de PDF/hash, host fijo, redirects bloqueados,
+timeout integral, respuestas de 64 KiB y errores cerrados quedan cubiertos por pruebas
+fake. Pasan 169/169 pruebas de Functions, typecheck, build, lint y whitespace.
+
+#### Continuación autorizada: E8-PROD-3 — runtime seguro
+
+El 2026-09-11 se autorizó implementar localmente el selector `disabled`/`local-fake`/
+`meta`, declarar el token con `defineSecret` y reutilizar un solo
+`onNotificationJobCreated`. El modo predeterminado permanece apagado; no se crean ni
+asignan secretos, no se usa red real y no se despliega.
+
+Orden de implementación: (1) resolver puro RED/GREEN, (2) factory e integración con
+worker/fetch fake, (3) parámetros y secreto dentro del único handler, (4) regresión,
+revisión y reporte.
+
+**Resultado 2026-09-11:** runtime implementado y apagado por defecto. El resolver
+limita el fake a demo+loopback y Meta a un proyecto desplegado, sin emulator y con
+configuración válida. El único trigger enlaza `WHATSAPP_ACCESS_TOKEN`, lo lee de forma
+diferida dentro del handler y evita crear adaptadores o usar red cuando el runtime no
+es válido. Pasan 37 pruebas focalizadas, 184/184 pruebas de Functions, typecheck,
+build, lint focalizado, whitespace, inspección de exports y revisión de cinco ejes.
+
+#### Continuación autorizada: E8-PROD-4 — webhook productivo seguro y opt-out
+
+El 2026-09-11 se autorizó enlazar verify token y app secret con Secret Manager,
+autenticar el raw body, validar WABA/número, generalizar los stores locales para un
+scope productivo y conectar estados de entrega y BAJA. La implementación y las pruebas
+permanecen locales; no se crean/asignan secretos, no se registra el webhook, no se usa
+red Meta ni datos publicados y no se despliega.
+
+Orden de implementación: (1) resolver puro RED/GREEN, (2) frontera HTTP inyectable,
+(3) scope de status inbox, (4) opt-out productivo y lote mixto, (5) metadata,
+regresión, revisión y reporte.
+
+El 2026-09-21 se autorizó continuar la implementación y habilitar en modo Meta el
+consumidor existente de estados tempranos, sin crear otro trigger ni desplegarlo.
+
+**Resultado 2026-09-21:** webhook productivo implementado y apagado por defecto. GET
+y POST leen sólo su secreto, el HMAC cubre los bytes originales, WABA/número y lote se
+validan antes de escribir, y los stores mantienen deduplicación, monotonicidad y BAJA
+transaccional. El trigger existente recupera estados que llegaron antes de la
+correlación del job, sin secretos ni otro trigger. Pasan 202/202 pruebas de Functions,
+23/23 integraciones RTDB previamente verificadas, el recorrido Functions+RTDB del
+estado temprano, typecheck, build, lint focalizado, whitespace, metadata y revisión de
+cinco ejes. No se configuraron secretos o recursos remotos y no hubo deploy.
+
+#### Continuación autorizada: E8-PROD-5 — recuperación productiva de jobs
+
+Se propone añadir `recoveryAt` al contrato privado e indexarlo para que un único
+scheduler, cada cinco minutos y apagado por defecto, procese hasta 25 jobs `queued`,
+leases vencidos o `retryable-failed` cuyo backoff ya terminó. La política propuesta
+confirma 1/5/30/180 minutos, cuatro reintentos después del intento inicial y 24 horas;
+`unknown` permanece sin reenvío automático.
+
+La fase requiere autorización explícita porque cambia el esquema interno, el índice en
+`database.rules.json` y añade configuración de scheduler. Su implementación seguiría
+siendo local: no crea recursos remotos, no asigna secretos, no usa Meta ni despliega.
+
+El 2026-09-21 el usuario autorizó explícitamente esta spec y sus pruebas locales. No se
+autorizan recursos remotos, secretos reales, migraciones, mensajes ni despliegue.
+
+**Resultado 2026-09-21:** recuperación automática implementada y apagada por defecto.
+`recoveryAt` mantiene una única fecha canónica para jobs recuperables; una consulta
+RTDB indexada selecciona hasta 25 vencidos y el runner los procesa en grupos de tres
+mediante el worker y lease existentes. El scheduler conserva una sola instancia e
+invocación concurrente, enlaza sólo el access token y termina antes de secretos o base
+de datos si el modo o runtime no son válidos. Pasan 9/9 pruebas focalizadas, 211/211
+pruebas de Functions, 40/40 pruebas Rules + RTDB, 1/1 recorrido automático de
+Functions y RTDB, typecheck, build, lint, whitespace, metadata y revisión de cinco
+ejes. No se
+crearon recursos remotos, no hubo red Meta, migración ni deploy.
+
+#### Continuación autorizada: E8-PROD-6 — mantenimiento y telemetría operativa
+
+Se propone convertir el mantenimiento local existente en un único scheduler backend
+apagado por defecto: reconciliar hasta 25 estados tempranos y limpiar hasta 50 filas
+vencidas por almacén en cada ciclo. Los nuevos marcadores de deduplicación general del
+webhook tendrán `expiresAt` a 30 días e índice privado; los históricos sin TTL se
+preservan para inventario y una decisión posterior.
+
+Maintenance, recovery y webhook emitirán sólo códigos fijos, conteos y duración. La
+fase no crea alertas o dashboards, pero deja señales seguras para configurarlos antes
+del rollout. Requiere autorización explícita porque cambia el esquema/índice privado,
+añade un scheduler y modifica telemetría de backend. Todo el trabajo seguiría local,
+sin recursos remotos, datos publicados, Meta, mensajes ni despliegue.
+
+El 2026-09-21 el usuario autorizó explícitamente la implementación local de esta
+spec, incluido el campo/índice privado, el scheduler deshabilitado y la telemetría
+sanitizada. No se autorizaron recursos o datos productivos, backfill, borrado real,
+secretos, Meta, mensajes, alertas Cloud ni despliegue.
+
+**Resultado 2026-09-21:** mantenimiento y telemetría implementados localmente y
+apagados por defecto. El runner reconcilia hasta 25 estados, limpia hasta 50 vencidos
+por almacén y conserva los registros históricos sin TTL. Los nuevos marcadores del
+webhook vencen a 30 días; maintenance, recovery y webhook emiten sólo códigos y
+agregados allowlist. Pasan 7/7 pruebas focalizadas, 218/218 Functions, 44/44 Rules +
+RTDB, typecheck, build, lint, whitespace, metadata y revisión de cinco ejes. No se
+crearon recursos o alertas remotas, no hubo Meta, mensajes, borrado real ni deploy.
+
 ### Fase F: Alternativa push
 
 Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirmaciones si WhatsApp no resulta viable. Debe incluir permiso explícito, revocación, asociación segura del dispositivo y una política para navegadores sin soporte.

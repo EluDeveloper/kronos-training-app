@@ -33,7 +33,9 @@ El usuario operativo es el personal autorizado de Kronos que registra pagos, con
 4. Firebase Cloud Functions de segunda generación es la opción recomendada para el backend, porque puede observar Realtime Database, ejecutar horarios y mantener secretos fuera del navegador. Cloud Run u otro backend compatible sólo sustituirá esta opción mediante una decisión documentada.
 5. El PDF enviado será un recibo interno o un aviso de pago basado en el lenguaje visual de Kronos. No será una factura fiscal ni un CFDI mientras no existan los datos fiscales, proveedor y requisitos correspondientes.
 6. El consentimiento será específico para notificaciones de pagos por WhatsApp. Enviar manualmente un mensaje desde WhatsApp Web, registrar un pago o tener un teléfono capturado no equivale a consentimiento.
-7. Los defaults de cadencia, retención y plantilla que aparecen como propuesta deben ser confirmados antes de implementar.
+7. La cadencia quedó confirmada en E8-PROD-1. Retención, plantilla y parámetros
+   operativos de reintentos deben confirmarse en sus respectivas fases antes de
+   habilitar producción.
 
 ## Alcance
 
@@ -161,7 +163,9 @@ Un pago parcial genera comprobante del importe aplicado y del balance posterior.
 
 ### Ejecución
 
-La Function programada se ejecutará diariamente a las 09:00 de America/Mexico_City, con el horario exacto sujeto a confirmación de producto y a la disponibilidad del scheduler de Firebase.
+La primera liberación ejecutará la Function diariamente a las 09:00 de
+America/Mexico_City. La creación y habilitación del scheduler administrado conserva
+su autorización de infraestructura independiente.
 
 La ejecución debe:
 
@@ -169,22 +173,23 @@ La ejecución debe:
 - calcular la fecha de vencimiento mensual respetando paymentDay y ajustando el día 31 al último día del mes;
 - seleccionar sólo adeudos positivos;
 - agrupar mensualidad y tienda del mismo atleta en un único recordatorio;
-- usar una clave de periodo y tipo de recordatorio para que una ejecución repetida no duplique mensajes;
+- usar una clave diaria por atleta para que una ejecución repetida no duplique
+  mensajes, conservando periodo y tipo en la referencia auditable;
 - respetar opt-out, teléfono cambiado, atleta inactivo y template no disponible;
 - procesar en lotes acotados y dejar cursor o estado para continuar sin perder trazabilidad.
 
-### Cadencia propuesta para revisión
-
-La propuesta inicial es:
+### Cadencia autorizada para la primera liberación
 
 - recordatorio previo: tres días calendario antes del vencimiento si la mensualidad del periodo sigue pendiente;
 - recordatorio del día: el día de vencimiento si existe balance;
-- recordatorio vencido: siete días después si persiste el balance;
-- adeudo de tienda: un recordatorio semanal mientras exista balance, combinado con el adeudo mensual cuando ambos coincidan;
+- recordatorio vencido: tres días después si persiste el balance;
+- adeudo de tienda: miércoles y viernes mientras exista balance, combinado con el
+  adeudo mensual cuando ambos coincidan;
 - máximo un mensaje de cobranza por atleta y día local;
 - no enviar recordatorios de mensualidad ya liquidada ni de ventas canceladas.
 
-Estas reglas son una propuesta de negocio, no una decisión definitiva. La implementación no debe codificarlas hasta que el usuario confirme cadencia, días, horario, zona horaria y máximo de contactos.
+La continuación E8-PROD-1 fue autorizada el 2026-09-10. Cualquier cambio de estos
+valores requiere volver a propuesta.
 
 La clave propuesta para cada recordatorio es:
 
@@ -772,8 +777,8 @@ La validación en Chrome no se considera completa si sólo se abre el diálogo d
 1. ¿Se aprueba Firebase Cloud Functions de segunda generación como backend o se requiere Cloud Run/otro servicio?
 2. ¿La primera versión debe enviar sólo recibos de atletas o también incluir visitantes con consentimiento separado?
 3. ¿El PDF requerido es un comprobante interno Kronos o una factura fiscal/CFDI? Si es CFDI, se necesita una spec independiente.
-4. ¿Se aprueba la cadencia propuesta de tres días antes, día de vencimiento, siete días después y tienda semanal?
-5. ¿Cuál es la hora, zona horaria, máximo de mensajes por atleta y ventana de silencio?
+4. Resuelta en E8-PROD-1: tres días antes, día de vencimiento y tres días después; tienda miércoles y viernes.
+5. Resuelta parcialmente en E8-PROD-1: 09:00 America/Mexico_City y máximo de un recordatorio por atleta/fecha. La ventana de reintentos productivos se decidirá en su fase operativa.
 6. ¿El consentimiento puede registrarlo Recepción con athletesManage o debe quedar restringido a Admin?
 7. ¿Se requieren propósitos independientes de recibos y recordatorios, o un solo opt-in de pagos?
 8. ¿Qué política de consentimiento aplica cuando el atleta es menor o la autorización la da un tutor?

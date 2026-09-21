@@ -31,6 +31,7 @@ declare module 'vue' {
     MoreBtn: typeof import('./src/@core/components/MoreBtn.vue')['default']
     PageHeader: typeof import('./src/components/kronos/PageHeader.vue')['default']
     PasswordChangeRequired: typeof import('./src/components/kronos/PasswordChangeRequired.vue')['default']
+    PaymentNotificationStatusDialog: typeof import('./src/components/kronos/PaymentNotificationStatusDialog.vue')['default']
     ProductBarcodeLabelDialog: typeof import('./src/components/kronos/ProductBarcodeLabelDialog.vue')['default']
     ReceiptDialog: typeof import('./src/components/kronos/ReceiptDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

@@ -1,4 +1,5 @@
 import { onValueWritten } from 'firebase-functions/v2/database'
+import { notificationFunctionRuntime } from '../runtime-options.js'
 import { isLocalNotificationWorkerEnabled } from './local-worker.js'
 import { getNotificationDatabase } from './realtime-job-store.js'
 import { mergeNotificationStatus, syncNotificationStatus } from './status-projection.js'
@@ -19,5 +20,9 @@ export async function syncLocalNotificationStatus(jobId: string) {
 
 // Read the current job, never the event snapshot. Projection failure retries this
 // consumer only; it cannot call the worker or mutate any financial record.
-export const onNotificationJobStatusWritten = onValueWritten({ ref: 'v1/notificationJobs/{jobId}', retry: true },
-  async event => syncLocalNotificationStatus(event.params.jobId))
+export const onNotificationJobStatusWritten = onValueWritten({
+  ...notificationFunctionRuntime,
+  ref: 'v1/notificationJobs/{jobId}',
+  retry: true,
+},
+async event => syncLocalNotificationStatus(event.params.jobId))

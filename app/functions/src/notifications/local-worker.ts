@@ -6,15 +6,22 @@ import {
   resolveNotificationProviderRuntime,
 } from '../whatsapp/provider-runtime.js'
 import type { MetaGraphApiFetch } from '../whatsapp/meta-graph-api-transport.js'
+import { notificationFunctionRuntime } from '../runtime-options.js'
 import { getNotificationDatabase, RealtimeDatabaseNotificationJobStore } from './realtime-job-store.js'
 import { RealtimeNotificationDataSource } from './realtime-notification-data.js'
 import { processNotificationJob } from './worker.js'
 import type { NotificationDataSource } from './worker.js'
 import type { NotificationJobStore } from './jobs.js'
+import {
+  isNotificationAthleteAllowed,
+  resolveNotificationRollout,
+} from './rollout.js'
 
 const workerMode = defineString('KRONOS_NOTIFICATION_WORKER_MODE', { default: 'disabled' })
 const graphApiVersion = defineString('KRONOS_WHATSAPP_GRAPH_API_VERSION', { default: '' })
 const phoneNumberId = defineString('KRONOS_WHATSAPP_PHONE_NUMBER_ID', { default: '' })
+const rolloutMode = defineString('KRONOS_NOTIFICATION_ROLLOUT_MODE', { default: 'disabled' })
+const qaAthleteId = defineString('KRONOS_NOTIFICATION_QA_ATHLETE_ID', { default: '' })
 const whatsappAccessToken = defineSecret('WHATSAPP_ACCESS_TOKEN')
 
 export interface NotificationWorkerRuntimeOptions {
@@ -35,11 +42,18 @@ export async function processNotificationJobWithRuntime(
   jobId: string,
   options: NotificationWorkerRuntimeOptions = {},
 ) {
-  const runtime = resolveNotificationProviderRuntime(options.environment ?? process.env)
-  if (runtime.mode === 'disabled')
+  const environment = options.environment ?? process.env
+  const runtime = resolveNotificationProviderRuntime(environment)
+  const rollout = resolveNotificationRollout(environment)
+  if (runtime.mode === 'disabled' || rollout.mode === 'disabled')
     return { status: 'disabled' as const }
   if (!/^job-[a-f\d]{32}$/.test(jobId))
     throw new Error('Invalid notification job id')
+
+  const jobs = (options.createJobStore ?? (() => new RealtimeDatabaseNotificationJobStore()))()
+  const job = await jobs.getById(jobId)
+  if (!job || !isNotificationAthleteAllowed(rollout, job.athleteId))
+    return { status: 'disabled' as const }
 
   const provider = createNotificationRuntimeProvider({
     runtime,
@@ -55,7 +69,7 @@ export async function processNotificationJobWithRuntime(
     jobId,
     workerId: (options.createWorkerId ?? randomUUID)(),
     now: options.now ?? Date.now,
-    jobs: (options.createJobStore ?? (() => new RealtimeDatabaseNotificationJobStore()))(),
+    jobs,
     data: (options.createDataSource ?? (() => new RealtimeNotificationDataSource()))(),
     provider,
   })
@@ -72,6 +86,7 @@ export async function processLocalNotificationJob(jobId: string, now: () => numb
 }
 
 export const onNotificationJobCreated = onValueCreated({
+  ...notificationFunctionRuntime,
   ref: 'v1/notificationJobs/{jobId}',
   secrets: [whatsappAccessToken],
 }, async event => processNotificationJobWithRuntime(event.params.jobId, {
@@ -82,7 +97,7 @@ export const onNotificationJobCreated = onValueCreated({
 // Explicit local runner for queued jobs, interrupted work and due retries.
 // Cursor pagination prevents old terminal jobs from starving newer work.
 export async function runLocalNotificationBatch(input: { now?: () => number; afterJobId?: string } = {}) {
-  if (!isLocalNotificationWorkerEnabled())
+  if (!isLocalNotificationWorkerEnabled() || resolveNotificationRollout(process.env).mode !== 'qa')
     return { status: 'disabled' as const, processed: 0, nextCursor: null }
   if (input.afterJobId && !/^job-[a-f\d]{32}$/.test(input.afterJobId))
     throw new Error('Invalid notification cursor')
@@ -108,5 +123,7 @@ function readFunctionRuntimeEnvironment(): NodeJS.ProcessEnv {
     KRONOS_NOTIFICATION_WORKER_MODE: workerMode.value(),
     KRONOS_WHATSAPP_GRAPH_API_VERSION: graphApiVersion.value(),
     KRONOS_WHATSAPP_PHONE_NUMBER_ID: phoneNumberId.value(),
+    KRONOS_NOTIFICATION_ROLLOUT_MODE: rolloutMode.value(),
+    KRONOS_NOTIFICATION_QA_ATHLETE_ID: qaAthleteId.value(),
   }
 }

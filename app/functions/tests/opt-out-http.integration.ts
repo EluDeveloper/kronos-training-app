@@ -60,6 +60,7 @@ before(async () => {
   assert.equal(process.env.FIREBASE_DATABASE_EMULATOR_HOST, '127.0.0.1:9010')
   process.env.KRONOS_NOTIFICATION_WORKER_MODE = 'fake'
   process.env.KRONOS_WHATSAPP_OPT_OUT_MODE = 'local'
+  process.env.KRONOS_WHATSAPP_STATUS_INBOX_MODE = 'local'
   process.env.KRONOS_WHATSAPP_QA_ACCOUNT_ID = config.accountId
   process.env.KRONOS_WHATSAPP_QA_NUMBER_ID = config.phoneNumberId
   process.env.WHATSAPP_APP_SECRET = secret
@@ -75,6 +76,12 @@ after(async () => {
     ...Array.from(ownedEvents, key => `v1/notificationOptOutEvents/${key}`),
     ...Array.from(ownedStatusEvents, key => `v1/notificationWebhookEvents/${key}`)])
     await db().ref(path).remove()
+  delete process.env.KRONOS_NOTIFICATION_WORKER_MODE
+  delete process.env.KRONOS_WHATSAPP_OPT_OUT_MODE
+  delete process.env.KRONOS_WHATSAPP_STATUS_INBOX_MODE
+  delete process.env.KRONOS_WHATSAPP_QA_ACCOUNT_ID
+  delete process.env.KRONOS_WHATSAPP_QA_NUMBER_ID
+  delete process.env.WHATSAPP_APP_SECRET
   await deleteApp(db().app)
 })
 
@@ -112,7 +119,12 @@ test('ambiguous text is acknowledged without withdrawing consent; disabled mode 
   assert.equal((await request(payload('NO QUIERO DARME DE BAJA'))).code, 200)
   assert.equal((await db().ref(`v1/notificationPreferences/${id}/receiptStatus`).get()).val(), 'opted-in')
 
-  const queued = (await processMembershipPaymentWrite({ athleteId: id, period: '2026-09', before: null, after: payment }, jobs, now))[0]
+  const queued = (await processMembershipPaymentWrite(
+    { athleteId: id, period: '2026-09', before: null, after: payment },
+    jobs,
+    now,
+    { mode: 'qa', athleteId: id },
+  ))[0]
 
   ownedJobs.add(queued.job.jobId)
 

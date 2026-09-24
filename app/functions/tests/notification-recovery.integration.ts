@@ -92,6 +92,8 @@ test('production-shaped recovery runner completes a due RTDB job with an injecte
       GCLOUD_PROJECT: 'kronos-training-fd5e5',
       KRONOS_WHATSAPP_GRAPH_API_VERSION: 'v23.0',
       KRONOS_WHATSAPP_PHONE_NUMBER_ID: '123456789012345',
+      KRONOS_NOTIFICATION_ROLLOUT_MODE: 'qa',
+      KRONOS_NOTIFICATION_QA_ATHLETE_ID: 'qa-recovery',
     },
     readAccessToken: () => 'qa-only-synthetic-access-token',
     listDueJobIds: (timestamp, limit) => jobs.listDueRecoveryJobIds(timestamp, limit),

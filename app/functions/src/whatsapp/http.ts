@@ -1,5 +1,6 @@
 import { defineSecret, defineString } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
+import { notificationFunctionRuntime } from '../runtime-options.js'
 import { emitOperationalEvent, webhookTelemetryEvent } from '../operations/telemetry.js'
 import { RealtimeDatabaseNotificationJobStore } from '../notifications/realtime-job-store.js'
 import type { NotificationJobStore } from '../notifications/jobs.js'
@@ -222,6 +223,7 @@ export async function handleWhatsAppWebhook(
 }
 
 export const whatsappWebhook = onRequest({
+  ...notificationFunctionRuntime,
   secrets: [webhookVerifyToken, whatsappAppSecret],
 }, async (request, response) => {
   const startedAt = Date.now()

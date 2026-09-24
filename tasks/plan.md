@@ -220,6 +220,59 @@ agregados allowlist. Pasan 7/7 pruebas focalizadas, 218/218 Functions, 44/44 Rul
 RTDB, typecheck, build, lint, whitespace, metadata y revisión de cinco ejes. No se
 crearon recursos o alertas remotas, no hubo Meta, mensajes, borrado real ni deploy.
 
+#### Propuesta: E8-PROD-7 — preparación de despliegue y canario real
+
+La auditoría del 2026-09-22 confirma que el backend local conserva 218/218 pruebas,
+typecheck y build aprobados, pero aún no es seguro habilitar envíos. La Cloud Functions
+API del proyecto publicado está deshabilitada; además faltan un kill switch de
+productores, allowlist canaria de doble defensa, predeploy obligatorio, preflight de
+IAM/billing/APIs/secrets, recursos Meta verificados y alertas/rollback.
+
+`app/functions/SPEC-whatsapp-production-rollout.md` separa cuatro gates secuenciales:
+(A) endurecimiento local, (B) Firebase, (C) Meta y (D) un único canario real. La fase
+local A fue autorizada e implementada; los gates B, C y D continúan sin autorización.
+Se prefiere un proyecto Firebase QA aislado. Si se usa producción, cada write
+sintético, mensaje y limpieza requiere autorización específica.
+
+El 2026-09-22 el usuario autorizó P7-1–P7-4 y P7-6; el 2026-09-23 autorizó P7-5 y
+eligió un proyecto Firebase QA aislado. Permanecen fuera de autorización Firebase/Meta
+remotos, secretos, rules publicadas, deploy, writes QA y mensajes reales.
+
+El `projectId` elegido es `kronos-training-qa`; fue aprovisionado el 2026-09-23 y su
+verificación de propagación continúa pendiente. No existen app Meta, WABA, número
+remitente ni plantillas. P7-7 se divide en creación del
+contenedor vacío, base operativa y deploy inerte; P7-8 cambia de verificación a alta
+manual completa de Meta. Cada subfase conserva autorización independiente.
+
+**Checkpoint P7-7A 2026-09-23:** Firebase CLI confirmó la creación de
+`kronos-training-qa` y la consulta directa registra cero apps. El proyecto aún no se
+propaga a `projects:list`; el listado RTDB devuelve 403 de IAM. No se alteró IAM, no se
+reintentó la creación y P7-7B queda bloqueado hasta inventariar project number, estado
+activo y baseline consistente.
+
+El usuario adjuntó después una captura de Firebase Console abierta en
+`project/kronos-training-qa/database`, con el nombre visible “Kronos Training QA”.
+Esto confirma visualmente la identidad, pero no RTDB ni el baseline; P7-7A sigue abierto.
+El onboarding Meta también quedó pausado: el intento de agregar un teléfono fue
+rechazado porque ya está registrado en WhatsApp y el usuario confirma que todos sus
+números disponibles tienen cuenta y no puede eliminar ninguna. No se desconectará ni
+migrará un número. Queda pendiente decidir entre número de prueba Meta como remitente
+QA, una línea dedicada o evaluar coexistencia; el primer camino cambia la estrategia
+de verificación y requiere actualizar/autorización de la spec antes de configurarlo.
+La fase E8-PROD-7 queda pausada por cambio de prioridad solicitado por el usuario el
+2026-09-23; la prioridad nueva no se especificó. Reanudar con inventario Firebase QA y
+decisión de remitente, sin alterar las cuentas existentes.
+
+**Resultado local 2026-09-22/23:** P7-1–P7-6 implementados. El rollout sólo
+admite `disabled` o un `athleteId` QA exacto; `production` continúa bloqueado. Los
+productores y el worker aplican defensas independientes, recovery conserva la misma
+política, el predeploy ejecuta typecheck+build y las nueve Functions del flujo quedan
+en `us-central1` con `maxInstances: 1` y `concurrency: 1`. Se retiró el health endpoint
+estático. Pasan 228/228 pruebas Functions, 20/20 integraciones RTDB, 38/38 reglas,
+typecheck, build, lint y whitespace. `firebase-admin` quedó fijado en 14.4.0 y el audit
+bajó de seis a dos vulnerabilidades moderadas transitivas de `uuid`, sin altas ni
+críticas. No hubo APIs, secretos, deploy, writes remotos ni mensajes reales.
+
 ### Fase F: Alternativa push
 
 Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirmaciones si WhatsApp no resulta viable. Debe incluir permiso explícito, revocación, asociación segura del dispositivo y una política para navegadores sin soporte.

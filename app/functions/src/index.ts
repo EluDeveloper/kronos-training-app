@@ -1,5 +1,3 @@
-import { onRequest } from 'firebase-functions/v2/https'
-
 export {
   createFakeWhatsAppProvider,
   FakeWhatsAppProvider,
@@ -55,11 +53,3 @@ export { onNotificationJobCreated } from './notifications/local-worker.js'
 export { onNotificationRecoveryScheduled } from './notifications/production-recovery.js'
 export { onWhatsAppMaintenanceScheduled } from './whatsapp/production-maintenance.js'
 export { onNotificationJobStatusWritten } from './notifications/local-status-projection.js'
-
-export const whatsappProviderHealth = onRequest((_request, response) => {
-  response.status(200).json({
-    provider: 'fake',
-    realProvider: 'disabled',
-    status: 'ok',
-  })
-})

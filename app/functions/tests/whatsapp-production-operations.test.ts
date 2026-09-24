@@ -19,6 +19,8 @@ const metaEnvironment = {
   KRONOS_WHATSAPP_GRAPH_API_VERSION: 'v23.0',
   KRONOS_WHATSAPP_PHONE_NUMBER_ID: '123456789012345',
   KRONOS_WHATSAPP_BUSINESS_ACCOUNT_ID: '987654321098765',
+  KRONOS_NOTIFICATION_ROLLOUT_MODE: 'qa',
+  KRONOS_NOTIFICATION_QA_ATHLETE_ID: 'qa-operations',
 }
 
 test('operational telemetry accepts only fixed schemas and scalar aggregates', () => {

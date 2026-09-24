@@ -1,10 +1,12 @@
 import { defineSecret, defineString } from 'firebase-functions/params'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { notificationFunctionRuntime } from '../runtime-options.js'
 import { emitOperationalEvent, type OperationalTelemetry } from '../operations/telemetry.js'
 import { isValidMetaAccessToken } from '../whatsapp/meta-graph-api-transport.js'
 import { resolveNotificationProviderRuntime } from '../whatsapp/provider-runtime.js'
 import { processNotificationJobWithRuntime } from './local-worker.js'
 import { RealtimeDatabaseNotificationJobStore } from './realtime-job-store.js'
+import { resolveNotificationRollout } from './rollout.js'
 
 const RECOVERY_BATCH_LIMIT = 25
 const RECOVERY_CONCURRENCY = 3
@@ -14,6 +16,8 @@ const recoveryMode = defineString('KRONOS_NOTIFICATION_RECOVERY_MODE', { default
 const workerMode = defineString('KRONOS_NOTIFICATION_WORKER_MODE', { default: 'disabled' })
 const graphApiVersion = defineString('KRONOS_WHATSAPP_GRAPH_API_VERSION', { default: '' })
 const phoneNumberId = defineString('KRONOS_WHATSAPP_PHONE_NUMBER_ID', { default: '' })
+const rolloutMode = defineString('KRONOS_NOTIFICATION_ROLLOUT_MODE', { default: 'disabled' })
+const qaAthleteId = defineString('KRONOS_NOTIFICATION_QA_ATHLETE_ID', { default: '' })
 const whatsappAccessToken = defineSecret('WHATSAPP_ACCESS_TOKEN')
 
 type WorkerResult = Awaited<ReturnType<typeof processNotificationJobWithRuntime>>
@@ -55,7 +59,8 @@ export async function runNotificationRecovery(
     return { status: 'disabled', reason: 'MODE_DISABLED', selected: 0 }
   }
   if (requestedMode !== 'scheduled'
-    || resolveNotificationProviderRuntime(environment).mode !== 'meta') {
+    || resolveNotificationProviderRuntime(environment).mode !== 'meta'
+    || resolveNotificationRollout(environment).mode !== 'qa') {
     telemetry({ code: 'whatsapp_recovery_disabled', reason: 'INVALID_RUNTIME' })
 
     return { status: 'disabled', reason: 'INVALID_RUNTIME', selected: 0 }
@@ -118,11 +123,10 @@ export async function runNotificationRecovery(
 }
 
 export const onNotificationRecoveryScheduled = onSchedule({
+  ...notificationFunctionRuntime,
   schedule: '*/5 * * * *',
   timeZone: 'UTC',
   timeoutSeconds: 540,
-  maxInstances: 1,
-  concurrency: 1,
   secrets: [whatsappAccessToken],
 }, async () => {
   await runNotificationRecovery({
@@ -157,5 +161,7 @@ function readFunctionRecoveryEnvironment(): NodeJS.ProcessEnv {
     KRONOS_NOTIFICATION_WORKER_MODE: workerMode.value(),
     KRONOS_WHATSAPP_GRAPH_API_VERSION: graphApiVersion.value(),
     KRONOS_WHATSAPP_PHONE_NUMBER_ID: phoneNumberId.value(),
+    KRONOS_NOTIFICATION_ROLLOUT_MODE: rolloutMode.value(),
+    KRONOS_NOTIFICATION_QA_ATHLETE_ID: qaAthleteId.value(),
   }
 }

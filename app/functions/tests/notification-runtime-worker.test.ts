@@ -7,6 +7,8 @@ import type { NotificationDataSource } from '../src/notifications/worker.ts'
 
 const metaEnvironment = {
   KRONOS_NOTIFICATION_WORKER_MODE: 'meta',
+  KRONOS_NOTIFICATION_ROLLOUT_MODE: 'qa',
+  KRONOS_NOTIFICATION_QA_ATHLETE_ID: 'qa-runtime',
   GCLOUD_PROJECT: 'kronos-training-fd5e5',
   KRONOS_WHATSAPP_GRAPH_API_VERSION: 'v23.0',
   KRONOS_WHATSAPP_PHONE_NUMBER_ID: '123456789012345',
@@ -26,9 +28,18 @@ const document = {
   isProofOfPayment: true as const,
 }
 
-test('disabled or invalid runtime exits before reading secrets or creating data adapters', async () => {
+test('disabled runtime exits before adapters and missing secret exits after the allowlist check', async () => {
   let secretReads = 0
-  let adapterCreations = 0
+  let jobStoreCreations = 0
+  let dataSourceCreations = 0
+  const jobs = new InMemoryNotificationJobStore()
+
+  const allowed = await jobs.createIfAbsent({
+    idempotencyKey: 'runtime:missing-secret',
+    type: 'payment-receipt',
+    athleteId: 'qa-runtime',
+    reference: 'missing-secret',
+  }, 1_000)
 
   const dependencies = {
     readAccessToken: () => {
@@ -37,12 +48,12 @@ test('disabled or invalid runtime exits before reading secrets or creating data 
       return 'must-not-be-read'
     },
     createJobStore: () => {
-      adapterCreations += 1
+      jobStoreCreations += 1
 
-      return new InMemoryNotificationJobStore()
+      return jobs
     },
     createDataSource: () => {
-      adapterCreations += 1
+      dataSourceCreations += 1
 
       return createDataSource()
     },
@@ -59,7 +70,7 @@ test('disabled or invalid runtime exits before reading secrets or creating data 
     },
     ...dependencies,
   }), { status: 'disabled' })
-  assert.deepEqual(await processNotificationJobWithRuntime('job-' + 'a'.repeat(32), {
+  assert.deepEqual(await processNotificationJobWithRuntime(allowed.job.jobId, {
     environment: metaEnvironment,
     readAccessToken: () => {
       secretReads += 1
@@ -70,7 +81,8 @@ test('disabled or invalid runtime exits before reading secrets or creating data 
     createDataSource: dependencies.createDataSource,
   }), { status: 'disabled' })
   assert.equal(secretReads, 1)
-  assert.equal(adapterCreations, 0)
+  assert.equal(jobStoreCreations, 1)
+  assert.equal(dataSourceCreations, 0)
 })
 
 test('runtime connects Meta outcomes to accepted, retryable and unknown job states', async t => {
@@ -118,6 +130,47 @@ test('runtime connects Meta outcomes to accepted, retryable and unknown job stat
     assert.equal(saved?.delivery?.attempts['attempt-1'].errorCode, 'PROVIDER_UNKNOWN')
     assert.equal(fetchCalls, 1)
   })
+})
+
+test('qa rollout rejects another athlete before reading secrets, documents or Meta', async () => {
+  const jobs = new InMemoryNotificationJobStore()
+
+  const created = await jobs.createIfAbsent({
+    idempotencyKey: 'runtime:outside-canary',
+    type: 'payment-receipt',
+    athleteId: 'athlete-outside-canary',
+    reference: 'outside-canary',
+  }, 1_000)
+
+  let secretReads = 0
+  let dataSourceCreations = 0
+  let fetchCalls = 0
+
+  const result = await processNotificationJobWithRuntime(created.job.jobId, {
+    environment: metaEnvironment,
+    readAccessToken: () => {
+      secretReads += 1
+
+      return 'test-token-kept-in-memory'
+    },
+    fetch: async () => {
+      fetchCalls += 1
+
+      return Response.json({ id: 'must-not-be-used' })
+    },
+    createJobStore: () => jobs,
+    createDataSource: () => {
+      dataSourceCreations += 1
+
+      return createDataSource()
+    },
+  })
+
+  assert.deepEqual(result, { status: 'disabled' })
+  assert.equal(secretReads, 0)
+  assert.equal(dataSourceCreations, 0)
+  assert.equal(fetchCalls, 0)
+  assert.equal((await jobs.getById(created.job.jobId))?.status, 'queued')
 })
 
 async function createContext(reference: string) {

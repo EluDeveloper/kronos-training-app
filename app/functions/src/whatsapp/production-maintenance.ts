@@ -1,5 +1,6 @@
 import { defineString } from 'firebase-functions/params'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { notificationFunctionRuntime } from '../runtime-options.js'
 import {
   emitOperationalEvent,
   type OperationalEvent,
@@ -168,11 +169,10 @@ const runScheduledMaintenance = createWhatsAppProductionMaintenance({
 })
 
 export const onWhatsAppMaintenanceScheduled = onSchedule({
+  ...notificationFunctionRuntime,
   schedule: '*/5 * * * *',
   timeZone: 'UTC',
   timeoutSeconds: 540,
-  maxInstances: 1,
-  concurrency: 1,
 }, async () => {
   await runScheduledMaintenance()
 })

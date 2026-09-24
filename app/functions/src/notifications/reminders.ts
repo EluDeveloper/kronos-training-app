@@ -1,9 +1,19 @@
+import { defineString } from 'firebase-functions/params'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { notificationFunctionRuntime } from '../runtime-options.js'
 import type {
   CreateNotificationJobResult,
   NotificationJobStore,
 } from './jobs.js'
 import { RealtimeDatabaseNotificationJobStore, getNotificationDatabase } from './realtime-job-store.js'
+import {
+  isNotificationAthleteAllowed,
+  resolveNotificationRollout,
+  type NotificationRollout,
+} from './rollout.js'
+
+const rolloutMode = defineString('KRONOS_NOTIFICATION_ROLLOUT_MODE', { default: 'disabled' })
+const qaAthleteId = defineString('KRONOS_NOTIFICATION_QA_ATHLETE_ID', { default: '' })
 
 export interface ReminderConfiguration {
   timezone: string
@@ -177,6 +187,7 @@ export async function runReminderSweep(input: {
   jobs: NotificationJobStore
   now: number
   configuration?: Partial<ReminderConfiguration>
+  rollout?: NotificationRollout
 }): Promise<{
   localDate: string
   candidates: ReminderCandidate[]
@@ -185,11 +196,13 @@ export async function runReminderSweep(input: {
   const configuration = resolveReminderConfiguration(input.configuration)
   const localDate = getLocalDateTime(input.now, configuration.timezone).date
 
+  const rollout = input.rollout ?? resolveNotificationRollout({})
+
   const candidates = buildReminderCandidates({
     snapshot: input.snapshot,
     now: input.now,
     configuration,
-  })
+  }).filter(candidate => isNotificationAthleteAllowed(rollout, candidate.athleteId))
 
   const enqueued = await Promise.all(candidates.map(candidate => input.jobs.createIfAbsent({
     type: 'payment-reminder',
@@ -271,14 +284,24 @@ const scheduledConfiguration = readReminderConfigurationFromEnv()
 const scheduledReminder = buildReminderSchedule(scheduledConfiguration)
 
 export const onReminderScheduled = onSchedule({
+  ...notificationFunctionRuntime,
   schedule: scheduledReminder.cronExpression,
   timeZone: scheduledReminder.timezone,
 }, async () => {
+  const rollout = resolveNotificationRollout({
+    KRONOS_NOTIFICATION_ROLLOUT_MODE: rolloutMode.value(),
+    KRONOS_NOTIFICATION_QA_ATHLETE_ID: qaAthleteId.value(),
+  })
+
+  if (rollout.mode === 'disabled')
+    return
+
   await runReminderSweep({
     snapshot: await new RealtimeDatabaseReminderDataSource().read(),
     jobs: new RealtimeDatabaseNotificationJobStore(),
     now: Date.now(),
     configuration: scheduledConfiguration,
+    rollout,
   })
 })
 

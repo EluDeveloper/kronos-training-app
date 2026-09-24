@@ -1,16 +1,46 @@
+/* eslint-disable import/extensions */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { InMemoryNotificationJobStore } from '../src/notifications/jobs.ts'
 import { processMembershipPaymentWrite, processSaleWrite } from '../src/notifications/triggers.ts'
 
+const qaRollout = { mode: 'qa' as const, athleteId: 'athlete-1' }
+
+test('payment producers create no jobs when rollout is disabled or targets another athlete', async () => {
+  const input = {
+    athleteId: 'athlete-1',
+    period: '2026-09',
+    before: { installments: { first: { status: 'pending' } } },
+    after: { installments: { first: { status: 'paid', amountApplied: 500 } } },
+  }
+
+  const disabledJobs = new InMemoryNotificationJobStore()
+
+  const disabled = await processMembershipPaymentWrite(input, disabledJobs, 100, {
+    mode: 'disabled', reason: 'MODE_DISABLED',
+  })
+
+  const otherJobs = new InMemoryNotificationJobStore()
+
+  const other = await processMembershipPaymentWrite(input, otherJobs, 100, {
+    mode: 'qa', athleteId: 'athlete-2',
+  })
+
+  assert.deepEqual(disabled, [])
+  assert.deepEqual(other, [])
+  assert.equal(await disabledJobs.getByIdempotencyKey('membership:athlete-1:2026-09:first'), null)
+  assert.equal(await otherJobs.getByIdempotencyKey('membership:athlete-1:2026-09:first'), null)
+})
+
 test('membership write creates one queued receipt job for a newly applied installment', async () => {
   const jobs = new InMemoryNotificationJobStore()
+
   const results = await processMembershipPaymentWrite({
     athleteId: 'athlete-1',
     period: '2026-09',
     before: { installments: { first: { status: 'pending' } } },
     after: { installments: { first: { status: 'paid', amountApplied: 500 } } },
-  }, jobs, 100)
+  }, jobs, 100, qaRollout)
 
   assert.equal(results.length, 1)
   assert.equal(results[0]?.created, true)
@@ -20,14 +50,15 @@ test('membership write creates one queued receipt job for a newly applied instal
 
 test('sale write is idempotent when the same paid transition is delivered twice', async () => {
   const jobs = new InMemoryNotificationJobStore()
+
   const input = {
     saleId: 'sale-1',
     before: null,
     after: { status: 'paid', athleteId: 'athlete-1', total: 800 },
   }
 
-  const first = await processSaleWrite(input, jobs, 100)
-  const second = await processSaleWrite(input, jobs, 101)
+  const first = await processSaleWrite(input, jobs, 100, qaRollout)
+  const second = await processSaleWrite(input, jobs, 101, qaRollout)
 
   assert.equal(first[0]?.created, true)
   assert.equal(second[0]?.created, false)
@@ -36,12 +67,14 @@ test('sale write is idempotent when the same paid transition is delivered twice'
 
 test('membership and combined source triggers reuse one notification job', async () => {
   const jobs = new InMemoryNotificationJobStore()
+
   const membership = await processMembershipPaymentWrite({
     athleteId: 'athlete-1',
     period: '2026-09',
     before: { installments: { first: { status: 'pending' } } },
     after: { installments: { first: { status: 'paid', amountApplied: 500 } } },
-  }, jobs, 100)
+  }, jobs, 100, qaRollout)
+
   const combined = await processSaleWrite({
     saleId: 'sale-1',
     before: { status: 'credit', payments: {} },
@@ -56,7 +89,7 @@ test('membership and combined source triggers reuse one notification job', async
         },
       },
     },
-  }, jobs, 101)
+  }, jobs, 101, qaRollout)
 
   assert.equal(membership.length, 1)
   assert.equal(membership[0]?.created, true)

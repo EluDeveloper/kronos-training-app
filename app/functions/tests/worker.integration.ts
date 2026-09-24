@@ -13,6 +13,7 @@ import { RealtimeNotificationDataSource } from '../src/notifications/realtime-no
 import { FakeWhatsAppProvider } from '../src/whatsapp/client.ts'
 
 const now = Date.parse('2026-09-09T15:00:00.000Z')
+const qaRollout = { mode: 'qa' as const, athleteId: 'qa' }
 
 const payment = { status: 'pending', totalAmount: 500, balance: 300, installments: {
   one: { id: 'one', amountApplied: 200, balanceAfter: 300, appliedAt: '2026-09-09T15:00:00.000Z' },
@@ -28,6 +29,8 @@ before(() => {
   assert.match(process.env.FIREBASE_DATABASE_EMULATOR_HOST ?? '', /^(?:127\.0\.0\.1|localhost):\d+$/)
   assert.equal(process.env.GCLOUD_PROJECT, 'demo-kronos-training')
   process.env.KRONOS_NOTIFICATION_WORKER_MODE = 'fake'
+  process.env.KRONOS_NOTIFICATION_ROLLOUT_MODE = 'qa'
+  process.env.KRONOS_NOTIFICATION_QA_ATHLETE_ID = 'qa'
 })
 
 beforeEach(async () => {
@@ -41,6 +44,8 @@ beforeEach(async () => {
 
 after(async () => {
   delete process.env.KRONOS_NOTIFICATION_WORKER_MODE
+  delete process.env.KRONOS_NOTIFICATION_ROLLOUT_MODE
+  delete process.env.KRONOS_NOTIFICATION_QA_ATHLETE_ID
   if (process.env.GCLOUD_PROJECT === 'demo-kronos-training'
     && /^(?:127\.0\.0\.1|localhost):\d+$/.test(process.env.FIREBASE_DATABASE_EMULATOR_HOST ?? ''))
     await deleteApp(getNotificationDatabase().app)
@@ -48,8 +53,8 @@ after(async () => {
 
 test('RTDB combined payment passes through queue, PDF, fake delivery, audit and webhook', async () => {
   const jobs = new RealtimeDatabaseNotificationJobStore()
-  const membership = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now)
-  const combined = await processSaleWrite({ saleId: 'sale', before: { status: 'credit' }, after: sale }, jobs, now)
+  const membership = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now, qaRollout)
+  const combined = await processSaleWrite({ saleId: 'sale', before: { status: 'credit' }, after: sale }, jobs, now, qaRollout)
 
   assert.equal(membership[0].job.jobId, combined[0].job.jobId)
 
@@ -80,7 +85,7 @@ test('RTDB combined payment passes through queue, PDF, fake delivery, audit and 
 
 test('RTDB opt-out after enqueue suppresses the job and preserves financial data', async () => {
   const jobs = new RealtimeDatabaseNotificationJobStore()
-  const result = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now)
+  const result = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now, qaRollout)
 
   await getNotificationDatabase().ref('v1/notificationPreferences/qa/receiptStatus').set('opted-out')
   await processLocalNotificationJob(result[0].job.jobId, () => now)
@@ -95,7 +100,7 @@ test('RTDB opt-out after enqueue suppresses the job and preserves financial data
 
 test('RTDB phone changes invalidate the queued consent', async () => {
   const jobs = new RealtimeDatabaseNotificationJobStore()
-  const result = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now)
+  const result = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now, qaRollout)
 
   await getNotificationDatabase().ref('v1/athletes/qa/profile/phone').set('0000000001')
   await runLocalNotificationBatch({ now: () => now })
@@ -106,9 +111,9 @@ test('RTDB phone changes invalidate the queued consent', async () => {
 test('RTDB scheduler and batch runner complete one informational reminder for the day', async () => {
   const jobs = new RealtimeDatabaseNotificationJobStore()
   const snapshot = await new RealtimeDatabaseReminderDataSource().read()
-  const sweep = await runReminderSweep({ jobs, snapshot, now })
+  const sweep = await runReminderSweep({ jobs, snapshot, now, rollout: qaRollout })
 
-  await runReminderSweep({ jobs, snapshot, now })
+  await runReminderSweep({ jobs, snapshot, now, rollout: qaRollout })
   await runLocalNotificationBatch({ now: () => now })
 
   const job = await jobs.getById(sweep.enqueued[0].job.jobId)
@@ -120,7 +125,7 @@ test('RTDB scheduler and batch runner complete one informational reminder for th
 
 test('RTDB retains both attempts and respects retry backoff across worker instances', async () => {
   const jobs = new RealtimeDatabaseNotificationJobStore()
-  const [created] = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now)
+  const [created] = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now, qaRollout)
   const rejected = new FakeWhatsAppProvider({ response: { outcome: 'rejected', errorCode: 'RATE_LIMITED' } })
 
   await processNotificationJob({ jobId: created.job.jobId, jobs, data: new RealtimeNotificationDataSource(),
@@ -140,7 +145,7 @@ test('RTDB retains both attempts and respects retry backoff across worker instan
 
 test('RTDB atomically rejects a lease based on an outdated retry snapshot', async () => {
   const jobs = new RealtimeDatabaseNotificationJobStore()
-  const [created] = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now)
+  const [created] = await processMembershipPaymentWrite({ athleteId: 'qa', period: '2026-09', before: null, after: payment }, jobs, now, qaRollout)
   const rejected = new FakeWhatsAppProvider({ response: { outcome: 'rejected', errorCode: 'RATE_LIMITED' } })
   const accepted = new FakeWhatsAppProvider({ response: { outcome: 'accepted', messageId: 'wamid.qa.must-not-send' } })
   const input = { jobId: created.job.jobId, jobs, data: new RealtimeNotificationDataSource(), provider: rejected, workerId: 'qa-first', now: () => now }

@@ -14,6 +14,8 @@ before(() => {
   assert.equal(process.env.GCLOUD_PROJECT, 'demo-kronos-training')
   assert.match(process.env.FIREBASE_DATABASE_EMULATOR_HOST ?? '', /^(?:127\.0\.0\.1|localhost):\d+$/)
   process.env.KRONOS_NOTIFICATION_WORKER_MODE = 'fake'
+  process.env.KRONOS_NOTIFICATION_ROLLOUT_MODE = 'qa'
+  process.env.KRONOS_NOTIFICATION_QA_ATHLETE_ID = 'qa'
 })
 beforeEach(async () => {
   await getNotificationDatabase().ref('v1').set({
@@ -24,6 +26,8 @@ beforeEach(async () => {
 })
 after(async () => {
   delete process.env.KRONOS_NOTIFICATION_WORKER_MODE
+  delete process.env.KRONOS_NOTIFICATION_ROLLOUT_MODE
+  delete process.env.KRONOS_NOTIFICATION_QA_ATHLETE_ID
   await deleteApp(getNotificationDatabase().app)
 })
 

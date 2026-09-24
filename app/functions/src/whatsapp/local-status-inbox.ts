@@ -1,5 +1,6 @@
 import { defineString } from 'firebase-functions/params'
 import { onValueWritten } from 'firebase-functions/v2/database'
+import { notificationFunctionRuntime } from '../runtime-options.js'
 import { getNotificationDatabase } from '../notifications/realtime-job-store.js'
 import { getLocalStatusInboxConfig } from './local-status-inbox-config.js'
 import { RealtimeStatusInbox } from './realtime-status-inbox.js'
@@ -84,7 +85,11 @@ export async function syncNotificationStatusInbox(
   return { status: 'processed' as const, processed }
 }
 
-export const onNotificationProviderStatusWritten = onValueWritten({ ref: 'v1/notificationJobs/{jobId}', retry: true }, async event => {
+export const onNotificationProviderStatusWritten = onValueWritten({
+  ...notificationFunctionRuntime,
+  ref: 'v1/notificationJobs/{jobId}',
+  retry: true,
+}, async event => {
   const runtime = resolveWhatsAppWebhookRuntime(readStatusInboxRuntimeEnvironment())
   if (runtime.mode === 'disabled' || !runtime.statusEnabled || !runtime.config)
     return

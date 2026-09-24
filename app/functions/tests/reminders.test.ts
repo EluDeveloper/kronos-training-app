@@ -1,3 +1,4 @@
+/* eslint-disable import/extensions */
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
@@ -281,6 +282,7 @@ test('E6 creates at most one reminder job per athlete and day', async () => {
     snapshot: snapshot(),
     jobs,
     now: Date.UTC(2026, 8, 9, 15, 0),
+    rollout: { mode: 'qa' as const, athleteId: 'athlete-1' },
   }
 
   const first = await runReminderSweep(input)
@@ -291,6 +293,31 @@ test('E6 creates at most one reminder job per athlete and day', async () => {
   assert.equal(second.enqueued.length, 1)
   assert.equal(second.enqueued[0]?.created, false)
   assert.equal(second.enqueued[0]?.job.idempotencyKey, 'reminder:athlete-1:2026-09-09:daily')
+})
+
+test('rollout filters reminder jobs before persistence', async () => {
+  const disabledJobs = new InMemoryNotificationJobStore()
+
+  const disabled = await runReminderSweep({
+    snapshot: snapshot(),
+    jobs: disabledJobs,
+    now: Date.UTC(2026, 8, 9, 15, 0),
+    rollout: { mode: 'disabled', reason: 'MODE_DISABLED' },
+  })
+
+  const otherJobs = new InMemoryNotificationJobStore()
+
+  const other = await runReminderSweep({
+    snapshot: snapshot(),
+    jobs: otherJobs,
+    now: Date.UTC(2026, 8, 9, 15, 0),
+    rollout: { mode: 'qa', athleteId: 'athlete-2' },
+  })
+
+  assert.deepEqual(disabled.candidates, [])
+  assert.deepEqual(disabled.enqueued, [])
+  assert.deepEqual(other.candidates, [])
+  assert.deepEqual(other.enqueued, [])
 })
 
 test('E6 fake scheduler only runs at the configured local time', async () => {

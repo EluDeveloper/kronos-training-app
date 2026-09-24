@@ -106,6 +106,42 @@
   - Dependencias: E8-PROD-5 completada y autorización de `app/functions/SPEC-whatsapp-production-operations.md` recibida el 2026-09-21.
   - Archivos: app/functions/SPEC-whatsapp-production-operations.md, app/functions/src/operations/telemetry.ts, app/functions/src/whatsapp/production-maintenance.ts, app/functions/src/whatsapp/realtime-webhook-events.ts, app/functions/src/whatsapp/http.ts, app/functions/src/notifications/production-recovery.ts, app/functions/src/index.ts, app/functions/tests/whatsapp-production-operations.test.ts, app/functions/tests/whatsapp-production-operations.integration.ts, app/functions/tests/whatsapp-webhook.integration.ts, app/database.rules.json, app/tests/database.rules.test.mjs, tasks/plan.md, tasks/todo.md, Docs/implementation-reports/2026-09-21-whatsapp-production-operations.md.
   - Límites: sin recursos o datos productivos, backfill, borrado real, secretos, Meta, mensajes, alertas Cloud, dependencias, CI/hosting ni despliegue.
+- [ ] E8-PROD-7 — Preparar despliegue seguro y un canario real de WhatsApp.
+  - Estado: pausada el 2026-09-23 por cambio de prioridad. P7-1–P7-6 completados localmente; Firebase QA existe pero falta inventario coherente; alta Meta detenida por número ya registrado. La nueva prioridad no quedó especificada.
+  - Aceptación: defaults inertes; kill switch y allowlist QA en productor+worker; predeploy reproducible; Firebase/Meta inventariados; un solo destinatario QA; rollback probado.
+  - Verificación: 218+ pruebas Functions, typecheck, build, rules, audit, inventario remoto, webhook firmado, un comprobante y recordatorio QA, estados monotónicos, BAJA y ausencia de destinatarios no autorizados.
+  - Dependencias: E8-PROD-6; revisión y autorización explícita de `app/functions/SPEC-whatsapp-production-rollout.md`.
+  - Gates separados: endurecimiento local; billing/APIs/IAM/secrets/deploy; WABA/número/plantillas/webhook; writes y mensajes reales.
+  - [x] P7-0 — Revisar y autorizar primero el endurecimiento local de la spec; no incluye infraestructura, secretos, deploy ni mensajes.
+  - [x] P7-1 — Probar y construir el contrato puro `disabled | qa | production`, dejando `production` imposible en esta fase.
+    - Archivos: app/functions/src/notifications/rollout.ts, app/functions/tests/notification-rollout.test.ts.
+  - [x] P7-2 — Aplicar el gate a triggers y recordatorios para que defaults no creen jobs y QA sólo cree los del atleta canario.
+    - Archivos: app/functions/src/notifications/triggers.ts, app/functions/src/notifications/reminders.ts y sus pruebas.
+  - [x] P7-3 — Revalidar allowlist antes de Meta y durante recovery; ningún job inyectado de otro atleta usa red.
+    - Archivos: app/functions/src/notifications/local-worker.ts, app/functions/src/notifications/production-recovery.ts y pruebas runtime.
+  - [x] Checkpoint P7-1–P7-3 — Pruebas enfocadas y suite Functions; cero jobs/fetch fuera del canario.
+  - [x] P7-4 — Añadir predeploy, región/límites y retirar o corregir el health endpoint engañoso.
+    - Archivos: app/firebase.json, app/functions/src/index.ts y pruebas de metadata.
+  - [x] P7-5 — Con autorización de dependencia, probar firebase-admin@14.4.0 y actualizar sólo package/lock; nunca usar audit fix --force.
+    - Archivos: app/functions/package.json, app/functions/package-lock.json.
+    - Autorización: recibida el 2026-09-23.
+    - Evidencia: 228/228 Functions, 20/20 integraciones RTDB, typecheck y build; audit pasó de seis a dos vulnerabilidades moderadas transitivas, sin altas ni críticas.
+  - [x] P7-6 — Ejecutar suite, typecheck, build, rules, audit y revisión de cinco ejes; presentar el gate de infraestructura.
+    - Evidencia: 228/228 Functions, 20/20 integraciones RTDB, 38/38 reglas, typecheck, build, lint y whitespace; audit conserva dos moderadas transitivas sin altas ni críticas.
+  - [ ] P7-7 — Con autorización separada, preparar el proyecto aislado `kronos-training-qa` en disabled.
+    - [ ] P7-7A — Crear el baseline Firebase QA, sin Analytics, billing, datos de app, secretos ni deploy.
+      - Estado: autorizado y aprovisionado el 2026-09-23; verificación de propagación pendiente.
+      - Aceptación: projectId exacto, propietario/jerarquía confirmados, baseline automático inventariado y ausencia de RTDB/Auth/Functions o recursos de Kronos.
+      - Evidencia parcial: creación CLI exitosa y cero apps; captura del usuario confirma visualmente el proyecto `kronos-training-qa`/“Kronos Training QA”; `projects:list` aún no muestra QA y RTDB list devuelve 403 de IAM. No avanzar a P7-7B hasta obtener inventario consistente.
+    - [ ] P7-7B — Enlazar manualmente Blaze/presupuesto y preparar APIs, RTDB/Auth, IAM mínimo y secretos.
+      - Estado: no autorizado; requiere gate posterior a P7-7A.
+    - [ ] P7-7C — Desplegar reglas y Functions específicas con todos los modos en `disabled`.
+      - Estado: no autorizado; requiere gate posterior a P7-7B.
+  - [ ] P7-8 — Con autorización separada, crear desde cero app Meta, WABA, número, plantillas y webhook sin habilitar envíos generales.
+    - Estado: onboarding iniciado y pausado al agregar el teléfono; Meta informa que el número ya está registrado con WhatsApp. El usuario indica que todos los números disponibles ya tienen WhatsApp y no puede eliminar esas cuentas. No desconectar ni migrar números.
+    - Decisión pendiente: remitente de prueba Meta para validar QA, línea dedicada o evaluación de coexistencia. Usar el remitente de prueba cambia los criterios de verificación y requiere actualizar/autorización de spec antes de configurar.
+  - [ ] P7-9 — Con autorización específica de datos, teléfono y mensajes, ejecutar un único canario real, BAJA y rollback.
+  - [ ] Checkpoint final — Reporte con recursos, mensajes, writes, limpieza, costos, evidencia y riesgos; production continúa bloqueado.
 
 ### Checkpoint: Fase E — contratos locales
 

@@ -1,6 +1,6 @@
 # Production Release: Reportes Fases 1–8
 
-Estado: reglas y Hosting publicados en producción; smoke autenticado y sincronización de `main` pendientes.
+Estado: reglas y Hosting publicados en producción; smoke autenticado completado; sincronización de `main` por fast-forward.
 
 ## Alcance autorizado
 
@@ -40,5 +40,7 @@ Estado: reglas y Hosting publicados en producción; smoke autenticado y sincroni
 - `npx firebase deploy --only database --project kronos-training-fd5e5`: sintaxis válida y reglas liberadas correctamente.
 - `npx firebase deploy --only hosting --project kronos-training-fd5e5`: 107 archivos en `dist`, versión finalizada y release completo.
 - `https://kronos-training-fd5e5.web.app/reportes`: HTTP 200 sobre HTTPS; HSTS presente. El HTML público referencia `/assets/index-BvUSzIuZ.js`, idéntico al build local, y ese recurso responde HTTP 200.
-- Pendiente: smoke autenticado por Admin con sesión manual del usuario; no se ejecutaron escrituras reales. `main` no se ha movido todavía.
+- Smoke autenticado: el usuario inició sesión manualmente en Chrome y autorizó usar esa sesión. El rol Admin abrió `/reportes` y cargó indicadores y filas auditables con filtros de septiembre de 2026. El gráfico de mensualidades mostró resumen accesible y su tabla de respaldo se expandió con una fila; se abrió y cerró el detalle auditable de una partida de Tienda. No se ejecutaron escrituras reales ni exportaciones. La consola de la pestaña no mostró errores ni advertencias nuevos.
+- La vista de atletas, filtrada por bajas, informó correctamente ausencia de datos graficables y cobertura histórica parcial; esto no se interpretó como cero histórico. Los módulos de finanzas y conciliación no aparecieron en esta vista y no se validaron como parte del smoke.
+- Para la integración por fast-forward, el último fetch confirmó que `origin/main` es ancestro de `origin/develop` (0 commits exclusivos de `main`, 19 de `develop`).
 - Observación preexistente: la ruta profunda `/reportes` devuelve `Cache-Control: max-age=3600`, aunque el recurso `/index.html` tiene cabecera `no-cache` en `firebase.json`. El bundle servido ahora es el nuevo; la política de caché de rewrites merece una spec separada si se desea corregirla.

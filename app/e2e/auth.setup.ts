@@ -9,6 +9,9 @@ test('captura manualmente una sesión de QA sin almacenar credenciales', async (
 
   await page.goto('/atletas')
   await expect(page.getByRole('heading', { name: 'Atletas' })).toBeVisible({ timeout: 4 * 60 * 1000 })
+  await page.goto('/reportes?qaFixture=store')
+  await expect(page.getByRole('heading', { name: 'Reportes' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: /Fixture QA sintética en memoria/ })).toBeVisible()
   await mkdir(dirname(authStatePath), { recursive: true })
-  await page.context().storageState({ path: authStatePath })
+  await page.context().storageState({ path: authStatePath, indexedDB: true })
 })

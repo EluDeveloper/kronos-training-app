@@ -11,6 +11,12 @@ export const routes = [
         component: () => import('@/pages/dashboard.vue'),
       },
       {
+        path: 'reportes',
+        name: 'reports',
+        meta: { access: 'reports' },
+        component: () => import('@/pages/reportes.vue'),
+      },
+      {
         path: 'atletas',
         name: 'athletes',
         meta: { access: 'athletes' },

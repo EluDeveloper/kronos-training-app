@@ -16,7 +16,11 @@ const router = useRouter()
 
 watch(
   () => [session.status, session.profile] as const,
-  () => {
+  async () => {
+    if (session.status !== 'authorized')
+      return
+
+    await router.isReady()
     if (session.status !== 'authorized')
       return
 

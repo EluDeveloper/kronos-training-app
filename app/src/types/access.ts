@@ -7,6 +7,9 @@ export const accessModules = [
     key: 'dashboard', label: 'Dashboard', description: 'Indicadores mensuales, reporte anual y alertas.', icon: 'ri-dashboard-3-line', route: '/dashboard', section: 'Operación', actions: [],
   },
   {
+    key: 'reports', label: 'Reportes', description: 'Indicadores ejecutivos y reportes operativos.', icon: 'ri-bar-chart-box-line', route: '/reportes', section: 'Operación', actions: [],
+  },
+  {
     key: 'athletes', label: 'Atletas', description: 'Directorio y estado de los miembros.', icon: 'ri-team-line', route: '/atletas', section: 'Operación',
     actions: [
       { key: 'athletesManage', label: 'Administrar atletas', description: 'Dar de alta, editar y cambiar el estado de los miembros.' },

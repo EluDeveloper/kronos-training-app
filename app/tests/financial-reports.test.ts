@@ -122,3 +122,16 @@ test('un faltante cubierto es ingreso y fondo perdido no crea egreso', () => {
   assert.equal(summary.cashIncome, 100)
   assert.equal(summary.net, 100)
 })
+
+test('crédito de tienda queda no monetario y egresos pendientes no crean salidas', () => {
+  const pending: Expense = { id: 'pending', date: '2026-08-06', category: 'Prueba', description: 'Pendiente', amount: 30, method: 'cash', status: 'pending', registeredBy: 'Admin', createdAt: timestamp, updatedAt: timestamp }
+  const movements = buildFinancialMovements({ membershipPayments: [], visitPayments: [], sales: [sale], expenses: [pending] })
+  const summary = summarizeMovements(movements)
+  const credit = movements.find(movement => movement.method === 'store-credit')
+
+  assert.equal(credit?.account, 'non-cash')
+  assert.equal(credit?.accountAmount, 0)
+  assert.equal(summary.cashIncome, 150)
+  assert.equal(summary.expenses, 0)
+  assert.equal(summary.net, 120)
+})

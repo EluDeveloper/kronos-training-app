@@ -23,6 +23,7 @@
           ".validate": "!newData.exists() || (newData.hasChildren(['uid','displayName','email','role','enabled','mustChangePassword','createdBy','createdAt','updatedAt']) && newData.child('uid').val() === $uid && newData.child('displayName').isString() && newData.child('displayName').val().length >= 3 && newData.child('email').isString() && newData.child('email').val().length >= 5 && (newData.child('role').val() === 'admin' || newData.child('role').val() === 'reception' || newData.child('role').val() === 'coach') && newData.child('enabled').isBoolean() && newData.child('mustChangePassword').isBoolean() && newData.child('createdBy').isString() && newData.child('createdAt').isNumber() && newData.child('updatedAt').isNumber())",
           "permissions": {
             "dashboard": { ".validate": "!newData.exists() || newData.isBoolean()" },
+            "reports": { ".validate": "!newData.exists() || newData.isBoolean()" },
             "athletes": { ".validate": "!newData.exists() || newData.isBoolean()" },
             "payments": { ".validate": "!newData.exists() || newData.isBoolean()" },
             "visits": { ".validate": "!newData.exists() || newData.isBoolean()" },

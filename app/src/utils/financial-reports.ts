@@ -1,4 +1,5 @@
-import type { Expense, InventoryResolution, Payment, PaymentMethod, Sale, VisitPayment } from '@/types/domain'
+import type { Payment, PaymentMethod } from '@/types/domain'
+import type { ReportingExpenseSource, ReportingInventoryResolutionSource, ReportingMembershipSource, ReportingSaleSource, ReportingVisitPaymentSource } from '@/types/reporting'
 import { membershipInstallments, timestampValue } from '@/utils/kronos'
 import { effectiveSalePayments, effectiveSaleStatus } from '@/utils/store-payment-adjustments'
 
@@ -32,8 +33,11 @@ export interface FinancialSummary {
   cashExpenses: number
   bankExpenses: number
   otherExpenses: number
+  nonCashIncome: number
+  nonCashExpenses: number
   cashNet: number
   bankNet: number
+  nonCashNet: number
 }
 
 const currency = (value: number) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
@@ -58,16 +62,16 @@ export const paymentAccount = (method: PaymentMethod): FinancialAccount => {
 }
 
 export function buildFinancialMovements(input: {
-  membershipPayments: Payment[]
-  visitPayments: VisitPayment[]
-  sales: Sale[]
-  expenses: Expense[]
-  inventoryRecoveries?: InventoryResolution[]
+  membershipPayments: Array<Payment | ReportingMembershipSource>
+  visitPayments: ReportingVisitPaymentSource[]
+  sales: ReportingSaleSource[]
+  expenses: ReportingExpenseSource[]
+  inventoryRecoveries?: ReportingInventoryResolutionSource[]
 }): FinancialMovement[] {
   const movements: FinancialMovement[] = []
 
   input.membershipPayments.forEach(payment => {
-    membershipInstallments(payment).forEach(installment => {
+    membershipInstallments(payment as Payment).forEach(installment => {
       const occurredAt = timestampValue(installment.appliedAt)
       const amount = currency(installment.amountApplied)
       const method = installment.method
@@ -151,7 +155,7 @@ export function buildFinancialMovements(input: {
         account: paymentAccount(expense.method),
         amount,
         accountAmount: amount,
-        description: expense.description,
+        description: expense.subcategory ? `${expense.category} · ${expense.subcategory}` : expense.category,
       })
     })
 
@@ -171,7 +175,7 @@ export function buildFinancialMovements(input: {
       account: paymentAccount(method),
       amount,
       accountAmount: amount,
-      description: `Recuperación de inventario · ${recovery.reference ?? recovery.productId}`,
+      description: `Recuperación de inventario · ${recovery.productId}`,
     })
   })
 
@@ -192,8 +196,11 @@ export function summarizeMovements(movements: FinancialMovement[]): FinancialSum
     cashExpenses: 0,
     bankExpenses: 0,
     otherExpenses: 0,
+    nonCashIncome: 0,
+    nonCashExpenses: 0,
     cashNet: 0,
     bankNet: 0,
+    nonCashNet: 0,
   }
 
   movements.forEach(movement => {
@@ -205,11 +212,13 @@ export function summarizeMovements(movements: FinancialMovement[]): FinancialSum
       if (movement.account === 'cash') summary.cashIncome += movement.accountAmount
       else if (movement.account === 'bank') summary.bankIncome += movement.accountAmount
       else if (movement.account === 'other') summary.otherIncome += movement.accountAmount || movement.amount
+      else if (movement.account === 'non-cash') summary.nonCashIncome += movement.amount
     }
     else {
       summary.expenses += movement.amount
       if (movement.account === 'cash') summary.cashExpenses += movement.accountAmount
       else if (movement.account === 'bank') summary.bankExpenses += movement.accountAmount
+      else if (movement.account === 'non-cash') summary.nonCashExpenses += movement.amount
       else summary.otherExpenses += movement.accountAmount || movement.amount
     }
   })
@@ -220,6 +229,7 @@ export function summarizeMovements(movements: FinancialMovement[]): FinancialSum
   summary.net = currency(summary.income - summary.expenses)
   summary.cashNet = currency(summary.cashIncome - summary.cashExpenses)
   summary.bankNet = currency(summary.bankIncome - summary.bankExpenses)
+  summary.nonCashNet = currency(summary.nonCashIncome - summary.nonCashExpenses)
 
   return summary
 }

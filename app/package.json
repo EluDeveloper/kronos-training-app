@@ -18,7 +18,7 @@
     "test:local-device": "node --test tests/local-device-authorization.test.mjs",
     "test:firebase-emulator-config": "node --require ./scripts/node-userinfo-preload.cjs --import tsx --test tests/firebase-emulator-config.test.ts",
     "test:rules": "firebase emulators:exec --only database \"node --test tests/database.rules.test.mjs\"",
-    "test:finance": "tsx --test tests/financial-reports.test.ts",
+    "test:finance": "node --require ./scripts/node-userinfo-preload.cjs --import tsx --test tests/financial-reports.test.ts",
     "test:athlete-intake": "tsx --test tests/athlete-intake.test.ts",
     "test:enrollment-sheet": "node --require ./scripts/node-userinfo-preload.cjs --import tsx --test tests/enrollment-sheet.test.ts",
     "test:kiosk-code": "node --require ./scripts/node-userinfo-preload.cjs --import tsx --test tests/kiosk-code.test.ts",

@@ -18,10 +18,16 @@ const timestampValue = (value?: ISOTimestamp | null) => {
 }
 
 export interface ResolvedSalePaymentState {
-  original: SalePayment
+  original: Pick<SalePayment, 'id' | 'amountApplied' | 'method' | 'appliedAt' | 'groupPaymentId'>
   effectiveMethod: PaymentMethod
   reversed: boolean
-  adjustments: SalePaymentAdjustment[]
+  adjustments: Array<Pick<SalePaymentAdjustment, 'id' | 'paymentId' | 'kind' | 'fromMethod' | 'toMethod' | 'createdAt'>>
+}
+
+export type SalePaymentStateSource = {
+  id: string
+  payments?: Record<string, Pick<SalePayment, 'id' | 'amountApplied' | 'method' | 'appliedAt' | 'groupPaymentId'>>
+  paymentAdjustments?: Record<string, Pick<SalePaymentAdjustment, 'id' | 'paymentId' | 'kind' | 'fromMethod' | 'toMethod' | 'createdAt'>>
 }
 
 type AdjustmentCommand = {
@@ -47,11 +53,11 @@ export interface StoreCreditReversalPlan {
   entries: StoreCreditEntry[]
 }
 
-const adjustmentsForPayment = (sale: Sale, paymentId: string) => Object.values(sale.paymentAdjustments ?? {})
+const adjustmentsForPayment = (sale: SalePaymentStateSource, paymentId: string) => Object.values(sale.paymentAdjustments ?? {})
   .filter(adjustment => adjustment.paymentId === paymentId)
   .sort((left, right) => timestampValue(left.createdAt) - timestampValue(right.createdAt) || left.id.localeCompare(right.id))
 
-export function resolveSalePaymentStates(sale: Sale): ResolvedSalePaymentState[] {
+export function resolveSalePaymentStates(sale: SalePaymentStateSource): ResolvedSalePaymentState[] {
   return Object.values(sale.payments ?? {})
     .sort((left, right) => timestampValue(left.appliedAt) - timestampValue(right.appliedAt) || left.id.localeCompare(right.id))
     .map(original => {
@@ -73,18 +79,18 @@ export function resolveSalePaymentStates(sale: Sale): ResolvedSalePaymentState[]
     })
 }
 
-export function effectiveSalePayments(sale: Sale): SalePayment[] {
+export function effectiveSalePayments(sale: SalePaymentStateSource): SalePayment[] {
   return resolveSalePaymentStates(sale)
     .filter(state => !state.reversed)
     .map(state => ({ ...state.original, method: state.effectiveMethod }))
 }
 
-export const effectiveSaleAppliedAmount = (sale: Sale) => currency(effectiveSalePayments(sale)
+export const effectiveSaleAppliedAmount = (sale: SalePaymentStateSource) => currency(effectiveSalePayments(sale)
   .reduce((total, payment) => total + Number(payment.amountApplied || 0), 0))
 
-export const effectiveSaleBalance = (sale: Sale) => currency(Math.max(0, Number(sale.total || 0) - effectiveSaleAppliedAmount(sale)))
+export const effectiveSaleBalance = (sale: SalePaymentStateSource & Pick<Sale, 'total'>) => currency(Math.max(0, Number(sale.total || 0) - effectiveSaleAppliedAmount(sale)))
 
-export const effectiveSaleStatus = (sale: Sale): SaleStatus => {
+export const effectiveSaleStatus = (sale: SalePaymentStateSource & Pick<Sale, 'total' | 'status'>): SaleStatus => {
   if (sale.status === 'cancelled')
     return 'cancelled'
 

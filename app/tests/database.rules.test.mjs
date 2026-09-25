@@ -608,6 +608,21 @@ test('las mensualidades permiten abonos acumulados sin alterar el historial', as
   await assertFails(db.ref('v1/payments/athlete-1/2026-08').set(changedSnapshot))
 })
 
+test('el permiso reports se valida como booleano pero no concede lecturas de negocio', async () => {
+  const adminDb = env.authenticatedContext('admin').database()
+  const reportsDb = env.authenticatedContext('reports-only').database()
+
+  await assertSucceeds(adminDb.ref('v1/users/reports-only').set(appUser('reports-only', 'reception', { reports: true })))
+  await assertSucceeds(reportsDb.ref('v1/users/reports-only/permissions/reports').once('value'))
+  await assertFails(reportsDb.ref('v1/athletes').once('value'))
+  await assertFails(reportsDb.ref('v1/visits').once('value'))
+  await assertFails(reportsDb.ref('v1/payments').once('value'))
+  await assertFails(reportsDb.ref('v1/sales').once('value'))
+  await assertFails(reportsDb.ref('v1/inventoryClosures').once('value'))
+  await assertFails(reportsDb.ref('v1/employees').once('value'))
+  await assertFails(adminDb.ref('v1/users/reports-only/permissions/reports').set('true'))
+})
+
 test('las transiciones de atleta exigen evento atómico append-only', async () => {
   const timestamp = now()
   const admin = env.authenticatedContext('admin').database()

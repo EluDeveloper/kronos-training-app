@@ -1,7 +1,8 @@
-import type { Expense, Payment, PaymentMethod, Sale, VisitPayment } from '@/types/domain'
+import type { Expense, InventoryResolution, Payment, PaymentMethod, Sale, VisitPayment } from '@/types/domain'
 import { membershipInstallments, timestampValue } from '@/utils/kronos'
+import { effectiveSalePayments, effectiveSaleStatus } from '@/utils/store-payment-adjustments'
 
-export type FinancialMovementSource = 'membership' | 'visits' | 'store' | 'expense'
+export type FinancialMovementSource = 'membership' | 'visits' | 'store' | 'inventory-recovery' | 'expense'
 export type FinancialAccount = 'cash' | 'bank' | 'other' | 'non-cash'
 
 export interface FinancialMovement {
@@ -61,6 +62,7 @@ export function buildFinancialMovements(input: {
   visitPayments: VisitPayment[]
   sales: Sale[]
   expenses: Expense[]
+  inventoryRecoveries?: InventoryResolution[]
 }): FinancialMovement[] {
   const movements: FinancialMovement[] = []
 
@@ -106,12 +108,13 @@ export function buildFinancialMovements(input: {
   })
 
   input.sales
-    .filter(sale => sale.status !== 'cancelled')
-    .forEach(sale => Object.values(sale.payments ?? {}).forEach(payment => {
+    .filter(sale => effectiveSaleStatus(sale) !== 'cancelled')
+    .forEach(sale => effectiveSalePayments(sale).forEach(payment => {
       const occurredAt = timestampValue(payment.appliedAt)
       const amount = currency(payment.amountApplied)
       const account = paymentAccount(payment.method)
       const received = Number(payment.receivedAmount ?? amount)
+
       const accountAmount = account === 'cash'
         ? currency(Math.max(0, received - Number(payment.changeGiven || 0)))
         : account === 'bank' ? amount : 0
@@ -151,6 +154,26 @@ export function buildFinancialMovements(input: {
         description: expense.description,
       })
     })
+
+  input.inventoryRecoveries?.filter(item => item.kind === 'covered' && item.method).forEach(recovery => {
+    const occurredAt = timestampValue(recovery.createdAt)
+    const amount = currency(recovery.amount)
+    const method = recovery.method!
+
+    movements.push({
+      id: `inventory-recovery:${recovery.id}`,
+      date: dateKey(occurredAt),
+      period: periodKey(occurredAt),
+      occurredAt,
+      direction: 'income',
+      source: 'inventory-recovery',
+      method,
+      account: paymentAccount(method),
+      amount,
+      accountAmount: amount,
+      description: `Recuperación de inventario · ${recovery.reference ?? recovery.productId}`,
+    })
+  })
 
   return movements.sort((left, right) => left.occurredAt - right.occurredAt || left.id.localeCompare(right.id))
 }

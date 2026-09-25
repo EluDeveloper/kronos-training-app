@@ -374,3 +374,121 @@ Evaluar Firebase Cloud Messaging como canal opt-in para recordatorios y confirma
 - ¿La ficha inicial se compartirá manualmente desde el navegador o se prioriza desde el inicio la API oficial de WhatsApp Business?
 - ¿Qué cuenta/número de WhatsApp Business y política de consentimiento se usarán para recordatorios?
 - ¿Se autoriza instalar `@playwright/test` y descargar Chromium para la primera implementación de Fase B?
+
+---
+
+# Implementation Plan: Control administrativo y trazabilidad
+
+Estado: plan implementado y validado localmente el 2026-09-24, incluidos esquema y reglas; sin datos reales ni despliegue. `reporting-contracts` queda listo para implementar.
+Specs autorizadas: `store-payment-corrections`, `store-debt-statement`, `membership-advance-payments`, `athlete-lifecycle-statuses`, `inventory-reconciliation`, `workforce-payroll` y `birthday-outreach-card`.
+
+## Overview
+
+Fortalecer la integridad de cobros, membresías, estados de atletas, inventario, personal y seguimiento comunitario antes de construir el nuevo módulo ejecutivo de reportes. Las rebanadas priorizan contratos auditables y exactitud financiera; ninguna tarea autoriza despliegue, datos reales o credenciales.
+
+## Dependency graph
+
+```text
+SC1 contratos de pagos efectivos
+ └─ SC2 persistencia/reglas
+     └─ SC3 corrección individual/grupal
+         ├─ SC4 recibos y consumidores
+         └─ SD1 contrato PDF → SD2 UI → SD3 QA
+
+MA1 contrato temporal → MA2 persistencia/UI → MA3 consumidores → MA4 QA
+
+AL1 contrato de estados → AL2 persistencia/reglas → AL3 UI
+                                              └─ AL4 integraciones → AL5 QA
+                                                                    └─ BD1 → BD2 → BD3 → BD4
+
+IR1 contrato → IR2 finalización atómica → IR3 resoluciones → IR4 UI → IR5 QA
+
+WF1 contrato → WF2 catálogo/reglas → WF3 trabajo → WF4 liquidación/egreso → WF5 UI → WF6 QA
+
+SC + MA + AL + IR + WF ──→ reporting-contracts (listo para implementar)
+```
+
+## Architecture decisions
+
+- Los pagos originales permanecen inmutables; correcciones y reversos son append-only.
+- Los estados derivados usan una única utilidad compartida para evitar que Tienda, recibos y reportes calculen saldos distintos.
+- Un adelanto abre un solo periodo y conserva snapshot de plan, importe, día y vencimiento; máximo 12 meses futuros.
+- `AthleteStatus` es propio y no modifica `ActiveStatus`, usado también por productos, planes y skills.
+- El conteo físico finalizado reemplaza el stock canónico en una actualización multipath; el ajuste conserva la diferencia histórica.
+- Las pérdidas de inventario no crean egresos ficticios; las recuperaciones reales se registran por separado.
+- Nómina operativa registra devengo y pago, pero no pretende sustituir nómina fiscal.
+- Cumpleaños usa una plantilla PNG versionada y render local en canvas; no se genera una imagen remota por atleta.
+- Cada cambio de reglas/esquema, QA autenticado, write remoto o despliegue mantiene un gate explícito separado.
+
+## Task index
+
+### Fase 1: Integridad de cobros y estado de cuenta
+
+- SC1–SC2: contrato de pagos efectivos, persistencia y reglas.
+- Checkpoint SC-A: pruebas puras y emulador antes de UI.
+- SC3–SC4: corrección individual/grupal, recibos y consumidores.
+- Checkpoint SC-B: flujo completo de cobro → corrección → saldo.
+- SD1–SD3: contrato, interfaz y QA del estado de cuenta de tienda.
+
+### Fase 2: Adelantos y ciclo de vida del atleta
+
+- MA1–MA4: fechas, adelantos, consumidores y QA.
+- AL1–AL5: estados, eventos, interfaz, integraciones y QA.
+- Checkpoint AA: no hay cobros vencidos falsos y Kiosco respeta estados.
+
+### Fase 3: Reconciliación de inventario
+
+- IR1–IR5: contrato, cierre atómico, resoluciones, UI y QA.
+- Checkpoint IR: un faltante no vuelve a acumularse.
+
+### Fase 4: Empleados y pagos
+
+- WF1–WF6: contratos, catálogo, trabajo, liquidación, UI y QA.
+- Checkpoint WF: una liquidación produce exactamente un egreso.
+
+### Fase 5: Cumpleaños y tarjeta
+
+- BD1–BD4: estado anual, cola, tarjeta PNG y QA.
+- Checkpoint BD: pendientes vencidos permanecen y la imagen no expone PII.
+
+## Verification strategy
+
+Cada tarea sigue RED → GREEN para lógica nueva. Los checkpoints ejecutan:
+
+- pruebas enfocadas del módulo;
+- `npm run test:rules` cuando cambien reglas;
+- regresiones financieras, recibos, Kiosco y notificaciones según alcance;
+- `npm run typecheck`;
+- `npm run build`;
+- lint focalizado y después global documentando deuda previa;
+- Chrome obligatorio sobre el flujo completo afectado;
+- Playwright complementario en `320`, `768`, `1024` y `1440` px;
+- reporte conforme a `Docs/implementation-reports/README.md`.
+
+Para rutas protegidas se detendrá antes del login y se solicitará inicio de sesión manual. No se automatizan credenciales ni se inspeccionan tokens/cookies.
+
+## Parallelization and sequencing
+
+Las fases SC, SD, MA, AL, IR, WF y BD quedaron cerradas localmente. `store-debt-statement` usa pagos efectivos, `birthday-outreach-card` usa estados auditables y el siguiente trabajo autorizado es `reporting-contracts`.
+
+## Risks and mitigations
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Reverso sobre saldo a favor consumido | Alto | Validación transaccional y rechazo sin escrituras parciales |
+| Consumidor que ignore ajustes | Alto | Utilidad única y búsqueda de todos los usos de `saleAppliedAmount` |
+| Adelantos tratados como vencidos | Alto | Estado temporal puro con reloj inyectable y regresión de recordatorios |
+| Transición duplicada de atleta | Alto | Escritura atómica, precondición de estado e idempotencia |
+| Venta concurrente durante cierre | Alto | Verificación optimista del stock antes de finalizar |
+| Doble egreso de nómina | Alto | Clave idempotente por liquidación y reglas de enlace único |
+| PII en tarjeta o egreso | Medio | Proyecciones mínimas y pruebas de ausencia |
+| Historial legado incompleto | Medio | Etiqueta explícita; sin backfill especulativo |
+
+## Authorization gates
+
+El usuario autorizó tareas locales verificables y cambios locales de esquema/reglas el 2026-09-24. Writes QA, migraciones de datos existentes, sesión autenticada de Chrome, despliegue y datos reales conservan autorizaciones separadas.
+
+## Open questions
+
+- Ninguna de producto para iniciar los contratos puros.
+- Ninguna para comenzar SC1–SC2 localmente. QA autenticado, datos existentes y despliegue mantienen gates separados.

@@ -33,8 +33,11 @@ export const useAthletesStore = defineStore('athletes', () => {
 
   const create = (athlete: NewAthlete) => athletesService.create(athlete)
   const update = (id: string, athlete: Partial<NewAthlete>) => athletesService.update(id, athlete)
-  const setStatus = (id: string, status: Athlete['status'], reason?: string) => athletesService.setStatus(id, status, reason)
+  const paused = computed(() => items.value.filter(item => item.status === 'paused'))
+  const inactive = computed(() => items.value.filter(item => item.status === 'inactive'))
+  const community = computed(() => items.value.filter(item => item.status !== 'inactive'))
+  const transitionStatus = (...args: Parameters<typeof athletesService.transitionStatus>) => athletesService.transitionStatus(...args)
   const dispose = () => { stop?.(); stop = null }
 
-  return { items, active, sorted, loading, error, subscribe, create, update, setStatus, dispose }
+  return { items, active, paused, inactive, community, sorted, loading, error, subscribe, create, update, transitionStatus, dispose }
 })

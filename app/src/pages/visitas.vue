@@ -344,7 +344,9 @@ function showPaymentReceipt(payment: Payment | VisitPayment, installment?: Membe
       ? settledStorePayments
       : combinedStorePaymentsForInstallment(commerce.sales, selectedAthlete.value.id, payment.period, installment)
 
-    activeReceipt.value = buildMembershipReceipt(payment, selectedAthlete.value, selectedPlan.value?.name, installment, combinedStorePayments)
+    const receiptPlanName = plans.items.find(plan => plan.id === (payment.snapshot?.planId ?? selectedPlan.value?.id))?.name
+
+    activeReceipt.value = buildMembershipReceipt(payment, selectedAthlete.value, receiptPlanName, installment, combinedStorePayments)
   }
   if (activeReceipt.value)
     receiptDialog.value = true

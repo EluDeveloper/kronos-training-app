@@ -14,6 +14,7 @@ import { useVisitorsStore } from '@/stores/visitors'
 import { currentPeriod, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment } from '@/types/domain'
 import { buildMembershipReceipt, buildVisitorVisitReceipt, combinedStorePaymentsForInstallment, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, membershipTotalAmount, timestampValue } from '@/utils/kronos'
+import { membershipCollectionState, membershipDueDate } from '@/utils/membership-periods'
 
 const athletes = useAthletesStore()
 const commerce = useCommerceStore()
@@ -56,6 +57,15 @@ const totalFor = (payment: Payment) => membershipTotalAmount(payment, paymentAth
 const balanceFor = (payment: Payment) => membershipBalance(payment, paymentAthlete(payment)?.membership.agreedAmount)
 const installmentsFor = (payment: Payment) => membershipInstallments(payment)
 
+const collectionStateFor = (payment: Payment) => membershipCollectionState({
+  dueDate: payment.snapshot?.dueDate ?? membershipDueDate(payment.period, paymentAthlete(payment)?.membership.paymentDay ?? 1),
+  balance: balanceFor(payment),
+  paidAt: payment.appliedAt,
+})
+
+const collectionStateLabel = (payment: Payment) => ({ advance: 'Adelantado', pending: 'Pendiente', overdue: 'Vencido', paid: 'Liquidado' })[collectionStateFor(payment)]
+const collectionStateColor = (payment: Payment) => ({ advance: 'info', pending: 'warning', overdue: 'error', paid: 'success' })[collectionStateFor(payment)]
+
 function showReceipt(payment: Payment, installment?: MembershipPaymentInstallment, settledStorePayments: CombinedStorePayment[] = []) {
   if (payment.visitorId) {
     const visitor = visitors.items.find(item => item.id === payment.visitorId)
@@ -74,7 +84,7 @@ function showReceipt(payment: Payment, installment?: MembershipPaymentInstallmen
     return
   }
 
-  const planName = plans.items.find(plan => plan.id === athlete.membership.planId)?.name
+  const planName = plans.items.find(plan => plan.id === (payment.snapshot?.planId ?? athlete.membership.planId))?.name
 
   const combinedStorePayments = settledStorePayments.length
     ? settledStorePayments
@@ -213,11 +223,11 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
               <td>{{ payment.period }}</td>
               <td>
                 <VChip
-                  :color="balanceFor(payment) > 0 ? 'warning' : 'success'"
+                  :color="collectionStateColor(payment)"
                   variant="tonal"
                   size="small"
                 >
-                  {{ balanceFor(payment) > 0 ? 'Pendiente' : 'Liquidado' }}
+                  {{ collectionStateLabel(payment) }}
                 </VChip>
               </td>
               <td>

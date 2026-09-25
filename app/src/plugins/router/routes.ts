@@ -77,6 +77,12 @@ export const routes = [
         component: () => import('@/pages/cierres.vue'),
       },
       {
+        path: 'empleados',
+        name: 'workforce',
+        meta: { adminOnly: true },
+        component: () => import('@/pages/empleados.vue'),
+      },
+      {
         path: 'sin-acceso',
         name: 'no-access',
         component: () => import('@/pages/sin-acceso.vue'),

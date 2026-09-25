@@ -4,6 +4,7 @@ import { productsService, type NewProduct } from '@/services/products.service'
 import { salesService, type NewSale } from '@/services/sales.service'
 import { storeCreditsService } from '@/services/store-credits.service'
 import type { Product, Sale, StoreCreditAccount } from '@/types/domain'
+import { effectiveSaleStatus } from '@/utils/store-payment-adjustments'
 
 export const useCommerceStore = defineStore('commerce', () => {
   const products = ref<Product[]>([])
@@ -15,7 +16,7 @@ export const useCommerceStore = defineStore('commerce', () => {
   let stopSales: Unsubscribe | null = null
   let stopStoreCredits: Unsubscribe | null = null
 
-  const openCredit = computed(() => sales.value.filter(item => item.status === 'credit'))
+  const openCredit = computed(() => sales.value.filter(item => effectiveSaleStatus(item) === 'credit'))
   const lowStock = computed(() => products.value.filter(item => item.status === 'active' && item.stock <= item.alertLevel))
 
   function subscribe() {
@@ -38,9 +39,10 @@ export const useCommerceStore = defineStore('commerce', () => {
   const createSale = (sale: NewSale, creditDeposit = 0, creditApplied = 0) => salesService.create(sale, creditDeposit, creditApplied)
   const addPayment = (saleId: string, amount: number, method: string, received?: number, change?: number, creditDeposit = 0) => salesService.addPayment(saleId, amount, method, received, change, creditDeposit)
   const addGroupedPayment = (saleIds: string[], amount: number, method: string, received?: number, change?: number, creditDeposit = 0) => salesService.addGroupedPayment(saleIds, amount, method, received, change, creditDeposit)
+  const adjustPayments = (...args: Parameters<typeof salesService.adjustPayments>) => salesService.adjustPayments(...args)
   const cancelSale = (saleId: string) => salesService.cancel(saleId)
   const creditForAthlete = (athleteId?: string | null) => storeCredits.value.find(account => account.athleteId === athleteId)?.balance ?? 0
   const dispose = () => { stopProducts?.(); stopSales?.(); stopStoreCredits?.(); stopProducts = null; stopSales = null; stopStoreCredits = null }
 
-  return { products, sales, storeCredits, openCredit, lowStock, loading, error, subscribe, createProduct, updateProduct, addStock, createSale, addPayment, addGroupedPayment, cancelSale, creditForAthlete, dispose }
+  return { products, sales, storeCredits, openCredit, lowStock, loading, error, subscribe, createProduct, updateProduct, addStock, createSale, addPayment, addGroupedPayment, adjustPayments, cancelSale, creditForAthlete, dispose }
 })

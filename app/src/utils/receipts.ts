@@ -1,9 +1,10 @@
 import { jsPDF } from 'jspdf'
-import type { Athlete, CombinedStorePayment, ISOTimestamp, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
+import type { Athlete, CombinedStorePayment, ISOTimestamp, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment, SalePaymentAdjustment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
 import { drawKronosPdfHeader, loadKronosLogoDataUrl } from '@/utils/kronos-pdf'
-import { formatCurrency, membershipBalance, membershipPaidAmount, membershipTotalAmount, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
+import { formatCurrency, formatDate, membershipBalance, membershipPaidAmount, membershipTotalAmount, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
+import { effectiveSalePayments, resolveSalePaymentStates } from '@/utils/store-payment-adjustments'
 
-export type ReceiptKind = 'membership' | 'sale' | 'sale-payment' | 'collection'
+export type ReceiptKind = 'membership' | 'sale' | 'sale-payment' | 'sale-correction' | 'store-statement' | 'collection'
 
 export interface ReceiptLine {
   description: string
@@ -59,7 +60,7 @@ export function combinedStorePaymentsForInstallment(sales: Sale[], athleteId: st
 
   return sales
     .filter(sale => sale.athleteId === athleteId)
-    .flatMap(sale => Object.values(sale.payments ?? {})
+    .flatMap(sale => effectiveSalePayments(sale)
       .filter(storePayment => {
         const explicitlyLinked = storePayment.membershipPeriod === period && storePayment.membershipInstallmentId === installment.id
 
@@ -80,6 +81,14 @@ export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planN
   const description = payment.concept?.trim() || `${installment ? 'Abono a mensualidad' : 'Membresía'} ${payment.period}`
   const storeAmountPaid = settledStorePayments.reduce((total, entry) => total + Number(entry.payment.amountApplied || 0), 0)
   const isCombinedPayment = storeAmountPaid > 0
+  const installmentDate = installment ? new Date(timestampValue(installment.appliedAt)) : null
+
+  const installmentDateKey = installmentDate && !Number.isNaN(installmentDate.getTime())
+    ? `${installmentDate.getFullYear()}-${String(installmentDate.getMonth() + 1).padStart(2, '0')}-${String(installmentDate.getDate()).padStart(2, '0')}`
+    : null
+
+  const isAdvance = Boolean(payment.snapshot?.dueDate && installmentDateKey && installmentDateKey < payment.snapshot.dueDate)
+  const dueDetail = payment.snapshot?.dueDate ? ` · corte ${formatDate(`${payment.snapshot.dueDate}T12:00:00`)}` : ''
 
   return {
     kind: 'membership',
@@ -87,7 +96,7 @@ export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planN
     issuedAt: installment?.appliedAt ?? payment.appliedAt ?? payment.updatedAt,
     customerName: athlete.profile.name,
     phone: athlete.profile.phone,
-    concept: `${payment.concept?.trim() || `Mensualidad ${payment.period}${planName ? ` - ${planName}` : ''}`}${isCombinedPayment ? ' + tienda' : ''}`,
+    concept: `${payment.concept?.trim() || `${isAdvance ? 'Adelanto de mensualidad' : 'Mensualidad'} ${payment.period}${planName ? ` - ${planName}` : ''}${dueDetail}`}${isCombinedPayment ? ' + tienda' : ''}`,
     lines: [
       { description, ...(payment.visitCount ? { quantity: payment.visitCount, unitPrice: membershipAmountPaid / payment.visitCount } : {}), amount: membershipAmountPaid },
       ...settledStorePayments.map(entry => ({ description: storeSaleDescription(entry.sale), amount: Number(entry.payment.amountApplied || 0) })),
@@ -179,7 +188,7 @@ const storeDebtLines = (openSales: Sale[]): ReceiptLine[] => openSales
 
 export function buildSaleReceipt(sale: Sale, customer?: ReceiptCustomer): ReceiptData {
   const paid = saleAppliedAmount(sale)
-  const payments = Object.values(sale.payments ?? {}).sort((a, b) => timestampValue(a.appliedAt) - timestampValue(b.appliedAt))
+  const payments = effectiveSalePayments(sale).sort((a, b) => timestampValue(a.appliedAt) - timestampValue(b.appliedAt))
   const uniqueMethods = [...new Set(payments.map(payment => payment.method))]
 
   return {
@@ -204,7 +213,10 @@ export function buildSaleReceipt(sale: Sale, customer?: ReceiptCustomer): Receip
 }
 
 export function buildSalePaymentReceipt(sale: Sale, targetPayment: SalePayment, customer?: ReceiptCustomer): ReceiptData {
-  const orderedPayments = Object.values(sale.payments ?? {}).sort((a, b) => {
+  const targetState = resolveSalePaymentStates(sale).find(state => state.original.id === targetPayment.id)
+  const receiptPayment = { ...targetPayment, method: targetState?.effectiveMethod ?? targetPayment.method }
+
+  const orderedPayments = effectiveSalePayments(sale).sort((a, b) => {
     const difference = timestampValue(a.appliedAt) - timestampValue(b.appliedAt)
 
     return difference || a.id.localeCompare(b.id)
@@ -224,12 +236,12 @@ export function buildSalePaymentReceipt(sale: Sale, targetPayment: SalePayment, 
     issuedAt: targetPayment.appliedAt,
     customerName: customer ? customerName(customer) : sale.customerName,
     phone: customer ? customerPhone(customer) : null,
-    concept: `Abono a venta ${`VEN-${folioSuffix(sale.id)}`}`,
+    concept: `${targetState?.reversed ? 'Comprobante histórico de abono revertido' : 'Abono a venta'} ${`VEN-${folioSuffix(sale.id)}`}`,
     lines: [{ description: 'Abono aplicado', amount: Number(targetPayment.amountApplied || 0) }],
-    method: targetPayment.method,
+    method: receiptPayment.method,
     total: Number(sale.total || 0),
     amountPaid: Number(targetPayment.amountApplied || 0),
-    balance: Math.max(0, Number(sale.total || 0) - appliedThroughReceipt),
+    balance: targetState?.reversed ? saleBalance(sale) : Math.max(0, Number(sale.total || 0) - appliedThroughReceipt),
     ...(targetPayment.creditBalance != null ? { creditBalance: targetPayment.creditBalance } : {}),
   }
 }
@@ -240,7 +252,7 @@ export function buildGroupedSalePaymentReceipt(entries: CombinedStorePayment[], 
     throw new Error('No hay movimientos para generar el recibo conjunto.')
 
   const balanceAfter = entries.reduce((total, entry) => {
-    const orderedPayments = Object.values(entry.sale.payments ?? {}).sort((a, b) => {
+    const orderedPayments = effectiveSalePayments(entry.sale).sort((a, b) => {
       const difference = timestampValue(a.appliedAt) - timestampValue(b.appliedAt)
 
       return difference || a.id.localeCompare(b.id)
@@ -257,6 +269,8 @@ export function buildGroupedSalePaymentReceipt(entries: CombinedStorePayment[], 
     return total + Math.max(0, Number(entry.sale.total || 0) - appliedThroughReceipt)
   }, 0)
 
+  const states = entries.map(entry => resolveSalePaymentStates(entry.sale).find(state => state.original.id === entry.payment.id))
+  const fullyReversed = states.every(state => state?.reversed)
   const amountPaid = entries.reduce((total, entry) => total + Number(entry.payment.amountApplied || 0), 0)
   const creditBalance = entries.find(entry => entry.payment.creditBalance != null)?.payment.creditBalance
 
@@ -266,16 +280,47 @@ export function buildGroupedSalePaymentReceipt(entries: CombinedStorePayment[], 
     issuedAt: firstEntry.payment.appliedAt,
     customerName: customer ? customerName(customer) : firstEntry.sale.customerName,
     phone: customer ? customerPhone(customer) : null,
-    concept: `Cobro conjunto de ${entries.length} adeudos de tienda`,
+    concept: `${fullyReversed ? 'Comprobante histórico de cobro conjunto revertido' : 'Cobro conjunto'} de ${entries.length} adeudos de tienda`,
     lines: entries.map(entry => ({
       description: storeSaleDescription(entry.sale),
       amount: Number(entry.payment.amountApplied || 0),
     })),
-    method: firstEntry.payment.method,
+    method: states[0]?.effectiveMethod ?? firstEntry.payment.method,
     total: amountPaid + balanceAfter,
     amountPaid,
     balance: balanceAfter,
     ...(creditBalance != null ? { creditBalance } : {}),
+  }
+}
+
+export function buildSalePaymentCorrectionReceipt(
+  entries: Array<{ sale: Sale; adjustment: SalePaymentAdjustment }>,
+  operationId: string,
+  customer?: ReceiptCustomer,
+): ReceiptData {
+  const first = entries[0]
+  if (!first)
+    throw new Error('No hay correcciones para generar el comprobante.')
+
+  const reversed = entries.every(entry => entry.adjustment.kind === 'reversal')
+  const amount = entries.reduce((total, entry) => total + Number(entry.sale.payments?.[entry.adjustment.paymentId]?.amountApplied || 0), 0)
+  const methods = [...new Set(entries.map(entry => entry.adjustment.toMethod).filter(Boolean))]
+
+  return {
+    kind: 'sale-correction',
+    folio: `AJU-${folioSuffix(operationId)}`,
+    issuedAt: first.adjustment.createdAt,
+    customerName: customer ? customerName(customer) : first.sale.customerName,
+    phone: customer ? customerPhone(customer) : null,
+    concept: reversed ? 'Reverso auditado de cobro de tienda' : 'Corrección auditada de método de pago',
+    lines: entries.map(entry => ({
+      description: `${entry.adjustment.kind === 'reversal' ? 'Adeudo reactivado' : 'Método corregido'} · ${storeSaleDescription(entry.sale)}`,
+      amount: Number(entry.sale.payments?.[entry.adjustment.paymentId]?.amountApplied || 0),
+    })),
+    method: methods.length === 1 ? methods[0] : null,
+    total: amount,
+    amountPaid: amount,
+    balance: entries.reduce((total, entry) => total + saleBalance(entry.sale), 0),
   }
 }
 
@@ -385,9 +430,11 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
   const contentWidth = width - margin * 2
   let y = 0
   const isCollection = receipt.kind === 'collection'
+  const isCorrection = receipt.kind === 'sale-correction'
+  const isStoreStatement = receipt.kind === 'store-statement'
 
   const drawHeader = () => {
-    y = drawKronosPdfHeader(pdf, isCollection ? 'AVISO DE PAGO' : 'RECIBO', receipt.folio, officialLogo)
+    y = drawKronosPdfHeader(pdf, isCollection ? 'AVISO DE PAGO' : isCorrection ? 'CORRECCIÓN' : isStoreStatement ? 'ESTADO DE CUENTA' : 'RECIBO', receipt.folio, officialLogo)
   }
 
   const ensureSpace = (required: number) => {
@@ -414,12 +461,15 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
   y += 5
   pdf.text(`Concepto: ${receipt.concept}`, margin, y)
   y += 5
-  if (!isCollection) {
+  if (!isCollection && !isStoreStatement) {
     pdf.text(`Método: ${paymentMethodLabel(receipt.method)}`, margin, y)
     y += 9
   }
   else {
-    pdf.text('Documento informativo - no es comprobante de pago', margin, y)
+    if (isStoreStatement)
+      pdf.text('Documento exclusivo de adeudos de tienda', margin, y)
+    else
+      pdf.text('Documento informativo - no es comprobante de pago', margin, y)
     y += 9
   }
 
@@ -465,7 +515,7 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
     pdf.text('Total', width - margin - 45, y)
     pdf.text(formatCurrency(receipt.total), width - margin, y, { align: 'right' })
     y += 6
-    pdf.text(receipt.kind === 'sale-payment' || receipt.balance > 0 ? 'Abono recibido' : 'Pagado', width - margin - 45, y)
+    pdf.text(receipt.kind === 'sale-correction' ? 'Importe corregido' : receipt.kind === 'store-statement' ? 'Abonado' : receipt.kind === 'sale-payment' || receipt.balance > 0 ? 'Abono recibido' : 'Pagado', width - margin - 45, y)
     pdf.text(formatCurrency(receipt.amountPaid), width - margin, y, { align: 'right' })
     y += 6
     pdf.text('Saldo', width - margin - 45, y)
@@ -505,7 +555,7 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
   pdf.setTextColor(120, 122, 118)
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(7.5)
-  pdf.text(isCollection ? 'Si ya realizaste el pago, puedes ignorar este aviso.' : 'Gracias por entrenar con nosotros.', width / 2, pageHeight - 10, { align: 'center' })
+  pdf.text(isCollection ? 'Si ya realizaste el pago, puedes ignorar este aviso.' : isCorrection ? 'Conserva este comprobante para cualquier aclaración.' : isStoreStatement ? 'Este documento no incluye mensualidades ni visitas.' : 'Gracias por entrenar con nosotros.', width / 2, pageHeight - 10, { align: 'center' })
 
   return pdf
 }

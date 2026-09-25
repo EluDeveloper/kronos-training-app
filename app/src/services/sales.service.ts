@@ -1,9 +1,22 @@
-import type { PaymentMethod, Sale, SalePayment, StoreCreditAccount, StoreCreditEntry } from '@/types/domain'
+import type { PaymentMethod, Sale, SalePayment, SalePaymentAdjustmentKind, StoreCreditAccount, StoreCreditEntry } from '@/types/domain'
 import { get, increment, push, ref, update } from 'firebase/database'
 import { businessPath, requireDatabase, serverTimestamp, subscribeCollection, type ErrorHandler } from './realtime.service'
 import { saleAppliedAmount, timestampValue } from '@/utils/kronos'
+import {
+  buildSalePaymentAdjustment,
+  buildStoreCreditReversalPlan,
+  effectiveSaleStatus,
+  resolveSalePaymentStates,
+} from '@/utils/store-payment-adjustments'
 
 export type NewSale = Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>
+
+export interface StorePaymentAdjustmentRequest {
+  saleId: string
+  paymentId: string
+  kind: SalePaymentAdjustmentKind
+  toMethod?: PaymentMethod
+}
 
 const currency = (value: number) => Math.round(Number(value || 0) * 100) / 100
 
@@ -22,6 +35,7 @@ function creditEntry(id: string, type: StoreCreditEntry['type'], amount: number,
     deposit: 'Excedente dejado como saldo a favor',
     application: 'Saldo aplicado a compra',
     refund: 'Reintegro por cancelación de venta',
+    reversal: 'Retiro de saldo por reverso de cobro',
   }
 
   return { id, type, amount, saleId, description: descriptions[type], occurredAt, balanceAfter }
@@ -243,6 +257,116 @@ export const salesService = {
 
     return { groupPaymentId, entries: results }
   },
+  async adjustPayments(requests: StorePaymentAdjustmentRequest[], reason: string, actorUid: string) {
+    const database = requireDatabase()
+    const cleanReason = reason.trim()
+    const cleanActor = actorUid.trim()
+    const uniqueRequests = [...new Map(requests.map(request => [`${request.saleId}:${request.paymentId}`, request])).values()]
+
+    if (!uniqueRequests.length)
+      throw new Error('Selecciona al menos un cobro para corregir.')
+    if (cleanReason.length < 3)
+      throw new Error('Captura un motivo de al menos tres caracteres.')
+    if (!cleanActor)
+      throw new Error('No fue posible identificar a la persona que realiza la corrección.')
+
+    const salesSnapshot = await get(ref(database, businessPath('sales')))
+    const allSales = salesSnapshot.exists() ? Object.values(salesSnapshot.val() as Record<string, Sale>) : []
+    const salesById = new Map(allSales.map(sale => [sale.id, sale]))
+
+    const selected = uniqueRequests.map(request => {
+      const sale = salesById.get(request.saleId)
+      const payment = sale?.payments?.[request.paymentId]
+      if (!sale || !payment)
+        throw new Error('Uno de los cobros dejó de existir. Actualiza e intenta nuevamente.')
+      if (sale.status === 'cancelled')
+        throw new Error('No se puede corregir el cobro de una venta cancelada.')
+
+      return { request, sale, payment }
+    })
+
+    const customerKeys = new Set(selected.map(({ sale }) => sale.athleteId ? `athlete:${sale.athleteId}` : `visitor:${sale.visitorId ?? sale.customerName}`))
+    if (customerKeys.size > 1)
+      throw new Error('Los cobros seleccionados deben pertenecer al mismo cliente.')
+
+    const operationId = push(ref(database, businessPath('paymentAdjustments'))).key
+    if (!operationId)
+      throw new Error('No fue posible generar el identificador de la corrección.')
+
+    const occurredAt = Date.now()
+    const updates: Record<string, unknown> = {}
+    const projectedSales = new Map<string, Sale>()
+    const adjustments = []
+
+    for (const [index, { request, sale }] of selected.entries()) {
+      const currentSale = projectedSales.get(sale.id) ?? sale
+
+      const adjustmentId = request.kind === 'reversal'
+        ? `reversal-${request.paymentId}`
+        : `${operationId}-${index + 1}`
+
+      const adjustment = buildSalePaymentAdjustment(currentSale, {
+        id: adjustmentId,
+        paymentId: request.paymentId,
+        kind: request.kind,
+        ...(request.toMethod ? { toMethod: request.toMethod } : {}),
+        reason: cleanReason,
+        createdBy: cleanActor,
+        createdAt: occurredAt,
+      })
+
+      const projected: Sale = {
+        ...currentSale,
+        paymentAdjustments: { ...(currentSale.paymentAdjustments ?? {}), [adjustment.id]: adjustment },
+      }
+
+      projectedSales.set(sale.id, projected)
+      adjustments.push(adjustment)
+      updates[`sales/${sale.id}/paymentAdjustments/${adjustment.id}`] = adjustment
+    }
+
+    const reversalTargets = selected
+      .filter(({ request }) => request.kind === 'reversal')
+      .map(({ sale, payment }) => ({ sale, paymentId: payment.id }))
+
+    const athleteId = reversalTargets[0]?.sale.athleteId
+    const account = await loadCreditAccount(athleteId)
+
+    for (const { payment } of selected.filter(({ request }) => request.kind === 'reversal')) {
+      if (!payment.groupPaymentId || !account?.entries?.[`deposit-${payment.groupPaymentId}`])
+        continue
+
+      const selectedGroupPayments = new Set(reversalTargets
+        .filter(target => target.sale.payments?.[target.paymentId]?.groupPaymentId === payment.groupPaymentId)
+        .map(target => `${target.sale.id}:${target.paymentId}`))
+
+      const effectiveGroupPayments = allSales.flatMap(candidate => resolveSalePaymentStates(candidate)
+        .filter(state => !state.reversed && state.original.groupPaymentId === payment.groupPaymentId)
+        .map(state => `${candidate.id}:${state.original.id}`))
+
+      if (effectiveGroupPayments.some(key => !selectedGroupPayments.has(key)))
+        throw new Error('El cobro agrupado generó saldo a favor; revierte el grupo completo para conservar la conciliación.')
+    }
+
+    const creditPlan = buildStoreCreditReversalPlan(reversalTargets, account, occurredAt, operationId, cleanActor)
+    if (creditPlan && account) {
+      updates[`storeCredits/${creditPlan.athleteId}/balance`] = creditPlan.balance
+      updates[`storeCredits/${creditPlan.athleteId}/updatedAt`] = occurredAt
+      for (const entry of creditPlan.entries) {
+        updates[`storeCredits/${creditPlan.athleteId}/entries/${entry.id}`] = entry
+        updates[`storeCredits/${creditPlan.athleteId}/lastAdjustmentId`] = entry.id
+      }
+    }
+
+    await update(ref(database, businessPath('')), updates)
+
+    return {
+      operationId,
+      adjustments,
+      sales: [...projectedSales.values()].map(sale => ({ ...sale, status: effectiveSaleStatus(sale) })),
+      storeCreditBalance: creditPlan?.balance,
+    }
+  },
   async cancel(saleId: string) {
     const database = requireDatabase()
     const saleRef = ref(database, businessPath(`sales/${saleId}`))
@@ -273,7 +397,9 @@ export const salesService = {
       updates[`products/${item.productId}/updatedAt`] = now
     })
 
-    const appliedCredit = Object.values(sale.payments ?? {})
+    const appliedCredit = resolveSalePaymentStates(sale)
+      .filter(state => !state.reversed)
+      .map(state => ({ ...state.original, method: state.effectiveMethod }))
       .filter(payment => payment.method === 'store-credit')
       .reduce((total, payment) => total + Number(payment.amountApplied || 0), 0)
 

@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import EmptyState from '@/components/kronos/EmptyState.vue'
+import InventoryResolutionDialog from '@/components/kronos/InventoryResolutionDialog.vue'
 import MetricCard from '@/components/kronos/MetricCard.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import { useClosuresStore } from '@/stores/closures'
 import { useCommerceStore } from '@/stores/commerce'
 import { useExpensesStore } from '@/stores/expenses'
+import { useInventoryRecoveriesStore } from '@/stores/inventory-recoveries'
 import { useNotificationsStore } from '@/stores/notifications'
 import { usePaymentsStore } from '@/stores/payments'
 import { useSessionStore } from '@/stores/session'
 import { useVisitPaymentsStore } from '@/stores/visit-payments'
-import type { InventoryClosureItem } from '@/types/domain'
+import type { InventoryClosure, InventoryClosureItem, InventoryResolution, InventoryResolutionKind, PaymentMethod } from '@/types/domain'
 import { buildFinancialMovements, dateKey, movementsBetweenDates, summarizeMovements } from '@/utils/financial-reports'
 import { formatCurrency, formatDate } from '@/utils/kronos'
 
 const closures = useClosuresStore()
 const commerce = useCommerceStore()
 const expenses = useExpensesStore()
+const inventoryRecoveries = useInventoryRecoveriesStore()
 const payments = usePaymentsStore()
 const visitPayments = useVisitPaymentsStore()
 const notifications = useNotificationsStore()
@@ -30,6 +33,10 @@ const selectedWeekDate = ref(today)
 const cashForm = reactive({ openingCash: 0, openingBank: 0, countedCash: 0, countedBank: 0, notes: '', isBaseline: false })
 const inventoryCounts = reactive<Record<string, number | null>>({})
 const inventoryNotes = ref('')
+const resolutionDialog = ref(false)
+const resolutionClosure = ref<InventoryClosure | null>(null)
+const inventoryResolutions = ref<InventoryResolution[]>([])
+const resolvingInventory = ref(false)
 
 const addDays = (value: string, days: number) => {
   const date = new Date(`${value}T12:00:00`)
@@ -44,6 +51,7 @@ const weekBounds = (value: string) => {
   const day = date.getDay() || 7
 
   date.setDate(date.getDate() - day + 1)
+
   const start = dateKey(date)
 
   return { start, end: addDays(start, 6) }
@@ -54,9 +62,11 @@ const allMovements = computed(() => buildFinancialMovements({
   visitPayments: visitPayments.items,
   sales: commerce.sales,
   expenses: expenses.items,
+  inventoryRecoveries: inventoryRecoveries.items,
 }))
 
 const existingCashClosure = computed(() => closures.cash.find(item => item.date === selectedCashDate.value) ?? null)
+
 const previousCashClosure = computed(() => closures.cash
   .filter(item => item.date < selectedCashDate.value)
   .sort((left, right) => right.date.localeCompare(left.date))[0] ?? null)
@@ -66,6 +76,7 @@ const closureMovements = computed(() => movementsBetweenDates(
   previousCashClosure.value?.date ?? null,
   selectedCashDate.value,
 ))
+
 const cashMovementSummary = computed(() => summarizeMovements(cashForm.isBaseline ? [] : closureMovements.value))
 const expectedCash = computed(() => Number(cashForm.openingCash || 0) + cashMovementSummary.value.cashNet)
 const expectedBank = computed(() => Number(cashForm.openingBank || 0) + cashMovementSummary.value.bankNet)
@@ -150,6 +161,7 @@ async function saveCashClosure() {
 
 const selectedWeek = computed(() => weekBounds(selectedWeekDate.value))
 const existingInventoryClosure = computed(() => closures.inventory.find(item => item.weekStart === selectedWeek.value.start) ?? null)
+
 const inventoryProducts = computed(() => commerce.products
   .filter(product => product.status === 'active' || product.stock !== 0)
   .sort((left, right) => `${left.category} ${left.name}`.localeCompare(`${right.category} ${right.name}`, 'es')))
@@ -169,6 +181,7 @@ const inventoryRows = computed(() => {
 })
 
 const countedValue = (productId: string) => inventoryCounts[productId]
+
 const rowVariance = (row: Pick<InventoryClosureItem, 'productId' | 'systemStock'>) => {
   const counted = countedValue(row.productId)
 
@@ -197,6 +210,7 @@ const inventoryTotals = computed(() => inventoryRows.value.reduce((totals, row) 
 
 function loadInventoryForm() {
   Object.keys(inventoryCounts).forEach(key => delete inventoryCounts[key])
+
   const existing = existingInventoryClosure.value
 
   inventoryRows.value.forEach(row => {
@@ -207,7 +221,7 @@ function loadInventoryForm() {
 
 watch([() => selectedWeek.value.start, () => closures.inventory.length, () => commerce.products.length], loadInventoryForm, { immediate: true })
 
-async function saveInventoryClosure() {
+async function saveInventoryClosure(finalize = false) {
   if (selectedWeek.value.start > today)
     return notifications.show('No se puede cerrar una semana futura.', 'warning')
   if (!inventoryAllCounted.value)
@@ -231,22 +245,42 @@ async function saveInventoryClosure() {
     } satisfies InventoryClosureItem]
   }))
 
+  const payload = {
+    weekStart: selectedWeek.value.start,
+    weekEnd: selectedWeek.value.end,
+    items,
+    totalSystemUnits: inventoryTotals.value.system,
+    totalCountedUnits: inventoryTotals.value.counted,
+    varianceUnits: inventoryTotals.value.variance,
+    lossValue: inventoryTotals.value.loss,
+    gainValue: inventoryTotals.value.gain,
+    notes: inventoryNotes.value.trim() || null,
+    closedBy: session.uid,
+    closedByName: session.profile.displayName,
+    status: finalize ? 'finalized' as const : 'draft' as const,
+  }
+
+  if (finalize) {
+    const accepted = await notifications.requestConfirmation({
+      title: 'Finalizar cierre de inventario',
+      message: `El conteo físico sustituirá el stock del sistema para ${inventoryRows.value.length} productos.`,
+      detail: 'Esta acción es irreversible; cualquier diferencia posterior se resolverá con movimientos auditados.',
+      confirmText: 'Finalizar y reconciliar',
+      color: 'warning',
+      icon: 'ri-archive-check-line',
+    })
+
+    if (!accepted)
+      return
+  }
+
   savingInventory.value = true
   try {
-    await closures.saveInventory({
-      weekStart: selectedWeek.value.start,
-      weekEnd: selectedWeek.value.end,
-      items,
-      totalSystemUnits: inventoryTotals.value.system,
-      totalCountedUnits: inventoryTotals.value.counted,
-      varianceUnits: inventoryTotals.value.variance,
-      lossValue: inventoryTotals.value.loss,
-      gainValue: inventoryTotals.value.gain,
-      notes: inventoryNotes.value.trim() || null,
-      closedBy: session.uid,
-      closedByName: session.profile.displayName,
-    })
-    notifications.show(existingInventoryClosure.value ? 'Cierre semanal actualizado.' : 'Cierre semanal guardado.')
+    if (finalize)
+      await closures.finalizeInventory(payload)
+    else
+      await closures.saveInventory(payload)
+    notifications.show(finalize ? 'Cierre finalizado; el conteo físico ya es el stock vigente.' : 'Borrador de inventario guardado.')
   }
   catch (error) {
     notifications.show(error instanceof Error ? error.message : 'No fue posible guardar el cierre de inventario.', 'error')
@@ -256,10 +290,34 @@ async function saveInventoryClosure() {
   }
 }
 
+async function openInventoryResolution(closure: InventoryClosure) {
+  resolutionClosure.value = closure
+  inventoryResolutions.value = await closures.getInventoryResolutions(closure.id)
+  resolutionDialog.value = true
+}
+
+async function submitInventoryResolution(value: { adjustmentId: string; kind: InventoryResolutionKind; units: number; amount?: number; method?: PaymentMethod; reference?: string; reason: string }) {
+  if (!resolutionClosure.value || !session.uid)
+    return
+  resolvingInventory.value = true
+  try {
+    await closures.resolveInventory(resolutionClosure.value.id, value.adjustmentId, value, session.uid)
+    inventoryResolutions.value = await closures.getInventoryResolutions(resolutionClosure.value.id)
+    notifications.show('Resolución de inventario registrada.')
+  }
+  catch (error) {
+    notifications.show(error instanceof Error ? error.message : 'No fue posible registrar la resolución.', 'error')
+  }
+  finally {
+    resolvingInventory.value = false
+  }
+}
+
 onMounted(() => {
   closures.subscribe()
   commerce.subscribe()
   expenses.subscribe()
+  inventoryRecoveries.subscribe()
   payments.subscribe()
   visitPayments.subscribe()
 })
@@ -268,6 +326,7 @@ onBeforeUnmount(() => {
   closures.dispose()
   commerce.dispose()
   expenses.dispose()
+  inventoryRecoveries.dispose()
   payments.dispose()
   visitPayments.dispose()
 })
@@ -540,7 +599,7 @@ onBeforeUnmount(() => {
         class="mb-5"
         icon="ri-scales-3-line"
       >
-        Este cierre registra la diferencia entre sistema y conteo físico. No modifica automáticamente las existencias.
+        El borrador permite revisar el conteo. Al finalizar, el conteo físico se vuelve el stock vigente y las diferencias quedan auditadas para resolverlas sin acumulación artificial.
       </VAlert>
 
       <VRow class="mb-2">
@@ -613,6 +672,7 @@ onBeforeUnmount(() => {
                       density="compact"
                       hide-details
                       label="Unidades contadas"
+                      :disabled="existingInventoryClosure?.status === 'finalized'"
                     />
                   </td>
                   <td
@@ -633,17 +693,43 @@ onBeforeUnmount(() => {
             rows="3"
             auto-grow
             class="mt-5"
+            :disabled="existingInventoryClosure?.status === 'finalized'"
           />
-          <VBtn
-            block
-            size="large"
-            prepend-icon="ri-save-3-line"
-            :loading="savingInventory"
-            :disabled="!inventoryAllCounted"
-            @click="saveInventoryClosure"
+          <VAlert
+            v-if="existingInventoryClosure?.status === 'finalized'"
+            type="success"
+            variant="tonal"
+            class="mt-4"
           >
-            {{ existingInventoryClosure ? 'Actualizar cierre semanal' : 'Guardar cierre semanal' }}
-          </VBtn>
+            Cierre finalizado. El conteo ya actualizó las existencias; usa resoluciones para cualquier recuperación o pérdida.
+          </VAlert>
+          <div
+            v-else
+            class="d-flex flex-column flex-sm-row ga-3 mt-4"
+          >
+            <VBtn
+              class="flex-grow-1"
+              size="large"
+              variant="tonal"
+              prepend-icon="ri-save-3-line"
+              :loading="savingInventory"
+              :disabled="!inventoryAllCounted"
+              @click="saveInventoryClosure(false)"
+            >
+              Guardar borrador
+            </VBtn>
+            <VBtn
+              class="flex-grow-1"
+              size="large"
+              color="warning"
+              prepend-icon="ri-archive-check-line"
+              :loading="savingInventory"
+              :disabled="!inventoryAllCounted"
+              @click="saveInventoryClosure(true)"
+            >
+              Finalizar cierre
+            </VBtn>
+          </div>
         </VCardText>
       </VCard>
 
@@ -663,7 +749,7 @@ onBeforeUnmount(() => {
           density="compact"
         >
           <thead>
-            <tr><th>Semana</th><th class="text-right">Sistema</th><th class="text-right">Físico</th><th class="text-right">Diferencia</th><th class="text-right">Pérdida</th><th>Responsable</th></tr>
+            <tr><th>Semana</th><th class="text-right">Sistema</th><th class="text-right">Físico</th><th class="text-right">Diferencia</th><th class="text-right">Pérdida</th><th>Estado</th><th>Responsable</th><th><span class="sr-only">Acciones</span></th></tr>
           </thead>
           <tbody>
             <tr
@@ -682,13 +768,34 @@ onBeforeUnmount(() => {
                 {{ closure.varianceUnits }}
               </td>
               <td class="text-right text-error">{{ formatCurrency(closure.lossValue) }}</td>
+              <td><VChip size="small" :color="closure.status === 'finalized' ? 'success' : 'warning'">{{ closure.status === 'finalized' ? 'Finalizado' : 'Borrador' }}</VChip></td>
               <td>{{ closure.closedByName }}</td>
+              <td>
+                <VBtn
+                  v-if="closure.status === 'finalized' && closure.varianceUnits < 0"
+                  size="small"
+                  variant="tonal"
+                  color="warning"
+                  prepend-icon="ri-scales-3-line"
+                  @click.stop="openInventoryResolution(closure)"
+                >
+                  Resolver
+                </VBtn>
+              </td>
             </tr>
           </tbody>
         </VTable>
       </VCard>
     </VWindowItem>
   </VWindow>
+
+  <InventoryResolutionDialog
+    v-model="resolutionDialog"
+    :closure="resolutionClosure"
+    :resolutions="inventoryResolutions"
+    :loading="resolvingInventory"
+    @submit="submitInventoryResolution"
+  />
 </template>
 
 <style scoped>

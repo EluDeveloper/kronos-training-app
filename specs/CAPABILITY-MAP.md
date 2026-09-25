@@ -33,6 +33,32 @@ experience-quality
 
 El mapa debe ser aprobado antes de crear specs de módulos. Si la arquitectura vigente demuestra otros límites, actualizar este mapa primero.
 
+## Iniciativa: control administrativo y trazabilidad
+
+Estado: iniciativa implementada y validada localmente el 2026-09-24; sin datos reales ni despliegue.
+
+| ID estable | Responsabilidad | Dependencias |
+|---|---|---|
+| `store-payment-corrections` | Reversos y correcciones auditadas de cobros de tienda | `store-inventory` |
+| `store-debt-statement` | Estado de cuenta PDF de uno o varios adeudos de tienda | `store-payment-corrections` |
+| `membership-advance-payments` | Abonos antes del corte y a periodos futuros | `athletes-payments` |
+| `athlete-lifecycle-statuses` | Estados Activo, Pausa y Baja con historial inmutable | `athletes-payments` |
+| `workforce-payroll` | Empleados, asistencias, devengos, liquidaciones y vínculo con egresos | `foundation`, `operations` |
+| `birthday-outreach-card` | Seguimiento anual de felicitaciones y tarjeta PNG | `athlete-lifecycle-statuses`, `operations` |
+| `inventory-reconciliation` | Conteo físico como nuevo stock y resolución de diferencias | `store-inventory` |
+
+Orden aprobado:
+
+```text
+store-payment-corrections → store-debt-statement ─┐
+membership-advance-payments ──────────────────────┤
+athlete-lifecycle-statuses → birthday-outreach ───┼──→ reports
+inventory-reconciliation ─────────────────────────┤
+workforce-payroll ────────────────────────────────┘
+```
+
+El desglose de `reports` fue autorizado el 2026-09-24. Tras completar localmente los contratos auditables precedentes, `specs/SPEC-reporting-contracts.md` queda aprobado y listo para implementar; no debe perderse ni volver a tratarse como una idea no autorizada.
+
 ## Regla transversal de calidad
 
 `experience-quality` participa en cada fase que cambie una interfaz. Chrome valida el flujo completo afectado; Playwright aporta una matriz repetible de responsive y regresión visual. La validación del navegador se limita al flujo en alcance y no exige recorrer toda la aplicación.

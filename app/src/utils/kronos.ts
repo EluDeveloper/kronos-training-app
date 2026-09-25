@@ -1,4 +1,5 @@
 import type { ISOTimestamp, MembershipPaymentInstallment, Payment, Sale } from '@/types/domain'
+import { effectiveSaleAppliedAmount, effectiveSaleBalance } from '@/utils/store-payment-adjustments'
 
 export const formatCurrency = (value: number) => new Intl.NumberFormat('es-MX', {
   style: 'currency',
@@ -63,7 +64,6 @@ export const membershipInstallments = (payment: Payment): MembershipPaymentInsta
   }]
 }
 
-export const saleAppliedAmount = (sale: Sale) => Object.values(sale.payments ?? {})
-  .reduce((total, payment) => total + Number(payment.amountApplied || 0), 0)
+export const saleAppliedAmount = (sale: Sale) => effectiveSaleAppliedAmount(sale)
 
-export const saleBalance = (sale: Sale) => Math.max(0, sale.total - saleAppliedAmount(sale))
+export const saleBalance = (sale: Sale) => effectiveSaleBalance(sale)

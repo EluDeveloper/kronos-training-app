@@ -17,7 +17,9 @@ const emit = defineEmits<{
 const { success, failure } = useNotifications()
 const working = ref(false)
 const isCollection = computed(() => props.receipt?.kind === 'collection')
-const documentLabel = computed(() => isCollection.value ? 'Aviso de pago' : 'Recibo')
+const isCorrection = computed(() => props.receipt?.kind === 'sale-correction')
+const isStoreStatement = computed(() => props.receipt?.kind === 'store-statement')
+const documentLabel = computed(() => isCollection.value ? 'Aviso de pago' : isCorrection.value ? 'Comprobante de corrección' : isStoreStatement.value ? 'Estado de cuenta' : 'Recibo')
 
 async function run(action: 'download' | 'print' | 'share') {
   if (!props.receipt)
@@ -63,7 +65,7 @@ async function run(action: 'download' | 'print' | 'share') {
         <KronosLogo class="receipt-logo" />
         <div class="text-right">
           <div class="text-overline text-kronos-orange">
-            {{ isCollection ? 'AVISO DE PAGO' : 'RECIBO' }}
+            {{ isCollection ? 'AVISO DE PAGO' : isCorrection ? 'CORRECCIÓN' : isStoreStatement ? 'ESTADO DE CUENTA' : 'RECIBO' }}
           </div>
           <div class="font-weight-bold">
             {{ receipt.folio }}
@@ -98,8 +100,11 @@ async function run(action: 'download' | 'print' | 'share') {
           class="mb-5"
         >
           <strong>{{ receipt.concept }}</strong>
-          <template v-if="!isCollection">
+          <template v-if="!isCollection && !isStoreStatement">
             <br>Método: {{ paymentMethodLabel(receipt.method) }}
+          </template>
+          <template v-else-if="isStoreStatement">
+            <br>Documento exclusivo de adeudos de tienda.
           </template>
           <template v-else>
             <br>Este aviso no es un comprobante de pago.
@@ -145,7 +150,7 @@ async function run(action: 'download' | 'print' | 'share') {
             <span>Total</span><strong>{{ formatCurrency(receipt.total) }}</strong>
           </div>
           <div class="d-flex justify-space-between">
-            <span>{{ receipt.kind === 'sale-payment' || receipt.balance > 0 ? 'Abono recibido' : 'Pagado' }}</span><strong>{{ formatCurrency(receipt.amountPaid) }}</strong>
+            <span>{{ isCorrection ? 'Importe corregido' : isStoreStatement ? 'Abonado' : receipt.kind === 'sale-payment' || receipt.balance > 0 ? 'Abono recibido' : 'Pagado' }}</span><strong>{{ formatCurrency(receipt.amountPaid) }}</strong>
           </div>
           <div class="d-flex justify-space-between">
             <span>Saldo</span><strong>{{ formatCurrency(receipt.balance) }}</strong>
@@ -161,7 +166,7 @@ async function run(action: 'download' | 'print' | 'share') {
             :color="receipt.balance > 0 ? 'error' : 'success'"
             variant="flat"
           >
-            {{ receipt.balance > 0 ? 'Saldo pendiente' : 'Pago completo' }}
+            {{ isCorrection ? 'Corrección aplicada' : receipt.balance > 0 ? 'Saldo pendiente' : 'Pago completo' }}
           </VChip>
         </div>
         <div

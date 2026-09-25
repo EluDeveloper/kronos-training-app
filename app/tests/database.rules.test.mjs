@@ -95,6 +95,7 @@ beforeEach(async () => {
     await db.ref('v1/users/intake-reader').set(appUser('intake-reader', 'reception', { athletes: true, athletesIntake: true }))
     await db.ref('v1/users/intake-manager').set(appUser('intake-manager', 'reception', { athletes: true, athletesIntake: true, athletesIntakeManage: true }))
     await db.ref('v1/users/collector').set(appUser('collector', 'reception', { store: true, storeCollect: true }))
+    await db.ref('v1/users/payment-corrector').set(appUser('payment-corrector', 'reception', { store: true, storeCorrectPayments: true }))
     await db.ref('v1/users/cashier').set(appUser('cashier', 'reception', { payments: true, paymentsManage: true, store: true, storeCollect: true }))
     await db.ref('v1/users/inventory').set(appUser('inventory', 'reception', { store: true, storeInventory: true }))
     await db.ref('v1/users/canceller').set(appUser('canceller', 'reception', { store: true, storeCancel: true }))
@@ -336,6 +337,67 @@ test('sólo Admin puede guardar y consultar cierres de caja e inventario', async
   await assertFails(receptionDb.ref('v1/inventoryClosures/2026-08-03').set(inventoryClosure))
 })
 
+test('el cierre finalizado y sus resoluciones conservan una bitácora inmutable', async () => {
+  const adminDb = env.authenticatedContext('admin').database()
+  const receptionDb = env.authenticatedContext('reception').database()
+  const closureId = '2026-08-10'
+  const draft = {
+    ...structuredClone(inventoryClosure),
+    id: closureId,
+    weekStart: closureId,
+    weekEnd: '2026-08-16',
+    status: 'draft',
+  }
+
+  await assertSucceeds(adminDb.ref(`v1/inventoryClosures/${closureId}`).set(draft))
+
+  const finalizedAt = now()
+  const finalClosure = {
+    ...draft,
+    status: 'finalized',
+    finalizedAt,
+    adjustments: {
+      'product-1': {
+        id: `${closureId}-product-1`,
+        productId: 'product-1',
+        closureId,
+        stockBefore: 2,
+        countedStock: 1,
+        varianceUnits: -1,
+        unitCostSnapshot: 10,
+        createdBy: 'admin',
+        createdAt: finalizedAt,
+      },
+    },
+    updatedAt: finalizedAt,
+  }
+  await assertSucceeds(adminDb.ref('v1').update({
+    [`inventoryClosures/${closureId}`]: finalClosure,
+    'products/product-1/stock': 1,
+    [`products/product-1/inventoryReconciliations/${closureId}`]: finalizedAt,
+    'products/product-1/updatedAt': finalizedAt,
+  }))
+  await assertFails(adminDb.ref(`v1/inventoryClosures/${closureId}/notes`).set('edición posterior'))
+  await assertFails(adminDb.ref(`v1/inventoryClosures/${closureId}`).remove())
+
+  const resolution = {
+    id: 'resolution-1',
+    adjustmentId: `${closureId}-product-1`,
+    closureId,
+    productId: 'product-1',
+    kind: 'written-off',
+    units: 1,
+    amount: 10,
+    reason: 'Fondo perdido',
+    createdBy: 'admin',
+    createdAt: now(),
+  }
+  await assertSucceeds(adminDb.ref(`v1/inventoryResolutions/${closureId}/${resolution.id}`).set(resolution))
+  await assertFails(adminDb.ref(`v1/inventoryResolutions/${closureId}/${resolution.id}/reason`).set('Alterado'))
+  await assertFails(adminDb.ref(`v1/inventoryResolutions/${closureId}/${resolution.id}`).remove())
+  await assertFails(receptionDb.ref(`v1/inventoryResolutions/${closureId}/resolution-2`).set({ ...resolution, id: 'resolution-2' }))
+})
+
 test('un dispositivo pendiente sólo puede leer su autorización y el estado inicial', async () => {
   const db = env.authenticatedContext('waiting').database()
   const snapshot = await assertSucceeds(db.ref('v1/authorizedDevices/waiting').once('value'))
@@ -507,6 +569,7 @@ test('las mensualidades permiten abonos acumulados sin alterar el historial', as
     amount: 200,
     totalAmount: 500,
     balance: 300,
+    snapshot: { planId: 'plan-basic', agreedAmount: 500, paymentDay: 31, dueDate: '2026-08-31' },
     method: 'cash',
     appliedAt: timestamp,
     installments: {
@@ -538,6 +601,100 @@ test('las mensualidades permiten abonos acumulados sin alterar el historial', as
 
   overpaid.amount = 550
   await assertFails(db.ref('v1/payments/athlete-1/2026-08').set(overpaid))
+
+  const changedSnapshot = structuredClone(settled)
+
+  changedSnapshot.snapshot.agreedAmount = 450
+  await assertFails(db.ref('v1/payments/athlete-1/2026-08').set(changedSnapshot))
+})
+
+test('las transiciones de atleta exigen evento atómico append-only', async () => {
+  const timestamp = now()
+  const admin = env.authenticatedContext('admin').database()
+  const collector = env.authenticatedContext('collector').database()
+  const event = {
+    id: 'pause-1', athleteId: 'athlete-1', type: 'paused', fromStatus: 'active', toStatus: 'paused',
+    effectiveDate: '2026-09-24', expectedReturnDate: '2026-10-08', reason: 'Pausa temporal solicitada', createdBy: 'admin', createdAt: timestamp,
+  }
+
+  await assertFails(admin.ref('v1/athletes/athlete-1/status').set('paused'))
+  await assertFails(collector.ref('v1/athletes/athlete-1').update({
+    status: 'paused', lastLifecycleEventId: event.id, [`lifecycleEvents/${event.id}`]: { ...event, createdBy: 'collector' }, updatedAt: timestamp,
+  }))
+  await assertSucceeds(admin.ref('v1/athletes/athlete-1').update({
+    status: 'paused', pausedAt: '2026-09-24', expectedReturnDate: '2026-10-08', lastLifecycleEventId: event.id,
+    [`lifecycleEvents/${event.id}`]: event, updatedAt: timestamp,
+  }))
+  await assertFails(admin.ref(`v1/athletes/athlete-1/lifecycleEvents/${event.id}/reason`).set('Alterado'))
+  await assertFails(admin.ref(`v1/athletes/athlete-1/lifecycleEvents/${event.id}`).remove())
+})
+
+test('nómina es Admin-only y liquida trabajo con un único egreso inmutable', async () => {
+  const admin = env.authenticatedContext('admin').database()
+  const reception = env.authenticatedContext('reception').database()
+  const timestamp = now()
+  const employee = {
+    id: 'employee-1', name: 'Coach de prueba', phone: null, kind: 'coach', startDate: '2026-09-01', status: 'active', notes: null,
+    linkedUserId: null, compensationUnit: 'class', currentRate: 150,
+    rateHistory: { [`rate-${timestamp}`]: { id: `rate-${timestamp}`, unit: 'class', amount: 150, effectiveFrom: '2026-09-01', createdBy: 'admin', createdAt: timestamp } },
+    createdAt: timestamp, updatedAt: timestamp,
+  }
+  const entry = {
+    id: 'entry-1', employeeId: employee.id, employeeName: employee.name, date: '2026-09-24', unit: 'class', quantity: 2,
+    rateSnapshot: 150, amount: 300, status: 'approved', createdBy: 'admin', createdAt: timestamp, updatedAt: timestamp,
+  }
+
+  await assertFails(reception.ref(`v1/employees/${employee.id}`).set(employee))
+  await assertSucceeds(admin.ref(`v1/employees/${employee.id}`).set(employee))
+  await assertSucceeds(admin.ref(`v1/workEntries/${entry.id}`).set(entry))
+
+  const settlementId = 'settlement-1'
+  const expenseId = `payroll-${settlementId}`
+  const settlement = {
+    id: settlementId, employeeId: employee.id, employeeName: employee.name, entryIds: { [entry.id]: true },
+    periodFrom: entry.date, periodThrough: entry.date, amount: 300, method: 'transfer', paidAt: entry.date,
+    expenseId, createdBy: 'admin', createdAt: timestamp, updatedAt: timestamp,
+  }
+  const operation = {
+    id: settlementId, status: 'pending', employeeId: employee.id, employeeName: employee.name, entryIds: { [entry.id]: true },
+    periodFrom: entry.date, periodThrough: entry.date, amount: 300, method: 'transfer', paidAt: entry.date,
+    createdBy: 'admin', createdAt: timestamp, updatedAt: timestamp,
+  }
+  await assertSucceeds(admin.ref(`v1/payrollOperations/${settlementId}`).set(operation))
+  const paidEntry = { ...entry, status: 'paid', payrollSettlementId: settlementId, updatedAt: timestamp + 1 }
+  const expense = {
+    id: expenseId, date: entry.date, category: 'Nómina', subcategory: 'Liquidación de trabajo',
+    description: 'Liquidación Coach de prueba', amount: 300, method: 'transfer', status: 'paid', registeredBy: 'admin',
+    payrollSettlementId: settlementId, employeeId: employee.id, employeeName: employee.name, periodFrom: entry.date, periodThrough: entry.date,
+    createdAt: timestamp, updatedAt: timestamp,
+  }
+  await assertSucceeds(admin.ref('v1').update({
+    [`payrollSettlements/${settlementId}`]: settlement,
+    [`workEntries/${entry.id}`]: paidEntry,
+    [`expenses/${expenseId}`]: expense,
+    [`payrollOperationCompletions/${settlementId}`]: { operationId: settlementId, completedBy: 'admin', completedAt: timestamp + 1 },
+  }))
+  await assertFails(admin.ref(`v1/workEntries/${entry.id}`).remove())
+  await assertFails(admin.ref(`v1/expenses/${expenseId}`).remove())
+  await assertFails(admin.ref(`v1/payrollSettlements/${settlementId}`).remove())
+  await assertFails(reception.ref('v1/employees').once('value'))
+})
+
+test('cumpleaños permite lectura de Comunidad y sólo Admin registra eventos anuales', async () => {
+  const admin = env.authenticatedContext('admin').database()
+  const community = env.authenticatedContext('coach').database()
+  const reception = env.authenticatedContext('reception').database()
+  await env.withSecurityRulesDisabled(context => context.database().ref('v1/users/coach/permissions/community').set(true))
+  const timestamp = now()
+  const greetingId = 'athlete-1_2026'
+  const event = { id: 'greet-1', greetingId, athleteId: 'athlete-1', year: 2026, toStatus: 'greeted', createdBy: 'admin', createdAt: timestamp }
+  const greeting = { id: greetingId, athleteId: 'athlete-1', year: 2026, status: 'greeted', greetedAt: timestamp, greetedBy: 'admin', lastEventId: event.id, createdAt: timestamp, updatedAt: timestamp }
+
+  await assertSucceeds(admin.ref('v1').update({ [`birthdayGreetings/${greetingId}`]: greeting, [`birthdayGreetingEvents/${greetingId}/${event.id}`]: event }))
+  await assertSucceeds(community.ref('v1/birthdayGreetings').once('value'))
+  await assertFails(community.ref(`v1/birthdayGreetings/${greetingId}/status`).set('pending'))
+  await assertFails(reception.ref('v1/birthdayGreetings').once('value'))
+  await assertFails(admin.ref(`v1/birthdayGreetingEvents/${greetingId}/${event.id}`).remove())
 })
 
 test('Tienda conserva saldo a favor y permite aplicarlo en una compra futura', async () => {
@@ -662,6 +819,91 @@ test('los permisos de Tienda para abonos, inventario y cancelación son independ
   }))
   await assertSucceeds(cancellerDb.ref('v1/sales/sale-cancel').update({ inventoryRestoredAt: timestamp, updatedAt: timestamp + 1 }))
   await assertFails(cancellerDb.ref('v1/sales/canceller-sale').set(saleFixture('canceller-sale')))
+})
+
+test('los ajustes de cobro son append-only y requieren permiso, actor y forma válidos', async () => {
+  const timestamp = now()
+
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('v1/sales/sale-correction').set(saleFixture('sale-correction', 'paid', {
+      payment1: { id: 'payment1', amountApplied: 20, method: 'cash', appliedAt: timestamp },
+    }))
+  })
+
+  const corrector = env.authenticatedContext('payment-corrector').database()
+  const collector = env.authenticatedContext('collector').database()
+  const admin = env.authenticatedContext('admin').database()
+  const valid = {
+    id: 'reversal-payment1',
+    saleId: 'sale-correction',
+    paymentId: 'payment1',
+    kind: 'reversal',
+    amount: 20,
+    reason: 'Cobro aplicado por error',
+    createdBy: 'payment-corrector',
+    createdAt: timestamp + 1,
+  }
+
+  await assertSucceeds(corrector.ref('v1/sales/sale-correction/paymentAdjustments/reversal-payment1').set(valid))
+  await assertFails(collector.ref('v1/sales/sale-correction/paymentAdjustments/collector-adjustment').set({ ...valid, id: 'collector-adjustment', createdBy: 'collector' }))
+  await assertFails(corrector.ref('v1/sales/sale-correction/paymentAdjustments/reversal-payment1/reason').set('Alterado'))
+  await assertFails(corrector.ref('v1/sales/sale-correction/paymentAdjustments/reversal-payment1').remove())
+  await assertFails(admin.ref('v1/sales/sale-correction/paymentAdjustments/forged-actor').set({ ...valid, id: 'forged-actor', createdBy: 'payment-corrector' }))
+  await assertFails(admin.ref('v1/sales/sale-correction/paymentAdjustments/wrong-amount').set({ ...valid, id: 'wrong-amount', amount: 10, createdBy: 'admin' }))
+  await assertFails(admin.ref('v1/sales/sale-correction/paymentAdjustments/store-credit-method').set({
+    id: 'store-credit-method',
+    saleId: 'sale-correction',
+    paymentId: 'payment1',
+    kind: 'method-change',
+    fromMethod: 'cash',
+    toMethod: 'store-credit',
+    reason: 'Método inválido',
+    createdBy: 'admin',
+    createdAt: timestamp + 2,
+  }))
+})
+
+test('la conciliación de saldo por reverso es atómica y no permite alterar el saldo libremente', async () => {
+  const timestamp = now()
+  const corrector = env.authenticatedContext('payment-corrector').database()
+
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('v1').update({
+      'sales/sale-credit-correction': saleFixture('sale-credit-correction', 'paid', {
+        payment2: { id: 'payment2', amountApplied: 20, method: 'cash', creditBalance: 50, appliedAt: timestamp },
+      }),
+      'storeCredits/athlete-1': {
+        athleteId: 'athlete-1', balance: 70,
+        entries: {
+          'deposit-payment2': { id: 'deposit-payment2', type: 'deposit', amount: 50, saleId: 'sale-credit-correction', description: 'Excedente', occurredAt: timestamp, balanceAfter: 50 },
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    })
+  })
+
+  await assertFails(corrector.ref('v1/storeCredits/athlete-1/balance').set(0))
+  await assertFails(corrector.ref('v1/storeCredits/athlete-1').update({
+    balance: 19,
+    updatedAt: timestamp + 1,
+    lastAdjustmentId: 'payment-adjustment-operation-1',
+    'entries/payment-adjustment-operation-1': {
+      id: 'payment-adjustment-operation-1', type: 'reversal', amount: 50, saleId: 'sale-credit-correction', description: 'Retiro por reverso', occurredAt: timestamp + 1, balanceAfter: 20, createdBy: 'payment-corrector',
+    },
+  }))
+
+  await assertSucceeds(corrector.ref('v1').update({
+    'sales/sale-credit-correction/paymentAdjustments/reversal-payment2': {
+      id: 'reversal-payment2', saleId: 'sale-credit-correction', paymentId: 'payment2', kind: 'reversal', amount: 20, reason: 'Cobro aplicado por error', createdBy: 'payment-corrector', createdAt: timestamp + 1,
+    },
+    'storeCredits/athlete-1/balance': 20,
+    'storeCredits/athlete-1/updatedAt': timestamp + 1,
+    'storeCredits/athlete-1/lastAdjustmentId': 'payment-adjustment-operation-1',
+    'storeCredits/athlete-1/entries/payment-adjustment-operation-1': {
+      id: 'payment-adjustment-operation-1', type: 'reversal', amount: 50, saleId: 'sale-credit-correction', description: 'Retiro por reverso', occurredAt: timestamp + 1, balanceAfter: 20, createdBy: 'payment-corrector',
+    },
+  }))
 })
 
 test('una cuenta deshabilitada no puede leer módulos asignados', async () => {

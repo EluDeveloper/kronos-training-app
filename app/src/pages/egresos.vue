@@ -220,7 +220,7 @@ onUnmounted(() => expenses.dispose())
                   {{ statusLabel(expense.status) }}
                 </VChip>
               </td><td><strong>{{ formatCurrency(expense.amount) }}</strong></td><td>
-                <template v-if="canManage">
+                <template v-if="canManage && !expense.payrollSettlementId">
                   <VBtn
                     icon="ri-edit-line"
                     variant="text"
@@ -234,6 +234,7 @@ onUnmounted(() => expenses.dispose())
                     @click="remove(expense)"
                   />
                 </template>
+                <VChip v-else-if="expense.payrollSettlementId" size="small" variant="tonal" prepend-icon="ri-lock-line">Nómina</VChip>
               </td>
             </tr>
           </tbody>

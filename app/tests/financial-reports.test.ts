@@ -80,3 +80,45 @@ test('un cierre posterior sólo toma movimientos después de la fecha previa', (
   assert.equal(movementsBetweenDates(movements, '2026-08-06', '2026-08-07').length, 0)
   assert.equal(movementsBetweenDates(movements, null, '2026-08-06').length, movements.length)
 })
+
+test('los reportes excluyen reversos y usan el método corregido sin duplicar ingresos', () => {
+  const corrected: Sale = {
+    ...sale,
+    paymentAdjustments: {
+      'reversal-credit': {
+        id: 'reversal-credit', saleId: sale.id, paymentId: 'credit', kind: 'reversal', amount: 20,
+        reason: 'Cobro incorrecto', createdBy: 'admin', createdAt: timestamp + 1,
+      },
+      'method-cash': {
+        id: 'method-cash', saleId: sale.id, paymentId: 'cash', kind: 'method-change', fromMethod: 'cash', toMethod: 'transfer',
+        reason: 'Se confirmó transferencia', createdBy: 'admin', createdAt: timestamp + 2,
+      },
+    },
+  }
+
+  const movements = buildFinancialMovements({ membershipPayments: [], visitPayments: [], sales: [corrected], expenses: [] })
+
+  assert.equal(movements.length, 1)
+  assert.equal(movements[0]?.amount, 100)
+  assert.equal(movements[0]?.method, 'transfer')
+  assert.equal(movements[0]?.account, 'bank')
+})
+
+test('un faltante cubierto es ingreso y fondo perdido no crea egreso', () => {
+  const movements = buildFinancialMovements({
+    membershipPayments: [], visitPayments: [], sales: [], expenses: [],
+    inventoryRecoveries: [
+      { id: 'covered', adjustmentId: 'a1', closureId: 'c1', productId: 'p1', kind: 'covered', units: 1, amount: 100, method: 'cash', reason: 'Cubierto', createdBy: 'admin', createdAt: timestamp },
+      { id: 'lost', adjustmentId: 'a2', closureId: 'c1', productId: 'p2', kind: 'written-off', units: 1, amount: 50, reason: 'Fondo perdido', createdBy: 'admin', createdAt: timestamp },
+    ],
+  })
+
+  const summary = summarizeMovements(movements)
+
+  assert.equal(movements.length, 1)
+  assert.equal(movements[0]?.source, 'inventory-recovery')
+  assert.equal(summary.income, 100)
+  assert.equal(summary.expenses, 0)
+  assert.equal(summary.cashIncome, 100)
+  assert.equal(summary.net, 100)
+})

@@ -19,9 +19,11 @@ export const useClosuresStore = defineStore('closures', () => {
     error.value = null
     let cashLoaded = false
     let inventoryLoaded = false
+
     const finish = () => {
       loading.value = !(cashLoaded && inventoryLoaded)
     }
+
     const fail = (subscriptionError: Error) => {
       error.value = subscriptionError.message
       loading.value = false
@@ -41,6 +43,9 @@ export const useClosuresStore = defineStore('closures', () => {
 
   const saveCash = (closure: CashClosureInput) => closuresService.saveCash(closure)
   const saveInventory = (closure: InventoryClosureInput) => closuresService.saveInventory(closure)
+  const finalizeInventory = (closure: InventoryClosureInput) => closuresService.finalizeInventory(closure)
+  const resolveInventory = (...args: Parameters<typeof closuresService.resolveInventory>) => closuresService.resolveInventory(...args)
+  const getInventoryResolutions = (closureId: string) => closuresService.getInventoryResolutions(closureId)
 
   function dispose() {
     stopCash?.()
@@ -49,5 +54,5 @@ export const useClosuresStore = defineStore('closures', () => {
     stopInventory = null
   }
 
-  return { cash, inventory, loading, error, subscribe, saveCash, saveInventory, dispose }
+  return { cash, inventory, loading, error, subscribe, saveCash, saveInventory, finalizeInventory, resolveInventory, getInventoryResolutions, dispose }
 })

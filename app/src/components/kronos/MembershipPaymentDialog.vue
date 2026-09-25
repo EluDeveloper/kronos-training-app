@@ -5,6 +5,7 @@ import { usePaymentsStore } from '@/stores/payments'
 import { useSessionStore } from '@/stores/session'
 import { currentPeriod, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment, type PaymentMethod, type Sale } from '@/types/domain'
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, membershipTotalAmount, saleBalance } from '@/utils/kronos'
+import { allowedMembershipPeriods, buildMembershipPeriodSnapshot, membershipCollectionState } from '@/utils/membership-periods'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -52,6 +53,24 @@ const paymentProgress = computed(() => expectedAmount.value > 0 ? Math.min(100, 
 const selectedStoreSales = computed(() => session.can('storeCollect') ? props.storeSales.filter(sale => sale.athleteId === form.athleteId && sale.status === 'credit' && saleBalance(sale) > 0) : [])
 const storeDebt = computed(() => selectedStoreSales.value.reduce((total, sale) => total + saleBalance(sale), 0))
 const totalToday = computed(() => Number(form.amount || 0) + (includeStoreDebt.value ? storeDebt.value : 0))
+
+const periodItems = computed(() => {
+  const periods = allowedMembershipPeriods()
+  if (form.period && !periods.includes(form.period))
+    periods.unshift(form.period)
+
+  return periods.map(period => ({ title: period, value: period }))
+})
+
+const periodSnapshot = computed(() => currentPayment.value?.snapshot ?? (selectedAthlete.value
+  ? buildMembershipPeriodSnapshot({ ...selectedAthlete.value.membership, agreedAmount: expectedAmount.value }, form.period)
+  : null))
+
+const collectionState = computed(() => periodSnapshot.value ? membershipCollectionState({
+  dueDate: periodSnapshot.value.dueDate,
+  balance: pendingAmount.value,
+  paidAt: currentPayment.value?.appliedAt,
+}) : 'pending')
 
 const athleteItems = computed(() => athletes.active.map(item => ({
   title: item.profile.name,
@@ -111,6 +130,7 @@ async function save() {
       amount: Number(form.amount),
       totalAmount: expectedAmount.value,
       method: form.method,
+      snapshot: currentPayment.value?.snapshot ?? periodSnapshot.value!,
       ...(props.concept ? { concept: props.concept } : {}),
       ...(props.visitCount > 0 ? { visitCount: props.visitCount } : {}),
     }, includeStoreDebt.value ? selectedStoreSales.value : [])
@@ -192,9 +212,9 @@ async function save() {
               cols="12"
               sm="6"
             >
-              <VTextField
+              <VSelect
                 v-model="form.period"
-                type="month"
+                :items="periodItems"
                 label="Periodo que se paga"
               />
             </VCol>
@@ -213,6 +233,29 @@ async function save() {
               />
             </VCol>
           </VRow>
+
+          <VAlert
+            v-if="periodSnapshot"
+            :color="collectionState === 'overdue' ? 'error' : collectionState === 'paid' ? 'success' : 'info'"
+            variant="tonal"
+          >
+            <div class="d-flex flex-wrap justify-space-between align-center ga-3">
+              <div>
+                <div class="font-weight-bold">
+                  Corte: {{ formatDate(`${periodSnapshot.dueDate}T12:00:00`) }}
+                </div>
+                <div class="text-caption">
+                  Se conservarán el plan, importe y día de corte de este periodo.
+                </div>
+              </div>
+              <VChip
+                :color="collectionState === 'overdue' ? 'error' : collectionState === 'paid' ? 'success' : 'info'"
+                variant="flat"
+              >
+                {{ collectionState === 'advance' ? 'Adelantado' : collectionState === 'overdue' ? 'Vencido' : collectionState === 'paid' ? 'Liquidado' : 'Pendiente' }}
+              </VChip>
+            </div>
+          </VAlert>
 
           <VSelect
             v-model="form.method"

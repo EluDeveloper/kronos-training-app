@@ -3,6 +3,7 @@ export type ISODate = string
 export type ISOTimestamp = string | number
 
 export type ActiveStatus = 'active' | 'inactive'
+export type AthleteStatus = 'active' | 'paused' | 'inactive'
 export type PaymentStatus = 'paid' | 'pending' | 'not-applicable'
 export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'other' | 'store-credit'
 export type SaleStatus = 'paid' | 'credit' | 'cancelled'
@@ -35,10 +36,14 @@ export interface Athlete extends AuditFields {
   id: EntityId
   profile: AthleteProfile
   membership: Membership
-  status: ActiveStatus
+  status: AthleteStatus
   kioskCode?: string | null
   inactiveAt?: ISODate | null
   inactiveReason?: string | null
+  pausedAt?: ISODate | null
+  expectedReturnDate?: ISODate | null
+  lifecycleEvents?: Record<EntityId, AthleteLifecycleEvent>
+  lastLifecycleEventId?: EntityId | null
   migrationNeedsReview?: boolean
 }
 
@@ -114,6 +119,30 @@ export interface Payment extends AuditFields {
   totalAmount?: number | null
   balance?: number | null
   installments?: Record<EntityId, MembershipPaymentInstallment>
+  snapshot?: MembershipPeriodSnapshot
+}
+
+export type AthleteLifecycleEventType = 'created' | 'paused' | 'reactivated' | 'inactive'
+
+export interface AthleteLifecycleEvent {
+  id: EntityId
+  athleteId: EntityId
+  type: AthleteLifecycleEventType
+  fromStatus: AthleteStatus | null
+  toStatus: AthleteStatus
+  effectiveDate: ISODate
+  expectedReturnDate?: ISODate | null
+  reason: string
+  notes?: string | null
+  createdBy: EntityId
+  createdAt: ISOTimestamp
+}
+
+export interface MembershipPeriodSnapshot {
+  planId: EntityId
+  agreedAmount: number
+  paymentDay: number
+  dueDate: ISODate
 }
 
 export interface MembershipPaymentInstallment {
@@ -210,6 +239,22 @@ export interface SalePayment {
   groupPaymentId?: EntityId | null
 }
 
+export type SalePaymentAdjustmentKind = 'reversal' | 'method-change'
+
+export interface SalePaymentAdjustment {
+  id: EntityId
+  saleId: EntityId
+  paymentId: EntityId
+  groupPaymentId?: EntityId | null
+  kind: SalePaymentAdjustmentKind
+  amount?: number
+  fromMethod?: PaymentMethod
+  toMethod?: PaymentMethod
+  reason: string
+  createdBy: EntityId
+  createdAt: ISOTimestamp
+}
+
 export interface Sale extends AuditFields {
   id: EntityId
   athleteId?: EntityId | null
@@ -221,6 +266,7 @@ export interface Sale extends AuditFields {
   source?: 'pos' | 'kiosk'
   approvedBy?: EntityId | null
   payments?: Record<EntityId, SalePayment>
+  paymentAdjustments?: Record<EntityId, SalePaymentAdjustment>
   cancelledAt?: ISOTimestamp | null
   inventoryRestoredAt?: ISOTimestamp | null
   storeCreditRestoredAt?: ISOTimestamp | null
@@ -231,7 +277,7 @@ export interface CombinedStorePayment {
   payment: SalePayment
 }
 
-export type StoreCreditEntryType = 'deposit' | 'application' | 'refund'
+export type StoreCreditEntryType = 'deposit' | 'application' | 'refund' | 'reversal'
 
 export interface StoreCreditEntry {
   id: EntityId
@@ -241,12 +287,14 @@ export interface StoreCreditEntry {
   description: string
   occurredAt: ISOTimestamp
   balanceAfter: number
+  createdBy?: EntityId
 }
 
 export interface StoreCreditAccount extends AuditFields {
   athleteId: EntityId
   balance: number
   entries: Record<EntityId, StoreCreditEntry>
+  lastAdjustmentId?: EntityId
 }
 
 export interface Expense extends AuditFields {
@@ -260,6 +308,11 @@ export interface Expense extends AuditFields {
   status: ExpenseStatus
   registeredBy: string
   receiptUrl?: string | null
+  payrollSettlementId?: EntityId | null
+  employeeId?: EntityId | null
+  employeeName?: string | null
+  periodFrom?: ISODate | null
+  periodThrough?: ISODate | null
 }
 
 export interface CashClosure extends AuditFields {
@@ -297,6 +350,36 @@ export interface InventoryClosureItem {
   varianceValue: number
 }
 
+export type InventoryClosureStatus = 'draft' | 'finalized'
+export type InventoryResolutionKind = 'found' | 'covered' | 'written-off' | 'corrected'
+
+export interface InventoryAdjustment {
+  id: EntityId
+  productId: EntityId
+  closureId: EntityId
+  stockBefore: number
+  countedStock: number
+  varianceUnits: number
+  unitCostSnapshot: number
+  createdBy: EntityId
+  createdAt: ISOTimestamp
+}
+
+export interface InventoryResolution {
+  id: EntityId
+  adjustmentId: EntityId
+  closureId: EntityId
+  productId: EntityId
+  kind: InventoryResolutionKind
+  units: number
+  amount: number
+  method?: PaymentMethod | null
+  reference?: string | null
+  reason: string
+  createdBy: EntityId
+  createdAt: ISOTimestamp
+}
+
 export interface InventoryClosure extends AuditFields {
   id: ISODate
   weekStart: ISODate
@@ -310,6 +393,36 @@ export interface InventoryClosure extends AuditFields {
   notes?: string | null
   closedBy: EntityId
   closedByName: string
+  status?: InventoryClosureStatus
+  adjustments?: Record<EntityId, InventoryAdjustment>
+  resolutions?: Record<EntityId, InventoryResolution>
+  finalizedAt?: ISOTimestamp | null
+}
+
+export type BirthdayGreetingStatus = 'pending' | 'greeted'
+
+export interface BirthdayGreeting extends AuditFields {
+  id: EntityId
+  athleteId: EntityId
+  year: number
+  status: BirthdayGreetingStatus
+  greetedAt?: ISOTimestamp | null
+  greetedBy?: EntityId | null
+  cardVersion?: string | null
+  downloadedAt?: ISOTimestamp | null
+  sharedAt?: ISOTimestamp | null
+  lastEventId: EntityId
+}
+
+export interface BirthdayGreetingEvent {
+  id: EntityId
+  greetingId: EntityId
+  athleteId: EntityId
+  year: number
+  fromStatus?: BirthdayGreetingStatus | null
+  toStatus: BirthdayGreetingStatus
+  createdBy: EntityId
+  createdAt: ISOTimestamp
 }
 
 export interface WorkoutBlock {

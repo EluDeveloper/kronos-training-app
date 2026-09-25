@@ -35,6 +35,7 @@ export const accessModules = [
     actions: [
       { key: 'storeSell', label: 'Realizar ventas', description: 'Cobrar productos y descontar existencias.' },
       { key: 'storeCollect', label: 'Aplicar abonos', description: 'Registrar pagos de ventas a crédito.' },
+      { key: 'storeCorrectPayments', label: 'Corregir cobros', description: 'Revertir cobros de tienda o corregir su método con auditoría.' },
       { key: 'storeInventory', label: 'Administrar inventario', description: 'Crear, editar, ingresar existencias o dar de baja productos.' },
       { key: 'storeCancel', label: 'Cancelar ventas', description: 'Cancelar ventas y devolver sus productos al inventario.' },
     ],

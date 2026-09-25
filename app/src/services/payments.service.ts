@@ -1,7 +1,9 @@
 import { child, get, push, ref, runTransaction, update } from 'firebase/database'
-import type { CombinedStorePayment, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment } from '@/types/domain'
+import type { CombinedStorePayment, MembershipPaymentInstallment, MembershipPeriodSnapshot, Payment, PaymentMethod, Sale, SalePayment } from '@/types/domain'
 import { businessPath, requireDatabase, subscribeValue, type ErrorHandler } from './realtime.service'
 import { saleBalance } from '@/utils/kronos'
+import { membershipDueDate, validateAdvancePeriod } from '@/utils/membership-periods'
+import { effectiveSaleStatus } from '@/utils/store-payment-adjustments'
 
 type PaymentTree = Record<string, Record<string, Omit<Payment, 'athleteId' | 'period'>>>
 
@@ -13,6 +15,7 @@ export interface MembershipInstallmentInput {
   method: PaymentMethod
   concept?: string
   visitCount?: number
+  snapshot: MembershipPeriodSnapshot
 }
 
 export interface AppliedMembershipInstallment {
@@ -61,6 +64,7 @@ function updatedPayment(current: Payment | null, input: MembershipInstallmentInp
       ...(current?.installments ?? {}),
       [installmentId]: installment,
     },
+    snapshot: current?.snapshot ?? input.snapshot,
     ...(input.concept ? { concept: input.concept } : {}),
     ...(input.visitCount ? { visitCount: input.visitCount } : {}),
   }
@@ -82,6 +86,11 @@ export const paymentsService = {
 
     if (!input.athleteId || !/^\d{4}-\d{2}$/.test(input.period) || amount <= 0 || requestedTotal <= 0)
       throw new Error('Selecciona atleta, periodo y monto válido.')
+    validateAdvancePeriod(input.period)
+    if (!input.snapshot?.planId || input.snapshot.paymentDay < 1 || input.snapshot.paymentDay > 31
+      || currency(input.snapshot.agreedAmount) !== requestedTotal
+      || input.snapshot.dueDate !== membershipDueDate(input.period, input.snapshot.paymentDay))
+      throw new Error('No fue posible congelar las condiciones del periodo seleccionado.')
 
     const database = requireDatabase()
     const paymentRef = ref(database, businessPath(`payments/${input.athleteId}/${input.period}`))
@@ -115,7 +124,7 @@ export const paymentsService = {
           return
         const sale = snapshot.val() as Sale
         const balance = currency(saleBalance(sale))
-        if (sale.status !== 'credit' || sale.athleteId !== input.athleteId || balance <= 0)
+        if (effectiveSaleStatus(sale) !== 'credit' || sale.athleteId !== input.athleteId || balance <= 0)
           return
 
         const salePaymentId = push(ref(database, businessPath(`sales/${sale.id}/payments`))).key

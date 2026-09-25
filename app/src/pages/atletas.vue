@@ -5,13 +5,14 @@ import EnrollmentSheetDialog from '@/components/kronos/EnrollmentSheetDialog.vue
 import KioskCredentialDialog from '@/components/kronos/KioskCredentialDialog.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import WhatsAppConsentDialog from '@/components/kronos/WhatsAppConsentDialog.vue'
+import AthleteStatusDialog from '@/components/kronos/AthleteStatusDialog.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthleteIntakeStore } from '@/stores/athlete-intake'
 import { useAthletesStore } from '@/stores/athletes'
 import { usePlansStore } from '@/stores/plans'
 import { useSessionStore } from '@/stores/session'
 import { useNotificationPreferencesStore } from '@/stores/notification-preferences'
-import type { Athlete } from '@/types/domain'
+import type { Athlete, AthleteStatus } from '@/types/domain'
 import { calculateAge } from '@/types/domain'
 import {
   createEmptyAthleteIntakeForm,
@@ -47,6 +48,7 @@ const dialog = ref(false)
 const enrollmentSheetDialog = ref(false)
 const kioskCodeDialog = ref(false)
 const whatsappConsentDialog = ref(false)
+const statusDialog = ref(false)
 const saving = ref(false)
 const kioskCodeSaving = ref(false)
 const editingId = ref<string | null>(null)
@@ -54,6 +56,7 @@ const enrollmentSheetAthlete = ref<Athlete | null>(null)
 const activeEnrollmentSheet = ref<EnrollmentSheetData | null>(null)
 const kioskCodeAthlete = ref<Athlete | null>(null)
 const whatsappConsentAthlete = ref<Athlete | null>(null)
+const statusAthlete = ref<Athlete | null>(null)
 const intakeReady = ref(true)
 const validationAttempted = ref(false)
 const activeFormTab = ref<AthleteFormTab>('personal')
@@ -247,14 +250,22 @@ async function save() {
   finally { saving.value = false }
 }
 
-async function toggleStatus(athlete: Athlete) {
-  try {
-    const next = athlete.status === 'active' ? 'inactive' : 'active'
+function openStatusDialog(athlete: Athlete) {
+  statusAthlete.value = athlete
+  statusDialog.value = true
+}
 
-    await athletes.setStatus(athlete.id, next)
-    success(next === 'active' ? 'Atleta reactivado.' : 'Atleta pausado.')
+async function saveStatus(command: { toStatus: AthleteStatus; effectiveDate: string; expectedReturnDate?: string | null; reason: string; notes?: string | null }) {
+  if (!statusAthlete.value || !session.uid)
+    return failure('No fue posible identificar al atleta o al usuario responsable.')
+  saving.value = true
+  try {
+    await athletes.transitionStatus(statusAthlete.value.id, command, session.uid)
+    success(command.toStatus === 'active' ? 'Atleta reactivado.' : command.toStatus === 'paused' ? 'Pausa registrada.' : 'Baja registrada.')
+    statusDialog.value = false
   }
   catch (error) { failure(error instanceof Error ? error.message : 'No fue posible cambiar el estado.') }
+  finally { saving.value = false }
 }
 
 function openKioskCode(athlete: Athlete) {
@@ -396,7 +407,7 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
         >
           <VSelect
             v-model="statusFilter"
-            :items="[{ title: 'Activos', value: 'active' }, { title: 'Inactivos', value: 'inactive' }]"
+            :items="[{ title: 'Activos', value: 'active' }, { title: 'En pausa', value: 'paused' }, { title: 'Bajas', value: 'inactive' }]"
             label="Estado"
             clearable
           />
@@ -426,11 +437,11 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
               <td>Día {{ athlete.membership.paymentDay }}</td>
               <td>
                 <VChip
-                  :color="athlete.status === 'active' ? 'success' : 'default'"
+                  :color="athlete.status === 'active' ? 'success' : athlete.status === 'paused' ? 'warning' : 'default'"
                   size="small"
                   variant="tonal"
                 >
-                  {{ athlete.status === 'active' ? 'Activo' : 'Inactivo' }}
+                  {{ athlete.status === 'active' ? 'Activo' : athlete.status === 'paused' ? 'Pausa' : 'Baja' }}
                 </VChip>
               </td>
               <td class="text-right">
@@ -465,10 +476,10 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
                     :data-testid="`whatsapp-consent-${athlete.id}`"
                     @click="openWhatsAppConsent(athlete)"
                   /><VBtn
-                    :icon="athlete.status === 'active' ? 'ri-pause-circle-line' : 'ri-play-circle-line'"
+                    icon="ri-user-settings-line"
                     variant="text"
-                    :aria-label="athlete.status === 'active' ? 'Pausar atleta' : 'Activar atleta'"
-                    @click="toggleStatus(athlete)"
+                    :aria-label="`Cambiar estado de ${athlete.profile.name}`"
+                    @click="openStatusDialog(athlete)"
                   />
                 </template>
               </td>
@@ -709,6 +720,12 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
     :occupied-codes="occupiedKioskCodes"
     :saving="kioskCodeSaving"
     @save="saveKioskCode"
+  />
+  <AthleteStatusDialog
+    v-model="statusDialog"
+    :athlete="statusAthlete"
+    :loading="saving"
+    @submit="saveStatus"
   />
 
   <WhatsAppConsentDialog

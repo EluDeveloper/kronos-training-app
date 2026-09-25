@@ -9,6 +9,7 @@ import { useAthletesStore } from '@/stores/athletes'
 import { useClosuresStore } from '@/stores/closures'
 import { useCommerceStore } from '@/stores/commerce'
 import { useExpensesStore } from '@/stores/expenses'
+import { useInventoryRecoveriesStore } from '@/stores/inventory-recoveries'
 import { usePaymentsStore } from '@/stores/payments'
 import { usePlansStore } from '@/stores/plans'
 import { useSessionStore } from '@/stores/session'
@@ -18,6 +19,7 @@ import { useVisitorsStore } from '@/stores/visitors'
 import { currentPeriod, planAccessType, planVisitLimit, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment } from '@/types/domain'
 import { buildFinancialMovements, dateKey, movementsBetweenDates, movementsForPeriod, periodKey, summarizeMovements } from '@/utils/financial-reports'
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, saleBalance, timestampValue } from '@/utils/kronos'
+import { effectiveSalePayments, effectiveSaleStatus } from '@/utils/store-payment-adjustments'
 import { buildCollectionTicket, buildMembershipReceipt, combinedStorePaymentsForInstallment, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
 
 const athletes = useAthletesStore()
@@ -25,6 +27,7 @@ const closures = useClosuresStore()
 const payments = usePaymentsStore()
 const commerce = useCommerceStore()
 const expenses = useExpensesStore()
+const inventoryRecoveries = useInventoryRecoveriesStore()
 const plans = usePlansStore()
 const visits = useVisitsStore()
 const visitors = useVisitorsStore()
@@ -41,6 +44,7 @@ const selectedAthleteId = ref('')
 const receiptDialog = ref(false)
 const activeReceipt = ref<ReceiptData | null>(null)
 const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
 const previousMonth = (value: string) => {
   const date = new Date(`${value}-15T12:00:00`)
 
@@ -48,6 +52,7 @@ const previousMonth = (value: string) => {
 
   return currentPeriod(date)
 }
+
 const detailPeriod = ref(period)
 const comparisonPeriodA = ref(period)
 const comparisonPeriodB = ref(previousMonth(period))
@@ -57,19 +62,23 @@ const allFinancialMovements = computed(() => buildFinancialMovements({
   visitPayments: visitPayments.items,
   sales: commerce.sales,
   expenses: expenses.items,
+  inventoryRecoveries: inventoryRecoveries.items,
 }))
 
 const latestCashClosure = computed(() => closures.cash
   .filter(item => item.date <= dateKey(today))
   .sort((left, right) => right.date.localeCompare(left.date))[0] ?? null)
+
 const movementsAfterLastClosure = computed(() => movementsBetweenDates(
   allFinancialMovements.value,
   latestCashClosure.value?.date ?? null,
   dateKey(today),
 ))
+
 const accountMovementSummary = computed(() => summarizeMovements(movementsAfterLastClosure.value))
 const estimatedCashBalance = computed(() => Number(latestCashClosure.value?.countedCash || 0) + accountMovementSummary.value.cashNet)
 const estimatedBankBalance = computed(() => Number(latestCashClosure.value?.countedBank || 0) + accountMovementSummary.value.bankNet)
+
 const balanceDetail = computed(() => latestCashClosure.value
   ? `Desde cierre ${formatDate(latestCashClosure.value.date)}`
   : 'Estimado desde saldo inicial $0 · realiza el primer cierre')
@@ -83,8 +92,8 @@ const membershipIncome = computed(() => payments.items
     .reduce((total, payment) => total + Number(payment.amount || 0), 0))
 
 const shopIncome = computed(() => commerce.sales
-  .filter(sale => sale.status !== 'cancelled')
-  .flatMap(sale => Object.values(sale.payments ?? {}))
+  .filter(sale => effectiveSaleStatus(sale) !== 'cancelled')
+  .flatMap(sale => effectiveSalePayments(sale))
   .filter(payment => currentPeriod(new Date(payment.appliedAt)) === period)
   .reduce((total, payment) => total + Number(payment.amountApplied || 0), 0))
 
@@ -155,7 +164,7 @@ const availableYears = computed(() => {
 
   payments.items.forEach(payment => membershipInstallments(payment).forEach(installment => years.add(new Date(timestampValue(installment.appliedAt)).getFullYear())))
   visitPayments.items.forEach(payment => years.add(new Date(timestampValue(payment.appliedAt)).getFullYear()))
-  commerce.sales.forEach(sale => Object.values(sale.payments ?? {}).forEach(payment => years.add(new Date(payment.appliedAt).getFullYear())))
+  commerce.sales.forEach(sale => effectiveSalePayments(sale).forEach(payment => years.add(new Date(payment.appliedAt).getFullYear())))
   expenses.items.forEach(expense => years.add(Number(expense.date.slice(0, 4))))
 
   return [...years].filter(Number.isFinite).sort((a, b) => b - a)
@@ -174,7 +183,7 @@ const availablePeriods = computed(() => {
   })
 
   return [...periods]
-    .filter(value => /^\d{4}-(0[1-9]|1[0-2])$/.test(value))
+    .filter(value => /^\d{4}-(?:0[1-9]|1[0-2])$/.test(value))
     .sort((left, right) => right.localeCompare(left))
 })
 
@@ -189,9 +198,11 @@ function reportForPeriod(rowPeriod: string) {
   const periodSales = commerce.sales.filter(sale => periodKey(sale.createdAt) === rowPeriod)
   const completedSales = periodSales.filter(sale => sale.status !== 'cancelled')
   const unitsSold = completedSales.reduce((total, sale) => total + Object.values(sale.items ?? {}).reduce((sum, item) => sum + Number(item.quantity || 0), 0), 0)
+
   const inventoryClosure = closures.inventory
     .filter(item => item.weekEnd.slice(0, 7) === rowPeriod)
     .sort((left, right) => right.weekEnd.localeCompare(left.weekEnd))[0]
+
   const currentStock = commerce.products.reduce((total, product) => total + Number(product.stock || 0), 0)
   const currentStockValue = commerce.products.reduce((total, product) => total + Number(product.stock || 0) * Number(product.unitCost || 0), 0)
 
@@ -251,6 +262,7 @@ const annualChartOptions = computed(() => ({
 const detailReport = computed(() => reportForPeriod(detailPeriod.value))
 const comparisonA = computed(() => reportForPeriod(comparisonPeriodA.value))
 const comparisonB = computed(() => reportForPeriod(comparisonPeriodB.value))
+
 const comparisonRows = computed(() => [
   { label: 'Ingresos totales', a: comparisonA.value.income, b: comparisonB.value.income, type: 'currency' as const, goodWhenHigher: true },
   { label: 'Egresos pagados', a: comparisonA.value.expenses, b: comparisonB.value.expenses, type: 'currency' as const, goodWhenHigher: false },
@@ -323,7 +335,7 @@ function showReceipt(payment: Payment, installment?: MembershipPaymentInstallmen
     return
   }
 
-  const planName = plans.items.find(plan => plan.id === athlete.membership.planId)?.name
+  const planName = plans.items.find(plan => plan.id === (payment.snapshot?.planId ?? athlete.membership.planId))?.name
 
   const combinedStorePayments = settledStorePayments.length
     ? settledStorePayments
@@ -362,6 +374,7 @@ onMounted(() => {
   payments.subscribe()
   commerce.subscribe()
   expenses.subscribe()
+  inventoryRecoveries.subscribe()
   plans.subscribe()
   visits.subscribe()
   visitors.subscribe()
@@ -374,6 +387,7 @@ onBeforeUnmount(() => {
   payments.dispose()
   commerce.dispose()
   expenses.dispose()
+  inventoryRecoveries.dispose()
   plans.dispose()
   visits.dispose()
   visitors.dispose()
@@ -597,8 +611,8 @@ onBeforeUnmount(() => {
                       tabindex="0"
                       aria-label="Revisar cuponeras por renovar"
                       @click="openVisits"
-                      @keydown.enter="openVisits()"
-                      @keydown.space.prevent="openVisits()"
+                      @keydown.enter="openVisits"
+                      @keydown.space.prevent="openVisits"
                     />
                   </VCol>
                 </VRow>
@@ -873,8 +887,7 @@ onBeforeUnmount(() => {
       </VRow>
 
       <VRow>
-        <VCol
-          cols="12"
+        <VCol cols="12"
         >
           <VCard
             class="kronos-card h-100"
@@ -894,8 +907,7 @@ onBeforeUnmount(() => {
             </VCardText>
           </VCard>
         </VCol>
-        <VCol
-          cols="12"
+        <VCol cols="12"
         >
           <VCard
             class="kronos-card h-100"
@@ -1059,7 +1071,7 @@ onBeforeUnmount(() => {
               <thead><tr><th>Producto</th><th class="text-right">Unidades</th><th class="text-right">Venta</th><th class="text-right">Margen estimado</th></tr></thead>
               <tbody>
                 <tr v-for="(product, index) in topProducts" :key="product.id">
-                  <td><VChip v-if="index === 0" color="secondary" size="x-small" class="mr-2">Más vendido</VChip>{{ product.name }}</td>
+                  <td><VChip v-if="index === 0" color="secondary" size="x-small" class="me-2">Más vendido</VChip>{{ product.name }}</td>
                   <td class="text-right font-weight-bold">{{ product.units }}</td>
                   <td class="text-right">{{ formatCurrency(product.revenue) }}</td>
                   <td class="text-right text-success">{{ formatCurrency(product.margin) }}</td>

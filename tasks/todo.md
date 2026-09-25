@@ -327,3 +327,228 @@
 - [x] PK1–PK4 cumplen los 13 criterios de aceptación sin dependencias nuevas; el temporizador de éxito se verificó por contrato automatizado para respetar la prohibición de crear ventas durante QA.
 - [x] Reglas y controles de cliente niegan por defecto configuraciones ausentes o inválidas.
 - [x] PK5 documenta QA local y publicada, incluida la matriz responsive autenticada y el límite de no completar ventas.
+
+## Iniciativa: Control administrativo y trazabilidad
+
+- [x] CAT0 — Autorizar el mapa, crear las siete specs y registrar el plan.
+  - Aceptación: módulos, dependencias, decisiones, riesgos y gates están documentados con estado aprobado para planificación.
+  - Verificación: revisión documental de `specs/CAPABILITY-MAP.md`, siete `SPEC-*.md`, `tasks/plan.md` y este checklist.
+  - Archivos: documentación únicamente.
+- [x] CAT1 — Autorizar el plan completo y preservar la spec de reportes.
+  - Aceptación: esquema/reglas locales autorizados; datos reales y despliegue prohibidos; `reporting-contracts` queda aprobado y bloqueado sólo por el gate de esta iniciativa.
+  - Verificación: `specs/SPEC-reporting-contracts.md`, plan y capability map coinciden.
+  - Archivos: documentación únicamente.
+
+### Store Payment Corrections
+
+- [x] SC1 — Probar y construir el contrato de pagos efectivos.
+  - Aceptación: reverso aporta cero; cambio de método conserva importe; orden y redondeo son deterministas; doble reverso se rechaza.
+  - Verificación: RED confirmado por módulo ausente; GREEN 5/5 con el preload local, más typecheck.
+  - Dependencias: CAT0 y aprobación del plan.
+  - Archivos probables: `app/src/types/domain.ts`, `app/src/utils/store-payment-adjustments.ts`, `app/tests/store-payment-corrections.test.ts`.
+- [x] SC2 — Persistir ajustes append-only con reglas fail-closed.
+  - Aceptación: sólo permiso autorizado crea ajustes; motivo/actor/fecha son obligatorios; ajuste no se edita/elimina; grupo se escribe atómicamente.
+  - Verificación: 7/7 pruebas de dominio, 40/40 reglas y typecheck; conciliación de saldo en escritura multipath.
+  - Dependencias: SC1 y autorización local de esquema/reglas.
+  - Archivos probables: `app/src/services/sales.service.ts`, `app/database.rules.json`, `app/tests/database.rules.test.mjs`.
+
+#### Checkpoint SC-A
+
+- [x] Contratos y reglas pasan antes de integrar UI; no hay writes remotos ni migración.
+
+- [x] SC3 — Integrar corrección individual y grupal en Tienda.
+  - Aceptación: Admin selecciona pago/grupo, acción, método y motivo; previsualiza efecto; conflicto no deja escrituras parciales.
+  - Verificación: prueba enfocada, typecheck y revisión DOM/teclado.
+  - Dependencias: SC2.
+  - Archivos probables: `app/src/components/kronos/StorePaymentCorrectionDialog.vue`, `app/src/pages/tienda.vue`, `app/src/stores/commerce.ts`.
+- [x] SC4 — Adoptar pagos efectivos en saldos, recibos y finanzas.
+  - Aceptación: Tienda, PDF y movimientos financieros reconcilian; originales siguen visibles; comprobante identifica corrección.
+  - Verificación: pruebas de correcciones, `npm run test:finance` y regresión de recibos/notificaciones.
+  - Dependencias: SC3.
+  - Archivos probables: `app/src/utils/kronos.ts`, `app/src/utils/receipts.ts`, `app/src/utils/financial-reports.ts`, `app/tests/store-payment-corrections.test.ts`.
+- [x] SC5 — Ejecutar QA completo de correcciones.
+  - Aceptación: cobro individual y conjunto recorren corrección/reverso, deuda reactivada y comprobante; consola/red sin errores nuevos.
+  - Verificación: typecheck, build, reglas, Chrome, Playwright `320/768/1024/1440` y reporte.
+  - Dependencias: SC4 y autorización de login/escrituras QA aisladas.
+  - Archivos probables: `app/e2e/responsive/store-payment-corrections-responsive.spec.ts`, `Docs/implementation-reports/2026-09-24-store-payment-corrections.md`.
+
+#### Checkpoint SC-B
+
+- [x] Un cobro corregido conserva auditoría y todos los consumidores muestran el mismo saldo.
+
+### Store Debt Statement
+
+- [x] SD1 — Probar y construir el estado de cuenta puro de tienda.
+  - Aceptación: uno/varios/todos los adeudos del mismo atleta; excluye mensualidad, visitas, canceladas y saldo cero; totales reconcilian a $0.01.
+  - Verificación: RED/GREEN con `npx tsx --test tests/store-debt-statement.test.ts`.
+  - Dependencias: SC4.
+  - Archivos probables: `app/src/utils/store-debt-statement.ts`, `app/src/utils/receipts.ts`, `app/tests/store-debt-statement.test.ts`.
+- [x] SD2 — Integrar selección y vista previa en Tienda.
+  - Aceptación: seleccionar uno, varios o todos; descargar/imprimir/compartir manual; acción deshabilitada sin deuda.
+  - Verificación: prueba enfocada, teclado, typecheck y build.
+  - Dependencias: SD1.
+  - Archivos probables: `app/src/components/kronos/StoreDebtStatementDialog.vue`, `app/src/pages/tienda.vue`.
+- [x] SD3 — Validar PDF y responsive del estado de cuenta.
+  - Aceptación: PDF legible, sin mensualidad ni PII no solicitada; cuatro viewports y flujo Chrome completos.
+  - Verificación: Chrome, Playwright y reporte de impacto.
+  - Dependencias: SD2.
+  - Archivos probables: `app/e2e/responsive/store-debt-statement-responsive.spec.ts`, `Docs/implementation-reports/2026-09-24-store-debt-statement.md`.
+
+### Membership Advance Payments
+
+- [x] MA1 — Probar fechas de corte y clasificación de adelantos.
+  - Aceptación: estados advance/pending/overdue/paid; meses 28–31 correctos; reloj y zona horaria inyectables.
+  - Verificación: RED/GREEN con `npx tsx --test tests/membership-advance-payments.test.ts`.
+  - Dependencias: CAT0 y aprobación del plan.
+  - Archivos probables: `app/src/utils/membership-periods.ts`, `app/tests/membership-advance-payments.test.ts`, `app/src/types/domain.ts`.
+- [x] MA2 — Abrir periodos futuros con snapshot inmutable.
+  - Aceptación: hasta 12 meses, un periodo por operación, parcial/completo; plan/precio/día posteriores no alteran el periodo.
+  - Verificación: prueba de servicio y typecheck.
+  - Dependencias: MA1 y autorización local de esquema/reglas si el snapshot lo requiere.
+  - Archivos probables: `app/src/services/payments.service.ts`, `app/src/stores/payments.ts`, `app/tests/membership-advance-payments.test.ts`.
+- [x] MA3 — Integrar selector, estados y recibo de adelanto.
+  - Aceptación: UI explica periodo/corte; historial y PDF dicen Adelantado; dashboard/recordatorios no marcan mora prematura.
+  - Verificación: pruebas enfocadas y regresión de notificaciones/finanzas.
+  - Dependencias: MA2.
+  - Archivos probables: `app/src/components/kronos/MembershipPaymentDialog.vue`, `app/src/pages/pagos.vue`, `app/src/utils/receipts.ts`, `app/src/utils/payment-notification.ts`.
+- [x] MA4 — Ejecutar QA completo de adelantos.
+  - Aceptación: parcial y total antes del corte, periodo futuro, recibo y alertas correctas; consola limpia.
+  - Verificación: pruebas, typecheck, build, Chrome, Playwright y reporte.
+  - Dependencias: MA3 y autorización de login/write QA aislado.
+  - Archivos probables: `app/e2e/responsive/membership-advance-responsive.spec.ts`, `Docs/implementation-reports/2026-09-24-membership-advance-payments.md`.
+
+### Athlete Lifecycle Statuses
+
+- [x] AL1 — Probar el contrato de transiciones de atleta.
+  - Aceptación: sólo transiciones autorizadas; Pausa/Baja separadas; motivo y fechas válidos; histórico legado marcado parcial.
+  - Verificación: RED/GREEN con `npx tsx --test tests/athlete-lifecycle.test.ts`.
+  - Dependencias: CAT0 y aprobación del plan.
+  - Archivos probables: `app/src/types/domain.ts`, `app/src/utils/athlete-lifecycle.ts`, `app/tests/athlete-lifecycle.test.ts`.
+- [x] AL2 — Persistir estado y evento en una operación atómica.
+  - Aceptación: precondición de estado, actor/fecha servidor, idempotencia; eventos no editables/eliminables.
+  - Verificación: prueba de servicio y `npm run test:rules`.
+  - Dependencias: AL1 y autorización local de esquema/reglas.
+  - Archivos probables: `app/src/services/athletes.service.ts`, `app/src/services/athlete-lifecycle.service.ts`, `app/database.rules.json`, `app/tests/database.rules.test.mjs`.
+- [x] AL3 — Integrar Pausa, Baja y Reactivación en Atletas.
+  - Aceptación: diálogo específico, fecha esperada sólo para Pausa, historial visible y confirmación accesible.
+  - Verificación: prueba enfocada, teclado, typecheck y build.
+  - Dependencias: AL2.
+  - Archivos probables: `app/src/components/kronos/AthleteStatusDialog.vue`, `app/src/pages/atletas.vue`, `app/src/stores/athletes.ts`.
+- [x] AL4 — Adoptar estados en Kiosco, cobranza y Comunidad.
+  - Aceptación: pausados/bajas no ingresan ni generan obligación nueva; Comunidad incluye pausados y excluye bajas; adeudos previos se conservan.
+  - Verificación: regresiones de Kiosco, pagos, dashboard y Comunidad.
+  - Dependencias: AL3.
+  - Archivos probables: `app/src/pages/kiosco.vue`, `app/src/pages/dashboard.vue`, `app/src/pages/comunidad.vue`, `app/src/components/kronos/MembershipPaymentDialog.vue`.
+- [x] AL5 — Ejecutar QA completo de ciclo de vida.
+  - Aceptación: Activo→Pausa→Activo y Activo/Pausa→Baja funcionan, persisten y no crean eventos dobles.
+  - Verificación: reglas, typecheck, build, Chrome, Playwright y reporte.
+  - Dependencias: AL4 y autorización de login/write QA aislado.
+  - Archivos probables: `app/e2e/responsive/athlete-lifecycle-responsive.spec.ts`, `Docs/implementation-reports/2026-09-24-athlete-lifecycle.md`.
+
+#### Checkpoint AA
+
+- [x] Adelantos no generan morosidad prematura y los tres estados de atleta se respetan en el flujo completo.
+
+### Inventory Reconciliation
+
+- [x] IR1 — Probar contratos de cierre y resolución.
+  - Aceptación: stock antes/conteo/variación exactos; resolución parcial acotada; reintentos idempotentes.
+  - Verificación: RED/GREEN con `npx tsx --test tests/inventory-reconciliation.test.ts`.
+  - Dependencias: CAT0 y aprobación del plan.
+  - Archivos probables: `app/src/types/domain.ts`, `app/src/utils/inventory-reconciliation.ts`, `app/tests/inventory-reconciliation.test.ts`.
+- [x] IR2 — Finalizar cierre y stock mediante actualización atómica.
+  - Aceptación: todos los productos se actualizan o ninguno; stock concurrente diferente rechaza; cierre finalizado es inmutable.
+  - Verificación: pruebas de servicio y `npm run test:rules`.
+  - Dependencias: IR1 y autorización local de esquema/reglas.
+  - Archivos probables: `app/src/services/closures.service.ts`, `app/database.rules.json`, `app/tests/database.rules.test.mjs`, `app/tests/inventory-reconciliation.test.ts`.
+- [x] IR3 — Persistir resoluciones y recuperaciones.
+  - Aceptación: found ajusta stock una vez; covered registra ingreso; written-off no crea gasto de caja; pendientes parciales reconcilian.
+  - Verificación: prueba enfocada y `npm run test:finance`.
+  - Dependencias: IR2.
+  - Archivos probables: `app/src/services/inventory-resolutions.service.ts`, `app/src/utils/financial-reports.ts`, `app/src/stores/closures.ts`, `app/tests/inventory-reconciliation.test.ts`.
+- [x] IR4 — Integrar borrador, finalización y resolución en Cierres.
+  - Aceptación: resumen previo, confirmación irreversible, historial y diálogo de resolución accesibles.
+  - Verificación: DOM/teclado, typecheck y build.
+  - Dependencias: IR3.
+  - Archivos probables: `app/src/pages/cierres.vue`, `app/src/components/kronos/InventoryResolutionDialog.vue`, `app/src/stores/closures.ts`.
+- [x] IR5 — Ejecutar QA de dos cierres consecutivos.
+  - Aceptación: 10→8 y después 8→6 producen -2 y -2; resolución no duplica movimientos; consola limpia.
+  - Verificación: reglas, pruebas, Chrome, Playwright y reporte.
+  - Dependencias: IR4 y autorización de writes QA aislados.
+  - Archivos probables: `app/e2e/responsive/inventory-reconciliation-responsive.spec.ts`, `Docs/implementation-reports/2026-09-24-inventory-reconciliation.md`.
+
+#### Checkpoint IR
+
+- [x] El conteo físico es el nuevo stock y cada diferencia permanece trazable sin acumulación artificial.
+
+### Workforce Payroll
+
+- [x] WF1 — Probar contratos de tarifas, trabajo y liquidación.
+  - Aceptación: snapshots de tarifa, centavos, duplicado diario de limpieza y selección de líneas se resuelven determinísticamente.
+  - Verificación: RED/GREEN con `npx tsx --test tests/workforce-payroll.test.ts`.
+  - Dependencias: CAT0 y aprobación del plan.
+  - Archivos probables: `app/src/types/workforce.ts`, `app/src/utils/workforce-payroll.ts`, `app/tests/workforce-payroll.test.ts`.
+- [x] WF2 — Persistir empleados y permisos Admin-only.
+  - Aceptación: catálogo, historial de tarifa y vínculo opcional a usuario; no guarda datos bancarios; reglas niegan no Admin.
+  - Verificación: pruebas de servicio y `npm run test:rules`.
+  - Dependencias: WF1 y autorización local de esquema/reglas.
+  - Archivos probables: `app/src/services/employees.service.ts`, `app/src/types/access.ts`, `app/database.rules.json`, `app/tests/database.rules.test.mjs`.
+- [x] WF3 — Registrar trabajo y aprobaciones.
+  - Aceptación: clases múltiples, limpieza diaria, tarifa congelada, estados pending/approved y corrección auditada.
+  - Verificación: prueba enfocada y typecheck.
+  - Dependencias: WF2.
+  - Archivos probables: `app/src/services/work-entries.service.ts`, `app/src/stores/workforce.ts`, `app/src/components/kronos/WorkEntryDialog.vue`, `app/tests/workforce-payroll.test.ts`.
+- [x] WF4 — Liquidar trabajo y crear un egreso idempotente.
+  - Aceptación: sólo mismo empleado/no pagadas; método/folio correctos; reintento no duplica egreso; pagadas no se eliminan.
+  - Verificación: prueba enfocada, reglas y `npm run test:finance`.
+  - Dependencias: WF3.
+  - Archivos probables: `app/src/services/payroll-settlements.service.ts`, `app/src/services/expenses.service.ts`, `app/src/components/kronos/PayrollSettlementDialog.vue`, `app/tests/workforce-payroll.test.ts`.
+- [x] WF5 — Integrar el módulo Empleados y sus totales.
+  - Aceptación: ruta/nav Admin-only, catálogo, trabajo, filtros y devengado/pagado/pendiente accesibles y responsive.
+  - Verificación: DOM/teclado, typecheck y build.
+  - Dependencias: WF4.
+  - Archivos probables: `app/src/pages/empleados.vue`, `app/src/plugins/router/routes.ts`, `app/src/layouts/components/NavItems.vue`, `app/src/stores/workforce.ts`.
+- [x] WF6 — Ejecutar QA completo de empleado a egreso.
+  - Aceptación: alta → clases/días → aprobación → liquidación → egreso; sin duplicados ni PII innecesaria.
+  - Verificación: reglas, pruebas, Chrome, Playwright y reporte.
+  - Dependencias: WF5 y autorización de login/write QA aislado.
+  - Archivos probables: `app/e2e/responsive/workforce-payroll-responsive.spec.ts`, `Docs/implementation-reports/2026-09-24-workforce-payroll.md`.
+
+#### Checkpoint WF
+
+- [x] Cada liquidación crea exactamente un egreso y los acumulados reconcilian a $0.01.
+
+### Birthday Outreach Card
+
+- [x] BD1 — Probar cola anual y persistir estado de felicitación.
+  - Aceptación: próximo, hoy y vencido pendiente; año independiente; pausados incluidos, bajas excluidas; reglas mínimas.
+  - Verificación: RED/GREEN y `npm run test:rules`.
+  - Dependencias: AL5 y autorización local de esquema/reglas.
+  - Archivos probables: `app/src/utils/birthday-greetings.ts`, `app/src/services/birthday-greetings.service.ts`, `app/tests/birthday-outreach.test.ts`, `app/database.rules.json`.
+- [x] BD2 — Integrar pendientes y confirmación en Comunidad.
+  - Aceptación: vencidos no desaparecen; marcar/desmarcar confirma y audita; estados vacío/carga/error accesibles.
+  - Verificación: prueba enfocada, typecheck y DOM/teclado.
+  - Dependencias: BD1.
+  - Archivos probables: `app/src/pages/comunidad.vue`, `app/src/stores/birthday-greetings.ts`, `app/src/components/kronos/BirthdayGreetingList.vue`.
+- [x] BD3 — Diseñar y generar la plantilla maestra de felicitación.
+  - Aceptación: asset original aprobado, 1080×1080, zona segura para nombre, sin PII; render canvas determinista.
+  - Verificación: inspección visual, prueba de dimensiones/nombre largo y descarga PNG.
+  - Ajuste final: paleta y logo oficiales proporcionados por Kronos, copy aprobado y versión `kronos-athlete-v2`; Chrome sin errores de consola.
+  - Dependencias: BD2 y revisión visual del diseño generado con `imagegen`.
+  - Archivos probables: `app/src/assets/images/birthday-card-template.png`, `app/src/utils/birthday-card.ts`, `app/tests/birthday-outreach.test.ts`.
+- [x] BD4 — Integrar tarjeta, descarga, compartir y QA.
+  - Aceptación: vista previa, descarga y Web Share/WhatsApp manual; no envía automáticamente; cuatro viewports y consola limpia.
+  - Verificación: typecheck, build, Chrome, Playwright, evidencia PNG y reporte.
+  - Dependencias: BD3 y autorización de login QA.
+  - Archivos probables: `app/src/components/kronos/BirthdayCardDialog.vue`, `app/src/pages/comunidad.vue`, `app/e2e/responsive/birthday-outreach-responsive.spec.ts`, `Docs/implementation-reports/2026-09-24-birthday-outreach-card.md`.
+
+#### Checkpoint BD
+
+- [x] Ningún cumpleaños pendiente desaparece y la tarjeta descargable no contiene edad, teléfono ni fecha completa.
+
+## Gate antes de Reportes
+
+- [x] SC, MA, AL, IR y WF están cerrados localmente con contratos auditables.
+- [x] `reporting-contracts` permanece autorizado y queda listo para implementar con los contratos finales.
+- Evidencia de cierre: 33/33 pruebas funcionales enfocadas, 44/44 reglas, typecheck y build; Chrome recorrió cobro→corrección→reverso, estado de cuenta, adelanto y recibo, Pausa→Activo, inventario, nómina→egreso y felicitación; matriz responsive 320/768/1024/1440 sin desbordamiento global.
+- Alcance: exclusivamente emuladores locales; sin datos reales, migración ni despliegue.

@@ -5,16 +5,20 @@ import EmptyState from '@/components/kronos/EmptyState.vue'
 import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
 import BarcodeScanner from '@/components/kronos/BarcodeScanner.vue'
 import ProductBarcodeLabelDialog from '@/components/kronos/ProductBarcodeLabelDialog.vue'
+import StorePaymentCorrectionDialog, { type StorePaymentCorrectionTarget } from '@/components/kronos/StorePaymentCorrectionDialog.vue'
+import StoreDebtStatementDialog from '@/components/kronos/StoreDebtStatementDialog.vue'
 import { useCommerceStore } from '@/stores/commerce'
 import { useAthletesStore } from '@/stores/athletes'
 import { useVisitorsStore } from '@/stores/visitors'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSessionStore } from '@/stores/session'
 import type { PaymentMethod, Product, Sale, SaleItem, SalePayment, StoreCreditEntry } from '@/types/domain'
-import { buildGroupedSalePaymentReceipt, buildSalePaymentReceipt, buildSaleReceipt, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
+import { buildGroupedSalePaymentReceipt, buildSalePaymentCorrectionReceipt, buildSalePaymentReceipt, buildSaleReceipt, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
 import { formatCurrency, formatDate, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 import { generateInternalBarcode, normalizeProductBarcode, productBarcodes, productHasBarcode } from '@/utils/product-barcodes'
 import { availableStoreProducts, calculateGrossProfit, normalizeCustomerKey, removeCartItem } from '@/utils/store-kiosk'
+import { effectiveSaleStatus, resolveSalePaymentStates } from '@/utils/store-payment-adjustments'
+import { buildStoreDebtStatement, eligibleStoreDebtSales } from '@/utils/store-debt-statement'
 
 const commerce = useCommerceStore()
 const athletes = useAthletesStore()
@@ -27,6 +31,7 @@ const canSell = computed(() => session.can('storeSell'))
 const canCollect = computed(() => session.can('storeCollect'))
 const canManageInventory = computed(() => session.can('storeInventory'))
 const canCancelSales = computed(() => session.can('storeCancel'))
+const canCorrectPayments = computed(() => session.can('storeCorrectPayments'))
 const tab = ref(canSell.value ? 'pos' : 'inventory')
 const saving = ref(false)
 const productDialog = ref(false)
@@ -35,6 +40,12 @@ const barcodeLabelDialog = ref(false)
 const stockDialog = ref(false)
 const paymentDialog = ref(false)
 const receiptDialog = ref(false)
+const correctionDialog = ref(false)
+const correctionTargets = ref<StorePaymentCorrectionTarget[]>([])
+const statementDialog = ref(false)
+const statementSales = ref<Sale[]>([])
+const statementAthleteId = ref('')
+const statementInitialSaleIds = ref<string[]>([])
 const activeReceipt = ref<ReceiptData | null>(null)
 const groupedPaymentSales = ref<Sale[]>([])
 const editingProduct = ref<Product | null>(null)
@@ -103,7 +114,7 @@ const creditAccounts = computed(() => commerce.storeCredits
 
 const storePaymentHistory = computed(() => {
   const movements = commerce.sales
-    .flatMap(sale => salePayments(sale).map(payment => ({ sale, payment })))
+    .flatMap(sale => resolveSalePaymentStates(sale).map(state => ({ sale, payment: state.original, state })))
     .sort((a, b) => timestampValue(b.payment.appliedAt) - timestampValue(a.payment.appliedAt))
 
   const groupedTotals = new Map<string, number>()
@@ -133,7 +144,7 @@ const storePaymentHistory = computed(() => {
     .slice(0, 50)
 })
 
-const creditEntryLabel = (entry: StoreCreditEntry) => ({ deposit: 'Depósito', application: 'Aplicado', refund: 'Reintegro' })[entry.type]
+const creditEntryLabel = (entry: StoreCreditEntry) => ({ deposit: 'Depósito', application: 'Aplicado', refund: 'Reintegro', reversal: 'Reverso' })[entry.type]
 
 const filteredInventory = computed(() => commerce.products
   .filter(product => {
@@ -180,7 +191,7 @@ const creditPageCount = computed(() => Math.max(1, Math.ceil(filteredCredit.valu
 const paginatedCredit = computed(() => filteredCredit.value.slice((creditPage.value - 1) * perPage, creditPage.value * perPage))
 
 const filteredSales = computed(() => [...commerce.sales]
-  .filter(sale => !salesStatusFilter.value || sale.status === salesStatusFilter.value)
+  .filter(sale => !salesStatusFilter.value || effectiveSaleStatus(sale) === salesStatusFilter.value)
   .filter(sale => `${customerName(sale)} ${Object.values(sale.items ?? {}).map(item => item.name).join(' ')}`.toLocaleLowerCase('es').includes(salesSearch.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt)))
 
@@ -207,6 +218,80 @@ function showPaymentReceipt(sale: Sale, payment: SalePayment) {
     activeReceipt.value = buildSalePaymentReceipt(sale, payment, customerForSale(sale))
   }
   receiptDialog.value = true
+}
+
+function openPaymentCorrection(sale: Sale, payment: SalePayment, includeGroup = true) {
+  if (!canCorrectPayments.value)
+    return notifications.show('No tienes permiso para corregir cobros.', 'warning')
+  const state = resolveSalePaymentStates(sale).find(item => item.original.id === payment.id)
+  if (state?.reversed)
+    return notifications.show('Este cobro ya fue revertido.', 'info')
+
+  correctionTargets.value = includeGroup && payment.groupPaymentId
+    ? commerce.sales.flatMap(groupSale => resolveSalePaymentStates(groupSale)
+      .filter(item => !item.reversed && item.original.groupPaymentId === payment.groupPaymentId)
+      .map(item => ({ sale: groupSale, payment: item.original })))
+    : [{ sale, payment }]
+  correctionDialog.value = true
+}
+
+async function applyPaymentCorrection(payload: { kind: 'reversal' | 'method-change'; toMethod?: PaymentMethod; reason: string }) {
+  if (!session.uid)
+    return notifications.show('La sesión no tiene un usuario auditable.', 'error')
+  saving.value = true
+  try {
+    const result = await commerce.adjustPayments(correctionTargets.value.map(target => ({
+      saleId: target.sale.id,
+      paymentId: target.payment.id,
+      kind: payload.kind,
+      ...(payload.toMethod ? { toMethod: payload.toMethod } : {}),
+    })), payload.reason, session.uid)
+
+    const correctedById = new Map(result.sales.map(sale => [sale.id, sale]))
+
+    const receiptEntries = result.adjustments.map(adjustment => ({
+      adjustment,
+      sale: correctedById.get(adjustment.saleId) ?? correctionTargets.value.find(target => target.sale.id === adjustment.saleId)!.sale,
+    }))
+
+    activeReceipt.value = buildSalePaymentCorrectionReceipt(receiptEntries, result.operationId, customerForSale(receiptEntries[0]!.sale))
+    correctionDialog.value = false
+    receiptDialog.value = true
+    notifications.show(payload.kind === 'reversal'
+      ? 'Cobro revertido; el adeudo quedó reactivado con su trazabilidad.'
+      : 'Método de pago corregido sin alterar el cobro original.')
+  }
+  catch (error) {
+    notifications.show(error instanceof Error ? error.message : 'No se pudo corregir el cobro.', 'error')
+  }
+  finally {
+    saving.value = false
+  }
+}
+
+function openStoreStatement(sales: Sale[]) {
+  const athleteId = sales[0]?.athleteId
+  if (!athleteId || sales.some(sale => sale.athleteId !== athleteId))
+    return notifications.show('El estado de cuenta requiere adeudos del mismo atleta.', 'warning')
+
+  statementAthleteId.value = athleteId
+  statementSales.value = eligibleStoreDebtSales(athleteId, commerce.sales)
+  statementInitialSaleIds.value = sales.map(sale => sale.id)
+  statementDialog.value = true
+}
+
+function previewStoreStatement(sales: Sale[]) {
+  const athlete = athletes.items.find(item => item.id === statementAthleteId.value)
+  if (!athlete)
+    return notifications.show('No se encontró el atleta del estado de cuenta.', 'error')
+  try {
+    activeReceipt.value = buildStoreDebtStatement({ athlete, sales, issuedAt: Date.now() })
+    statementDialog.value = false
+    receiptDialog.value = true
+  }
+  catch (error) {
+    notifications.show(error instanceof Error ? error.message : 'No se pudo generar el estado de cuenta.', 'error')
+  }
 }
 
 watch(() => route.query.tab, requestedTab => {
@@ -1087,13 +1172,22 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                     {{ group.sales.length }} adeudos · {{ formatCurrency(group.total) }} pendientes
                   </p>
                 </div>
-                <VBtn
-                  v-if="canCollect"
-                  prepend-icon="ri-hand-coin-line"
-                  @click="openGroupedPayment(group.sales)"
-                >
-                  Cobrar juntos
-                </VBtn>
+                <div class="d-flex flex-wrap ga-2">
+                  <VBtn
+                    variant="tonal"
+                    prepend-icon="ri-file-list-3-line"
+                    @click="openStoreStatement(group.sales)"
+                  >
+                    Estado de cuenta
+                  </VBtn>
+                  <VBtn
+                    v-if="canCollect"
+                    prepend-icon="ri-hand-coin-line"
+                    @click="openGroupedPayment(group.sales)"
+                  >
+                    Cobrar juntos
+                  </VBtn>
+                </div>
               </div>
             </VCardText>
           </VCard>
@@ -1135,6 +1229,13 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                         />
                       </VList>
                     </VMenu><VBtn
+                      size="small"
+                      variant="tonal"
+                      prepend-icon="ri-file-list-3-line"
+                      @click="openStoreStatement([sale])"
+                    >
+                      Estado de cuenta
+                    </VBtn><VBtn
                       v-if="canCollect"
                       size="small"
                       @click="openPayment(sale)"
@@ -1249,8 +1350,11 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
               >
                 <td>{{ customerName(entry.sale) }}</td>
                 <td>{{ formatDate(entry.payment.appliedAt) }}</td>
-                <td>{{ paymentMethodLabel(entry.payment.method) }}</td>
-                <td class="text-right font-weight-bold text-success">
+                <td>{{ paymentMethodLabel(entry.state.effectiveMethod) }}</td>
+                <td
+                  class="text-right font-weight-bold"
+                  :class="entry.state.reversed ? 'text-error' : 'text-success'"
+                >
                   {{ formatCurrency(entry.amount) }}
                   <div
                     v-if="entry.payment.groupPaymentId"
@@ -1258,14 +1362,30 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                   >
                     Cobro conjunto
                   </div>
+                  <div
+                    v-if="entry.state.reversed"
+                    class="text-caption"
+                  >
+                    Revertido
+                  </div>
                 </td>
                 <td class="text-right">
-                  <VBtn
-                    icon="ri-receipt-line"
-                    variant="text"
-                    title="Generar recibo"
-                    @click="showPaymentReceipt(entry.sale, entry.payment)"
-                  />
+                  <div class="d-flex justify-end ga-1">
+                    <VBtn
+                      icon="ri-receipt-line"
+                      variant="text"
+                      title="Generar recibo"
+                      @click="showPaymentReceipt(entry.sale, entry.payment)"
+                    />
+                    <VBtn
+                      v-if="canCorrectPayments && !entry.state.reversed"
+                      icon="ri-edit-circle-line"
+                      variant="text"
+                      color="warning"
+                      :title="entry.payment.groupPaymentId ? 'Corregir cobro conjunto' : 'Corregir cobro'"
+                      @click="openPaymentCorrection(entry.sale, entry.payment)"
+                    />
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -1329,9 +1449,9 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                   </td><td>{{ formatCurrency(sale.total) }}</td><td>
                     <VChip
                       size="small"
-                      :color="sale.status === 'paid' ? 'success' : sale.status === 'credit' ? 'warning' : 'error'"
+                      :color="effectiveSaleStatus(sale) === 'paid' ? 'success' : effectiveSaleStatus(sale) === 'credit' ? 'warning' : 'error'"
                     >
-                      {{ sale.status === 'paid' ? 'Pagada' : sale.status === 'credit' ? 'Crédito' : 'Cancelada' }}
+                      {{ effectiveSaleStatus(sale) === 'paid' ? 'Pagada' : effectiveSaleStatus(sale) === 'credit' ? 'Crédito' : 'Cancelada' }}
                     </VChip>
                   </td><td>
                     <VMenu>
@@ -1744,6 +1864,19 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
   <ReceiptDialog
     v-model="receiptDialog"
     :receipt="activeReceipt"
+  />
+  <StorePaymentCorrectionDialog
+    v-model="correctionDialog"
+    :targets="correctionTargets"
+    :loading="saving"
+    @submit="applyPaymentCorrection"
+  />
+  <StoreDebtStatementDialog
+    v-model="statementDialog"
+    :athlete-name="athletes.items.find(item => item.id === statementAthleteId)?.profile.name ?? 'Atleta'"
+    :sales="statementSales"
+    :initial-sale-ids="statementInitialSaleIds"
+    @preview="previewStoreStatement"
   />
   <ProductBarcodeLabelDialog
     v-model="barcodeLabelDialog"

@@ -552,3 +552,279 @@
 - [x] `reporting-contracts` permanece autorizado y queda listo para implementar con los contratos finales.
 - Evidencia de cierre: 34/34 pruebas funcionales enfocadas, 44/44 reglas, lint de errores, typecheck, build y auditoría de producción sin vulnerabilidades; Chrome recorrió cobro→corrección→reverso, estado de cuenta, adelanto y recibo, Pausa→Activo, inventario, nómina→egreso y felicitación; matriz responsive 320/768/1024/1440 sin desbordamiento global.
 - Despliegue: Hosting y reglas de Realtime Database publicados el 2026-09-24 en `kronos-training-fd5e5`; validación productiva de sólo lectura con registro QA y consola limpia; sin migración ni modificación manual de datos reales.
+
+---
+
+# Módulo de Reportes
+
+Estado: Fase 1 completada y verificada localmente; Fase 2 autorizada el 2026-09-25 según `specs/SPEC-reporting-phase-2-access-shell.md`. El spec `specs/SPEC-reporting-contracts.md` permanece aprobado. Ninguna tarea autoriza migraciones, datos reales o despliegue.
+
+## Gate de planificación
+
+- [x] RP0 — Revisar capability map, spec, plan/tareas previos y reporte administrativo.
+  - Aceptación: dependencias auditables confirmadas; límites de privacidad y semántica financiera reflejados; fases pequeñas con gates y rollback documentados.
+  - Verificación: revisión cruzada de `specs/CAPABILITY-MAP.md`, `specs/SPEC-reporting-contracts.md`, `tasks/plan.md`, `tasks/todo.md` y `Docs/implementation-reports/2026-09-24-control-administrativo-trazabilidad.md`.
+  - Dependencias: gate administrativo cerrado.
+  - Archivos: documentación únicamente.
+
+## Fase 1 — Contratos semánticos y cálculos puros
+
+Estado: completada con autorización del usuario el 2026-09-24.
+
+- [x] RP1 — Definir tipos, periodos, filtros y diccionario de métricas.
+  - Descripción: crear el vocabulario único de Reportes, rangos día/semana/mes/trimestre/año/personalizado, comparación anterior/interanual, filtros serializables y etiquetas de calidad.
+  - Aceptación: periodos respetan `America/Mexico_City`; filtro de productos vacío significa todos; cada métrica declara unidad, fecha de atribución, definición y calidad.
+  - Verificación: RED/GREEN con `npx tsx --test tests/reporting-contracts.test.ts`; revisión de casos límite de zona, fin de mes/año y URL round-trip.
+  - Dependencias: RP0 y autorización de Fase 1.
+  - Archivos: `app/src/types/reporting.ts`, `app/src/utils/reporting-periods.ts`, `app/src/utils/reporting-metrics.ts`, `app/tests/reporting-contracts.test.ts`.
+  - Alcance estimado: M (4 archivos).
+
+- [x] RP2 — Probar proyección de Tienda y mensualidades.
+  - Descripción: calcular unidades, venta bruta, costo histórico, utilidad/margen bruto, cobrado, recuperado, saldo/cartera, cancelaciones y mensualidades esperado/cobrado/vencido/adelantado/pendiente desde ventas y pagos efectivos.
+  - Aceptación: uno/varios/todos los productos afectan sólo partidas seleccionadas; pagos multi-producto se asignan proporcionalmente con residuo determinista y etiqueta; detalle y KPI concilian a $0.01 sin confundir devengo con caja.
+  - Verificación: RED/GREEN con fixtures de crédito parcial, cobro grupal, reverso, cambio de método, cancelación, adelanto y corte temporal.
+  - Dependencias: RP1.
+  - Archivos: `app/src/utils/reporting-store.ts`, `app/src/utils/reporting-memberships.ts`, `app/tests/reporting-store.test.ts`, `app/tests/reporting-operational.test.ts`.
+  - Alcance estimado: M (4 archivos).
+
+- [x] RP3 — Probar proyección de Atletas e inventario.
+  - Descripción: calcular estados y evolución por año/mes/día desde eventos de ciclo de vida, y diferencias/resoluciones de inventario desde cierres finalizados.
+  - Aceptación: activos, pausados, bajas, altas y reactivaciones derivan de eventos; legado insuficiente se marca parcial/no disponible; diferencias, encontrados, cubiertos y fondo perdido conservan su significado y concilian con el detalle.
+  - Verificación: RED/GREEN con eventos completos/legados y cierres consecutivos 10→8→6 con resoluciones parciales.
+  - Dependencias: RP1.
+  - Archivos: `app/src/utils/reporting-athletes.ts`, `app/src/utils/reporting-inventory.ts`, `app/tests/reporting-operational.test.ts`.
+  - Alcance estimado: M (4 archivos).
+
+- [x] RP4 — Probar proyección de Personal, egresos, flujo y conciliación.
+  - Descripción: calcular trabajo devengado/pagado/pendiente y separar ingresos reconocidos, cobros, egresos, flujo por cuenta y diferencias de cierre.
+  - Aceptación: liquidación produce pago y egreso enlazados sin duplicar; flujo usa movimientos efectivos por método/cuenta; la salida no expone teléfono/contacto ni llama utilidad neta a un resultado incompleto.
+  - Verificación: RED/GREEN con trabajo pendiente/aprobado/pagado, egresos pagados/pendientes y cierres con/sin diferencia; `npm run test:finance`.
+  - Dependencias: RP1.
+  - Archivos: `app/src/utils/reporting-workforce.ts`, `app/src/utils/reporting-finance.ts`, `app/tests/reporting-operational.test.ts`, `app/tests/reporting-finance.test.ts`, `app/src/utils/financial-reports.ts` (lectura, sin cambios).
+  - Alcance estimado: M (5 archivos).
+
+### Checkpoint R1 — Fundamentos auditables
+
+- [x] Reporting 13/13 y regresión financiera 4/4 pasan; typecheck, lint focalizado y build pasan.
+- [x] Cálculos puros concilian importes por detalle, exponen calidad y no infieren obligación/vencimiento para legado sin total y snapshot.
+- [x] No hay Firebase, reglas, UI, datos reales ni despliegue en esta fase.
+- [x] Fase 2: usuario autorizó `reports`, la validación de su booleano y lecturas condicionadas a permisos fuente; no se amplían expresiones `.read` de colecciones.
+
+## Fase 2 — Adaptador canónico, permiso y shell
+
+Estado: completada y verificada localmente el 2026-09-25. El permiso `reports` no concede lecturas de fuentes; no se ampliaron expresiones `.read` de colecciones de negocio.
+
+- [x] RP5 — Implementar adaptador canónico de sólo lectura.
+  - Descripción: cargar las colecciones auditables existentes y proyectarlas al dataset mínimo de Reportes sin PII excluida ni cálculos en la UI.
+  - Aceptación: origen intercambiable detrás de una interfaz; estados carga/error/vacío distinguibles; no lee admisión, salud, teléfonos, secretos ni escribe Firebase.
+  - Verificación: pruebas con adaptador fake, fallos parciales y dataset vacío; typecheck.
+  - Dependencias: Checkpoint R1 y autorización de Fase 2.
+  - Archivos probables: `app/src/services/reporting.service.ts`, `app/src/stores/reporting.ts`, `app/src/types/reporting.ts`, `app/tests/reporting-service.test.ts`.
+  - Alcance estimado: M (4 archivos).
+
+- [x] RP6 — Añadir permiso, reglas, ruta y shell de Reportes.
+  - Descripción: incorporar `reports` como permiso independiente, mantener finanzas/inventario/personal Admin-only y crear la página base con filtros restaurables en URL.
+  - Aceptación: no Admin con `reports` sólo accede al subconjunto autorizado; pruebas negativas bloquean datos Admin-only; ruta/nav y carga/error/vacío son accesibles.
+  - Verificación: `npm run test:rules`, prueba de permisos/router, typecheck, build y Chrome del acceso permitido/denegado.
+  - Dependencias: RP5 y autorización explícita de cambio de reglas/permisos.
+  - Archivos probables: `app/src/types/access.ts`, `app/database.rules.json`, `app/tests/database.rules.test.mjs`, `app/src/plugins/router/routes.ts`, `app/src/pages/reportes.vue`.
+  - Alcance estimado: M (5 archivos; navegación se integra en tarea separada si excede este límite).
+
+### Checkpoint R2 — Acceso seguro
+
+- [x] Reglas permiten Reportes operativos y niegan finanzas/inventario/personal a no Admin (45/45).
+- [x] Filtros se comparten/restauran desde URL; Chrome confirmó estado vacío y filtro de producto en URL.
+- [x] No se migran permisos existentes ni se despliegan reglas.
+- [x] Configuración del emulador y helper usan el mismo namespace local; config 2/2 y helper 7/7.
+- [x] Typecheck/build pasan; Chrome sin errores de consola, con warnings de accesibilidad documentados en el reporte.
+
+## Fase 3 — Resumen ejecutivo y Tienda
+
+Estado: implementación y recorrido funcional Chrome terminados el 2026-09-25 con fixture sintética, aislada y no persistente. Spec aprobada: `specs/SPEC-reporting-phase-3-executive-store.md`. Sin cambios de esquema, reglas, permisos, escrituras, migraciones ni despliegue.
+
+- [x] RP7 — Construir resumen ejecutivo y filtros globales.
+  - Descripción: presentar KPIs generales y tendencias con periodo, producto, atleta, estado y método de pago compartidos por todas las vistas.
+  - Aceptación: definiciones/calidad visibles; comparación anterior/interanual consistente; cada KPI/gráfica abre su dominio preservando filtros.
+  - Verificación: pruebas de componentes/DOM, typecheck, build y Chrome en flujo resumen→dominio.
+  - Dependencias: Checkpoint R2; autorización recibida el 2026-09-25.
+  - Archivos probables: `app/src/components/kronos/reports/ReportFilters.vue`, `app/src/components/kronos/reports/ReportKpiCard.vue`, `app/src/components/kronos/reports/ExecutiveOverview.vue`, `app/src/pages/reportes.vue`, `app/tests/reporting-ui.test.ts`.
+  - Alcance estimado: M (5 archivos).
+
+- [x] RP8 — Construir reporte Tienda con drill-down.
+  - Descripción: visualizar artículos, ingresos reconocidos, costo, utilidad bruta, cobros, recuperaciones y cartera, con detalle de partidas/ventas/pagos.
+  - Aceptación: multi-producto correcto; asignación proporcional señalada; navegación KPI/gráfica→tabla→registro preserva filtros y suma a $0.01.
+  - Verificación: pruebas UI con crédito/reverso/cancelación, Chrome del flujo completo y Playwright en cuatro viewports.
+  - Dependencias: RP7.
+  - Archivos probables: `app/src/components/kronos/reports/StoreReport.vue`, `app/src/components/kronos/reports/ReportChart.vue`, `app/src/components/kronos/reports/ReportDetailTable.vue`, `app/src/pages/reportes.vue`, `app/e2e/responsive/reporting-responsive.spec.ts`.
+  - Alcance estimado: M (5 archivos).
+
+### Checkpoint R3 — Ejecutivo y Tienda
+
+- [x] Chrome: fixture en memoria → KPI Cobrado → tabla → registro → filtro por método → volver y restaurar por URL; sin escrituras ni PII.
+- [x] Chrome responsive: 320/768/1024/1440 px, sin overflow horizontal; consola sin nuevos error/warn.
+- [ ] Playwright responsive: 0/4. La sesión llegó a Atletas, pero el guard redirigió al Dashboard al pedir Reportes. Auth-setup ahora valida Reportes + fixture Admin-only antes de guardar; login manual debe usar el perfil QA con ese acceso. IndexedDB permanece en ruta local ignorada; nunca inspeccionar ni abrir permisos/reglas para forzar el paso.
+
+- [ ] KPIs, gráficas, tablas y registros concilian a $0.01 para todos/uno/varios productos.
+- [x] Conciliación de proyecciones a centavos cubierta por pruebas de contratos (39/39 reporting y 4/4 finanzas).
+- [x] Chrome DOM/funcionalidad y consola revisados. Lighthouse accesibilidad 84/100; cuatro hallazgos en shell compartido fuera del alcance Fase 3 (avatar ARIA, tooltip, botón encabezado y lista de navegación), documentados en reporte.
+
+## Fase 4 — Atletas y mensualidades
+
+Estado: autorizada por el usuario el 2026-09-25 para implementación local de RP9.1–RP9.4. Spec: `specs/SPEC-reporting-phase-4-athletes-memberships.md`. Playwright de R3 permanece anotado como limitación aceptada para continuar; no se cambian permisos.
+
+- [x] RP9.1 — Añadir proyección allowlisted de pagos y filtros de estado por dominio.
+  - Aceptación: membresías sólo para Admin; PII/campos libres excluidos; estado atleta y estado mensualidad serializan/restauran sin colisión.
+  - Verificación: TDD de servicio, permisos, filtros y round-trip URL.
+  - Archivos probables: `app/src/types/reporting.ts`, `app/src/utils/reporting-periods.ts`, `app/src/services/reporting.service.ts`, `app/src/services/reporting.firebase.ts`, `app/tests/reporting-service.test.ts` (dividir en rebanadas ≤5 archivos).
+  - Alcance estimado: M.
+  - Resultado: pagos proyectados por allowlist, fuente `memberships` sólo Admin y filtros `athleteStatus`/`membershipStatus` independientes con round-trip URL. RED confirmado y 21/21 pruebas focalizadas en verde.
+- [x] RP9.2 — Implementar reporte de Atletas con evolución y drill-down.
+  - Aceptación: activos/pausados/bajas al corte; altas/pausas/bajas/reactivaciones por fecha efectiva y día/mes/año; legado parcial/no disponible; sin PII.
+  - Verificación: pruebas de contrato/UI, typecheck y Chrome resumen→evento→registro.
+  - Archivos probables: `app/src/components/kronos/reports/AthletesReport.vue`, `app/src/pages/reportes.vue`, `app/src/components/kronos/reports/ReportDetailTable.vue`, `app/tests/reporting-operational.test.ts`, `app/tests/reporting-ui.test.ts`.
+  - Alcance estimado: M.
+- [x] RP9.3 — Implementar reporte de mensualidades.
+  - Aceptación: esperado/cobrado/vencido/adelantado/pendiente respetan snapshot, fecha efectiva, corte y filtro de método; detalle concilia a $0.01; legado no se estima.
+  - Verificación: casos de parcial, adelanto anterior al vencimiento, mora y campos desconocidos; Chrome KPI→pago→registro.
+  - Archivos probables: `app/src/components/kronos/reports/MembershipsReport.vue`, `app/src/pages/reportes.vue`, `app/src/components/kronos/reports/ReportDetailTable.vue`, `app/tests/reporting-operational.test.ts`, `app/tests/reporting-ui.test.ts`.
+  - Alcance estimado: M.
+- [x] RP9.4 — Cerrar checkpoint R4.
+  - Aceptación: acceso, filtros URL, estados vacíos/parciales, consola/red/DOM/accesibilidad y viewports comprobados; no escritura/migración/despliegue.
+  - Verificación: reporting + finanzas, typecheck, build, lint focalizado, Chrome con login manual y Playwright responsive si el perfil QA autorizado está disponible; limitaciones se reportan, no se fuerza permiso.
+  - Archivos probables: `app/e2e/responsive/reporting-responsive.spec.ts`, `tasks/todo.md`, `tasks/plan.md`, reporte de implementación Fase 4.
+  - Alcance estimado: S.
+  - Resultado: 38/38 pruebas reporting/finanzas, typecheck, lint focalizado y build correctos. Chrome autenticado completó ambos recorridos, URL restaurable, consola limpia y 320/768/1024/1440 sin overflow. Playwright 0/4: su estado aislado llegó a login; limitación documentada sin copiar sesión ni relajar permisos.
+
+### Checkpoint R4 — Atletas y mensualidades
+
+- [x] Cortes día/mes/año y eventos completos/legados muestran cifras y calidad correctas.
+- [x] Chrome cubre resumen/evolución→tabla→registro sin exponer admisión, salud ni teléfono.
+- [x] Atletas respeta permisos fuente; pagos siguen Admin-only; no hay cambios de reglas/esquema.
+- [x] Suite, build, Chrome y matriz responsive (con limitación del perfil Playwright documentada) quedan reportados.
+
+## Fase 5 — Inventario y personal
+
+Estado: implementada y verificada localmente el 2026-09-25. Admin-only, sin esquema/reglas/escrituras reales/despliegue.
+
+- [x] RP10.1 — Integrar fuentes allowlisted, acceso y filtros de Inventario/Personal.
+  - Descripción: suscribir cierres/resoluciones y trabajo/liquidaciones sólo para Admin; añadir filtros de producto, empleado, estado y clase de resolución con URL restaurable.
+  - Aceptación: no se lee `employees`; no Admin con `reports` no abre fuentes; proyecciones omiten contacto/texto libre/actores; parámetros no colisionan con fases previas.
+  - Verificación: RED/GREEN en `reporting-contracts`, `reporting-service` y `reporting-operational`.
+  - Dependencias: Checkpoint R4 y autorización de Fase 5.
+  - Archivos probables: tipos, periodos, servicio Firebase/servicio, store y pruebas, en rebanadas de máximo cinco archivos.
+  - Alcance estimado: M por rebanada.
+- [x] RP10.2 — Construir reporte de Inventario con drill-down.
+  - Descripción: presentar diferencia por cierre y resoluciones por su fecha efectiva hasta el registro auditable.
+  - Aceptación: `covered` es recuperación/caja; `found` no es caja; `written-off` no es egreso; `corrected` no infla KPI; detalle concilia a $0.01.
+  - Verificación: RED/GREEN operacional/UI y Chrome KPI→resolución.
+  - Dependencias: RP10.1.
+  - Archivos probables: `reporting-inventory.ts`, `InventoryReport.vue`, `ReportDetailTable.vue`, `reportes.vue`, pruebas.
+  - Alcance estimado: M (máximo 5 archivos por incremento).
+- [x] RP10.3 — Construir reporte de Personal con drill-down.
+  - Descripción: presentar devengado, pagado y pendiente al corte desde snapshots de trabajo/liquidación.
+  - Aceptación: una línea pagada suma una vez; inconsistencias muestran calidad parcial/no disponible; sólo nombre snapshot/ID, sin contacto ni texto libre.
+  - Verificación: RED/GREEN operacional/UI y Chrome KPI→línea/liquidación.
+  - Dependencias: RP10.1.
+  - Archivos probables: `reporting-workforce.ts`, `WorkforceReport.vue`, `ReportDetailTable.vue`, `reportes.vue`, pruebas.
+  - Alcance estimado: M (máximo 5 archivos por incremento).
+- [x] RP10.4 — Ejecutar checkpoint integral de Fase 5.
+  - Descripción: verificar filtros/URL, acceso, estados accesibles, regresión y responsive.
+  - Aceptación: suite/typecheck/lint/build pasan; Chrome cubre ambos flujos con consola limpia; Playwright intenta 320/768/1024/1440 en contexto aislado.
+  - Verificación: comandos de spec, Chrome autenticado y Playwright complementario; reporte de impacto.
+  - Dependencias: RP10.2 y RP10.3.
+  - Archivos probables: pruebas, `reporting-responsive.spec.ts`, reporte de implementación, spec/tareas.
+  - Alcance estimado: M.
+
+### Checkpoint R5 — Inventario y personal
+
+- [x] Totales concilian con cierres, resoluciones, trabajo y liquidaciones a $0.01.
+- [x] Pruebas de acceso niegan ambos dominios a no Admin.
+
+## Fase 6 — Egresos, flujo y conciliación
+
+Estado: implementada y verificada localmente el 2026-09-25; Admin-only; sin datos reales ni despliegue.
+
+- [x] RP11.1 — Incorporar fuentes financieras allowlisted y filtros restaurables.
+  - Descripción: proyectar pagos de visitas, egresos y cierres sin PII/texto libre, y suscribirlos sólo para Admin.
+  - Aceptación: no Admin no abre fuentes; serialización excluye nombre/teléfono de visitante, descripción/recibo/notas/actores; método, cuenta, categoría y estado restauran desde URL.
+  - Verificación: pruebas TDD de contratos, servicio y URL.
+  - Dependencias: Checkpoint R5 y spec Fase 6 autorizada.
+  - Archivos probables: `app/src/types/reporting.ts`, `app/src/services/reporting.service.ts`, `app/src/services/reporting.firebase.ts`, `app/src/stores/reporting.ts`, `app/tests/reporting-service.test.ts`.
+  - Alcance estimado: M (5 archivos).
+- [x] RP11.2 — Completar el cálculo financiero puro.
+  - Descripción: separar conceptos reconocidos, movimientos efectivos, egresos pagados, flujo por cuenta y variaciones de cierre.
+  - Aceptación: correcciones/reversos no duplican; crédito de tienda no es caja; nómina se resta una vez; variación no altera flujo; sumas concilian a $0.01.
+  - Verificación: `npm run test:finance` y pruebas reporting-finance RED→GREEN.
+  - Dependencias: RP11.1.
+  - Archivos probables: `app/src/utils/financial-reports.ts`, `app/src/utils/reporting-finance.ts`, `app/tests/financial-reports.test.ts`, `app/tests/reporting-finance.test.ts`.
+  - Alcance estimado: M (4 archivos).
+- [x] RP11.3 — Construir Finanzas con drill-down auditable.
+  - Descripción: mostrar conceptos separados, flujo por cuenta y movimientos/egresos con navegación al origen.
+  - Aceptación: KPI→detalle→origen conserva filtros; filtros no aplicables se explican; carga/error/vacío/parcial son accesibles.
+  - Verificación: pruebas UI, typecheck, lint focalizado y Chrome Finanzas→movimiento/egreso→origen→retorno.
+  - Dependencias: RP11.2.
+  - Archivos probables: `app/src/components/kronos/reports/FinanceReport.vue`, `app/src/components/kronos/reports/ReportFilters.vue`, `app/src/pages/reportes.vue`, `app/tests/reporting-ui.test.ts`.
+  - Alcance estimado: M (4 archivos).
+- [x] RP11.4 — Construir Conciliación y cerrar el checkpoint.
+  - Descripción: presentar aperturas, movimientos, esperado, contado y variación por cierre sin alterar flujo.
+  - Aceptación: baseline identificable; KPI concilia con filas; navegación a Cierres; responsive sin overflow y consola limpia.
+  - Verificación: suites reporting/finance, typecheck, lint, build, Chrome y Playwright `320/768/1024/1440` cuando su perfil QA esté autenticado.
+  - Dependencias: RP11.3.
+  - Archivos probables: `app/src/components/kronos/reports/ReconciliationReport.vue`, `app/src/components/kronos/reports/ReportDetailTable.vue`, `app/src/pages/reportes.vue`, `app/e2e/responsive/reporting-responsive.spec.ts`, reporte de implementación.
+  - Alcance estimado: M (5 archivos).
+
+### Checkpoint R6 — Finanzas
+
+- [x] Ingreso reconocido, flujo de caja, utilidad bruta y cuentas por cobrar son cifras distintas y conciliables.
+- [x] Chrome cubre Finanzas→movimiento/egreso/cierre con acceso Admin-only.
+
+## Fase 7 — Exportación y cierre
+
+Estado: implementada y verificada localmente el 2026-09-25; CSV único confirmado; sin datos reales ni despliegue.
+
+- [x] RP12.1 — Definir contrato allowlisted y serializador CSV seguro.
+  - Descripción: crear filas tipadas, orden determinista, BOM/RFC 4180, decimales ISO y neutralización de fórmulas.
+  - Aceptación: round-trip conserva UTF-8/comillas/saltos; `null` queda vacío; texto peligroso no se interpreta como fórmula.
+  - Verificación: `reporting-export.test.ts` RED→GREEN.
+  - Dependencias: Checkpoint R6, formato confirmado y autorización de Fase 7.
+  - Archivos probables: `app/src/types/reporting.ts`, `app/src/utils/reporting-export.ts`, `app/tests/reporting-export.test.ts`.
+  - Alcance estimado: M (3 archivos).
+- [x] RP12.2 — Proyectar resultados filtrados al contrato común.
+  - Descripción: convertir metadata, KPIs y detalles ya calculados de cada sección cargada sin releer fuentes.
+  - Aceptación: cifras coinciden a $0.01; filtros/calidad/fuentes quedan explícitos; allowlist excluye PII y texto libre.
+  - Verificación: pruebas de conciliación, filtros y privacidad en `reporting-export.test.ts`.
+  - Dependencias: RP12.1.
+  - Archivos probables: `app/src/utils/reporting-export.ts`, `app/tests/reporting-export.test.ts`, `app/src/pages/reportes.vue`.
+  - Alcance estimado: M (3 archivos).
+- [x] RP12.3 — Integrar descarga accesible Admin-only.
+  - Descripción: añadir botón y estados de descarga usando Blob/URL temporal sin red ni persistencia.
+  - Aceptación: sólo Admin listo puede exportar; nombre determinista; éxito/error accesibles; URL se revoca.
+  - Verificación: prueba UI, typecheck, lint y Chrome.
+  - Dependencias: RP12.2.
+  - Archivos probables: `app/src/components/kronos/reports/ReportExportButton.vue`, `app/src/pages/reportes.vue`, `app/tests/reporting-ui.test.ts`.
+  - Alcance estimado: M (3 archivos).
+
+- [x] RP13 — Ejecutar regresión integral, Chrome, responsive y reporte.
+  - Descripción: validar todos los recorridos desde KPIs hasta registros y documentar impacto, evidencia, riesgos y rollback.
+  - Aceptación: criterios del spec completos; consola sin errores/warnings nuevos; flujo completo y 320/768/1024/1440 documentados.
+  - Verificación: tests reporting, `npm run test:finance`, `npm run test:rules` si aplica, typecheck, build, lint focalizado, Chrome, Playwright y reporte.
+  - Dependencias: RP12.3 y sesión manual ya autorizada; cualquier write QA, dato real o despliegue requiere permiso separado.
+  - Archivos probables: `app/e2e/responsive/reporting-responsive.spec.ts`, `Docs/implementation-reports/2026-09-25-reporting-phase-7-export-closeout.md`, `tasks/plan.md`, `tasks/todo.md`.
+  - Alcance estimado: M (4 archivos).
+
+### Checkpoint final — Reportes
+
+- [x] Todos los criterios de `SPEC-reporting-contracts.md` se cumplen con evidencia.
+- [x] Árbol de archivos, flujos afectados/no afectados, diagrama, riesgos y rollback constan en el reporte.
+- [x] Migraciones, modificaciones de datos reales y despliegue siguen sin ejecutarse salvo autorización explícita posterior.
+
+## Fase 8 — Analítica visual
+
+Estado: implementada y verificada localmente el 2026-09-25; sin despliegue ni datos reales.
+
+- [x] RP14.1 — Modelo común, buckets y pruebas de conciliación/nulos.
+- [x] RP14.2 — Componente visual accesible, estados y tabla alternativa.
+- [x] RP14.3 — Finanzas y Conciliación.
+- [x] RP14.4 — Mensualidades y Atletas.
+- [x] RP14.5 — Inventario y Personal.
+- [x] RP14.6 — Regresión integral, Chrome, responsive y reporte. Chrome cubrió 320/768/1024/1440; Playwright autenticado quedó condicionado a su perfil QA aislado.

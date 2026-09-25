@@ -492,3 +492,177 @@ El usuario autorizó tareas locales verificables y cambios locales de esquema/re
 
 - Ninguna de producto para iniciar los contratos puros.
 - Ninguna para comenzar SC1–SC2 localmente. QA autenticado, datos existentes y despliegue mantienen gates separados.
+
+---
+
+# Implementation Plan: Módulo de Reportes
+
+Estado: Fases 1–7 implementadas y verificadas localmente; módulo de Reportes cerrado el 2026-09-25 mediante `specs/SPEC-reporting-phase-7-export-closeout.md`. Chrome validó descarga CSV real, conciliación, privacidad y cuatro anchos con fixture sintética; el perfil aislado de Playwright quedó en login y su matriz se documenta como limitación, sin copiar sesiones ni ampliar permisos.
+
+## Overview
+
+Construir un módulo de Reportes que avance de indicadores ejecutivos a dominios, tablas y registros auditables. Los cálculos partirán exclusivamente de ventas, pagos efectivos, eventos de ciclo de vida, cierres y resoluciones de inventario, trabajo/liquidaciones y egresos ya implementados. El módulo distinguirá ingreso reconocido, cobro y recuperación, cuentas por cobrar, costo histórico, utilidad bruta, egreso y flujo de efectivo; cuando el histórico no permita reconstruir una métrica, mostrará `Histórico parcial` o `No disponible` en vez de inventar datos.
+
+## Dependency graph
+
+```text
+RP1 tipos, periodos y calidad del dato
+ ├─ RP2 contratos Tienda y mensualidades
+ ├─ RP3 contratos Atletas e inventario
+ └─ RP4 contratos Personal y finanzas
+      └─ Checkpoint R1: conciliación pura a $0.01
+          └─ RP5 adaptador canónico de sólo lectura
+              └─ RP6 permiso, reglas, ruta y shell
+                  ├─ RP7 resumen ejecutivo y filtros globales
+                  ├─ RP8 Tienda con drill-down
+                  ├─ RP9 Atletas y mensualidades con drill-down
+                  ├─ RP10 Inventario y personal con drill-down
+                  └─ RP11 Egresos, flujo y conciliación con drill-down
+                       └─ RP12 exportación permitida
+                           └─ RP13 QA integral y reporte
+```
+
+## Architecture decisions
+
+- Los cálculos serán funciones puras con redondeo monetario centralizado a centavos y reloj/zona `America/Mexico_City` explícitos.
+- `reporting.service.ts` será un adaptador de sólo lectura sobre contratos canónicos; la UI no leerá Firebase ni recalculará métricas por su cuenta.
+- Los filtros se serializarán en la URL. Producto vacío significa toda la tienda; uno o varios IDs limitan partidas y asignan cobros parciales multi-producto de forma proporcional y visible.
+- Cada resultado incluirá procedencia/calidad: `Exacto`, `Asignación proporcional`, `Histórico parcial` o `No disponible`.
+- Venta bruta y costo histórico se atribuyen a la fecha de venta; cobros, recuperaciones, egresos y flujo se atribuyen a la fecha efectiva del movimiento. Saldo representa cartera al corte.
+- `utilidad` significará utilidad bruta de tienda (`venta reconocida - costo histórico`) y nunca utilidad neta ni flujo.
+- Los estados de atletas usarán eventos auditables. Un registro legado sin eventos suficientes no se reconstruirá retrospectivamente.
+- Finanzas, conciliación, inventario y personal permanecerán Admin-only. El permiso independiente `reports` no ampliará acceso a datos financieros.
+- No habrá agregados persistidos, migraciones, nuevas dependencias ni escrituras de datos en el plan inicial. Cualquier necesidad posterior devuelve la fase a `propuesta`.
+
+## Phases and authorization gates
+
+### Fase 1 — Contratos semánticos y cálculos puros
+
+Objetivo: definir tipos, diccionario de métricas, filtros/periodos y proyecciones puras para todos los dominios, demostrando conciliación a $0.01 y calidad del dato antes de crear interfaz o acceso a Firebase.
+
+Alcance: RP1–RP4 y Checkpoint R1. Incluye tienda, selección multi-producto, atletas, mensualidades, inventario, personal, egresos, flujo y conciliación como contratos sobre datasets en memoria. No incluye servicio Firebase, ruta, permisos, UI, exportación ni QA autenticado. Resultado: tipos, métricas, periodos/filtros compartibles y proyecciones puras implementados; reporting 13/13, finanzas 4/4, typecheck, lint y build pasan.
+
+Gate: autorizada por el usuario el 2026-09-24. No cambió esquema, reglas ni permisos.
+
+### Fase 2 — Adaptador canónico, permiso y shell navegable
+
+Objetivo: cargar sólo las colecciones canónicas detrás del adaptador, incorporar el permiso independiente de Reportes y crear la ruta/shell con filtros compartibles y estados de carga/error/vacío.
+
+Alcance: RP5–RP6. Esta fase propone cambios en `app/database.rules.json` y en el contrato de permisos para permitir lecturas operativas de Reportes sin abrir finanzas, inventario o personal a no Admin.
+
+Gate: autorizada el 2026-09-25. `reports` sólo otorga entrada al módulo; cada lectura exige también su permiso fuente y las colecciones Admin-only permanecen cerradas. Se permite validar localmente `permissions/reports` en rules; no se autorizan datos reales, migraciones ni despliegue.
+
+Resultado: RP5–RP6 completadas localmente. El adaptador sólo carga atletas/visitas permitidos para esta cuenta no productiva; proyecciones allowlisted excluyen PII no necesaria. `reports` no concede lecturas y las reglas de negocio existentes no amplían `.read`. `/reportes` valida estados/filtros restaurables. Chrome confirmó sesión Admin manual, estado vacío con fuentes permitidas y sincronización de filtro de producto en URL. Dataset local vacío; no se validaron KPIs con transacciones. Pruebas focalizadas 19/19, reglas 45/45, config emulador 2/2, helper UID 7/7, typecheck y build pasan. Warnings de accesibilidad observados: campos sin etiqueta asociada (10) y campos sin `id`/`name` (2); no se detectaron errores de consola. No hubo escrituras a producción, migraciones ni despliegue.
+
+### Fase 3 — Resumen ejecutivo y Tienda
+
+Estado de ejecución: implementación y recorrido funcional completos en Chrome. Fixture DEV, Admin-only, sintética y sólo en memoria para validar registros sin poblar Firebase. Playwright apuntó a Vite ya iniciado en localhost (sin usar webServer); el contexto autenticado llegó a Atletas pero no tenía acceso a Reportes/fixture y fue redirigido al Dashboard; esa matriz queda pendiente de perfil QA autorizado.
+
+- Tienda se suscribe sólo para Admin; comparaciones quedan no disponibles mientras las fuentes no expongan cobertura histórica.
+- Costos/utilidad/margen sin costo histórico suficiente quedan parciales/no disponibles; no se usan precios actuales como reconstrucción.
+- Cobrado no equivale a flujo de caja; los cobros usan fecha de movimiento y las cancelaciones fecha efectiva.
+- Resultado: 39 pruebas reporting, 4 regresiones financieras, typecheck, lint focalizado y build correctos. Chrome validó resumen → KPI → tabla → registro y responsive a 320/768/1024/1440 sin overflow. Console sin errores/warnings.
+
+Objetivo: entregar KPIs generales y el recorrido ejecutivo → Tienda → indicador → partidas/ventas/cobros.
+
+Alcance: RP7–RP8. Incluye artículos vendidos, venta bruta, costo histórico, utilidad/margen bruto, cobrado, pendiente, recuperado proporcional y cancelaciones; filtros globales y uno/varios/todos los productos.
+
+Gate: autorizada por el usuario el 2026-09-25 mediante `specs/SPEC-reporting-phase-3-executive-store.md`. Sin esquema, reglas, permisos, migraciones, datos reales ni despliegue previstos.
+
+### Fase 4 — Atletas y mensualidades
+
+Estado: implementada y verificada localmente el 2026-09-25. Spec: `specs/SPEC-reporting-phase-4-athletes-memberships.md`.
+
+Objetivo: entregar evolución y detalle temporal de atletas y obligaciones de mensualidad sin fabricar histórico legado.
+
+Alcance: RP9. Incluye RP9.1 contrato/proyección allowlisted y filtros URL; RP9.2 estados/eventos de atleta con cortes día/mes/año; RP9.3 membresías y partidas con esperado/cobrado/vencido/adelantado/pendiente; RP9.4 checkpoint. Eventos desde fecha efectiva, pagos por fecha efectiva y obligaciones por periodo/vencimiento. Historial incompleto se marca; crecimiento/retención sólo con cobertura suficiente.
+
+Gate: spec autorizada por el usuario el 2026-09-25 para RP9.1–RP9.4. Atletas conserva permisos fuente existentes; mensualidades/pagos Admin-only como en Fase 2. Sin esquema, reglas, permisos, migraciones ni escrituras previstos. Login manual de Chrome y cualquier escritura real conservan gates separados.
+
+Resultado: 38/38 pruebas reporting/finanzas, typecheck, lint focalizado y build correctos. Chrome recorrió Atletas → evento → registro y Mensualidades → obligación → movimiento, restauró filtros por URL tras recarga y confirmó consola limpia y ausencia de overflow en 320/768/1024/1440. Playwright ejecutó 0/4 porque su estado aislado quedó en login; no se reutilizó ni inspeccionó la sesión autenticada de Chrome.
+
+### Fase 5 — Inventario y personal
+
+Objetivo: mostrar diferencias y resoluciones de inventario, y devengo/pago/pendiente de empleados, con navegación al registro auditable.
+
+Alcance: RP10. Incluye diferencias, recuperaciones, faltantes cubiertos, fondo perdido, trabajo devengado, pagado y pendiente; sin contacto de empleados.
+
+Gate: spec `SPEC-reporting-phase-5-inventory-workforce.md` autorizada por el usuario el 2026-09-25. Inventario y Personal continúan Admin-only; se autorizó validación visible con la sesión manual ya iniciada. Sin esquema, reglas, permisos, dependencias, escrituras reales ni despliegue.
+
+Orden de implementación: RP10.1 proyecciones allowlisted/acceso/filtros → RP10.2 Inventario → RP10.3 Personal → RP10.4 checkpoint R5. Cada rebanada usa TDD y mantiene las fases anteriores operativas.
+
+Resultado: 49/49 pruebas reporting/finanzas, typecheck, lint focalizado y build correctos. Chrome recorrió Inventario → resolución y Personal → línea/liquidación, restauró filtros desde URL, mantuvo consola limpia y confirmó ausencia de overflow en 320/768/1024/1440. Playwright intentó 12 casos (4 de Fase 5) y todos llegaron al login porque su estado aislado ya no autentica; no se reutilizó ni inspeccionó la sesión Chrome.
+
+### Fase 6 — Egresos, flujo de efectivo y conciliación
+
+Objetivo: comparar ingreso reconocido con movimientos reales de caja/banco, egresos y cierres, sin presentar flujo como utilidad.
+
+Alcance: RP11. Incluye métodos de pago, cuentas, diferencias de cierre y navegación a movimientos/egresos/cierres.
+
+Gate: spec `SPEC-reporting-phase-6-finance-reconciliation.md` autorizada por el usuario el 2026-09-25. Finanzas continúa Admin-only y se autorizó validar la UI con la sesión manual ya iniciada. Sin esquema, reglas, permisos, dependencias, escrituras reales ni despliegue.
+
+Orden de implementación: RP11.1 contratos allowlisted/suscripciones/filtros → RP11.2 cálculo financiero puro → RP11.3 UI de Finanzas → RP11.4 Conciliación y checkpoint R6. Cada rebanada usa TDD, no supera cinco archivos lógicos y mantiene operativas las fases anteriores.
+
+Resultado: RP11.1–RP11.4 completadas. Las suites reporting/finanzas pasaron 56/56, además de typecheck, lint focalizado y build. Chrome validó Finanzas → egreso → origen → retorno, filtros restaurables, conciliación, ausencia de PII visible, consola limpia y responsive sin overflow en 320/768/1024/1440. Playwright alcanzó el login en sus primeros cuatro casos por estado aislado no autenticado y se detuvo sin reutilizar ni inspeccionar la sesión manual de Chrome.
+
+### Fase 7 — Exportación, regresión y cierre
+
+Objetivo: añadir únicamente la exportación contemplada por el spec y cerrar el módulo con evidencia integral.
+
+Alcance: RP12–RP13. La exportación será un único CSV UTF-8 allowlisted derivado del resultado filtrado y visible, con metadata, definiciones/calidad y sin PII excluida.
+
+Gate: spec `SPEC-reporting-phase-7-export-closeout.md` autorizada por el usuario el 2026-09-25. CSV único confirmado; Chrome puede reutilizar la sesión manual ya autorizada. Datos reales, writes QA y despliegue conservan autorización separada.
+
+Orden: RP12.1 contrato/serializador seguro → RP12.2 proyección allowlisted → RP12.3 descarga accesible → RP13 regresión integral y reporte. Cada rebanada usa TDD, deriva de cálculos existentes y mantiene intactos Firebase y las Fases 1–6.
+
+Resultado: RP12.1–RP13 completadas. Reporting/finanzas 61/61, revalidación focal 23/23, `npm run test:finance` 5/5, typecheck, lint focalizado y build correctos. Chrome descargó un CSV sintético de 66 registros, confirmó BOM/allowlist/conciliación, consola limpia y responsive sin overflow en 320/768/1024/1440. Playwright permaneció bloqueado por login en su perfil aislado; no se amplió acceso.
+
+## Verification strategy
+
+- RED → GREEN por cada contrato con `npx tsx --test tests/reporting-*.test.ts`.
+- Regresión financiera con `npm run test:finance`; reglas con `npm run test:rules` sólo en la fase que las cambie.
+- `npm run typecheck`, `npm run build` y lint focalizado en cada checkpoint.
+- Pruebas de invariantes: suma detalle = KPI a $0.01; filtros producto; pagos proporcionales; cortes temporales; reversos/cancelaciones; histórico parcial; ausencia de PII.
+- Chrome obligatorio en cada fase web, recorriendo filtro/KPI/gráfica → tabla → registro y revisando funcionalidad, consola, red, DOM, accesibilidad y evidencia visual.
+- Playwright complementario a `320`, `768`, `1024` y `1440` px para estados y regresión visual.
+- Para rutas protegidas se detendrá antes del login: el usuario inicia sesión manualmente y confirma la continuación; no se inspeccionan credenciales, tokens ni cookies.
+- Reporte final conforme a `Docs/implementation-reports/README.md`, con árbol, flujos, diagrama, evidencia, riesgos y rollback.
+
+## Risks and mitigations
+
+| Riesgo | Impacto | Mitigación / rollback |
+|---|---|---|
+| Confundir venta, cobro, saldo, utilidad o flujo | Alto | Diccionario único, tipos distintos, etiquetas visibles y pruebas de invariantes; rollback de la fase sin tocar datos |
+| Cobro parcial aplicado a varios productos | Alto | Asignación proporcional determinista, residuo de centavos estable y etiqueta obligatoria |
+| Histórico de atletas incompleto | Alto | Calcular sólo desde eventos existentes y marcar `Histórico parcial`/`No disponible` |
+| Permiso `reports` expone finanzas | Alto | Fase separada de reglas, pruebas negativas de no Admin y finanzas Admin-only |
+| Lecturas canónicas demasiado grandes | Medio | Adaptador reemplazable, filtros en memoria inicialmente y medición; agregados persistidos quedan fuera hasta nueva autorización |
+| KPI no coincide con detalle | Alto | Una sola proyección compartida y prueba de suma a $0.01 |
+| Exportación contiene PII o cambia significado | Alto | Allowlist de columnas, misma proyección visible y pruebas de ausencia |
+| Regresión visual o navegación sin retorno | Medio | Componentes pequeños, URL restaurable, Chrome por flujo y Playwright en cuatro viewports |
+
+## Rollback strategy
+
+- Fase 1: revertir únicamente tipos/utilidades/pruebas nuevas; no existen datos ni reglas que restaurar.
+- Fase 2: revertir ruta, permiso y reglas como una unidad al commit anterior; validar de nuevo `npm run test:rules`. No hacer migración de usuarios.
+- Fases 3–6: retirar componentes/rutas de Reportes manteniendo intactos los contratos canónicos de origen.
+- Fase 7: retirar el adaptador de exportación sin afectar cálculos ni datos.
+- Ninguna fase autoriza migraciones, modificaciones de datos reales o despliegue. Un despliegue futuro requerirá plan y aprobación propios.
+
+## Fase 1 implementation result
+
+- `app/src/types/reporting.ts` define métricas, calidad, filtros y periodos.
+- `app/src/utils/reporting-*.ts` calcula fechas de negocio, comparaciones, filtros URL, asignaciones proporcionales, tienda, mensualidades, atletas, inventario, personal y finanzas sobre datos en memoria.
+- `app/tests/reporting-*.test.ts` cubre 13 escenarios de contratos, filtros, asignación multi-producto, reversos, fechas, datos legados, snapshots, inventario, nómina y conciliación.
+- Verificación: reporting 13/13, finanzas 4/4, typecheck, lint focalizado y build correctos.
+- Rollback: retirar los tipos, utilidades y pruebas nuevas; no hay cambios de persistencia.
+- Chrome: no aplica todavía porque no existe ruta ni interfaz en esta fase.
+
+## Open questions
+
+- Antes de RP12 debe fijarse el formato de exportación permitido por el spec (por ejemplo CSV y/o PDF) y su alcance exacto; no bloquea Fase 1.
+- La Fase 2 deberá decidir, mediante reglas aprobadas, qué subconjunto operativo puede leer un usuario no Admin con `reports`; finanzas, inventario y personal permanecen Admin-only.
+
+## Fase 8 — Analítica visual (resultado 2026-09-25)
+
+RP14.1–RP14.6 se completaron en rebanadas: proyecciones puras y pruebas, componente accesible, integración por dominios y regresión en Chrome. Los gráficos son aditivos y no modifican fuentes, filtros, exportación ni permisos. El reporte de impacto está en `Docs/implementation-reports/2026-09-25-reporting-phase-8-visual-analytics.md`.

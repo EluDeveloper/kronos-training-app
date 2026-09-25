@@ -1,6 +1,6 @@
 # Spec: Contratos del módulo de reportes
 
-Estado: aprobada y lista para implementar desde el 2026-09-24; la iniciativa de control administrativo y trazabilidad quedó validada localmente.
+Estado: aprobada y lista para implementar desde el 2026-09-24; los contratos administrativos requeridos quedaron validados y desplegados.
 Módulo: `reports` / `reporting-contracts`.
 Dependencias: contratos locales cumplidos por `store-payment-corrections`, `membership-advance-payments`, `athlete-lifecycle-statuses`, `inventory-reconciliation` y `workforce-payroll`.
 

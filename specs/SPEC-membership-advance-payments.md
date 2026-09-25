@@ -1,6 +1,6 @@
 # Spec: Adelantos de mensualidad
 
-Estado: implementada y validada localmente el 2026-09-24; sin datos reales ni despliegue.
+Estado: implementada, validada y desplegada el 2026-09-24; sin migración ni modificación manual de datos reales.
 Módulo: `membership-advance-payments`.
 Dependencia: `athletes-payments`.
 

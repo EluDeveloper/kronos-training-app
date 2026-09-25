@@ -1,6 +1,6 @@
 # Spec: Correcciones y reversos de cobros de tienda
 
-Estado: implementada y validada localmente el 2026-09-24; sin datos reales ni despliegue.
+Estado: implementada, validada y desplegada el 2026-09-24; sin migración ni modificación manual de datos reales.
 Módulo: `store-payment-corrections`.
 Dependencias: `store-inventory`, permisos y sesión de `foundation`.
 Capability map: `specs/CAPABILITY-MAP.md`.

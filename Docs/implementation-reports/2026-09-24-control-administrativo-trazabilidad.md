@@ -3,14 +3,16 @@
 ## Estado
 
 - Spec: ✅ siete specs implementadas; `reporting-contracts` queda lista para implementar
-- Tests: ✅ 33/33 funcionales enfocadas y 44/44 reglas
+- Tests: ✅ 34/34 funcionales enfocadas y 44/44 reglas
+- Lint: ✅ sin errores en los archivos de la implementación
 - Typecheck: ✅
-- Build: ✅, 1170 módulos transformados
-- Chrome QA: ✅ sobre Firebase Emulator local
+- Build: ✅, 1172 módulos transformados
+- Chrome QA: ✅ sobre Firebase Emulator local y verificación productiva de sólo lectura
 - Flujo completo afectado en Chrome: ✅
 - Playwright responsive: ✅ matriz manual asistida 320/768/1024/1440 px
 - Login manual requerido: Sí; realizado por el usuario sin compartir credenciales
-- Datos reales o despliegue: No
+- Despliegue: ✅ Hosting y reglas de Realtime Database; sin Functions ni migraciones
+- Datos reales: sin modificación manual; verificación productiva de sólo lectura con registro QA
 
 ## Árbol de archivos modificados
 
@@ -18,7 +20,7 @@
 app/
 ├── database.rules.json
 ├── src/
-│   ├── assets/images/birthday-card-template*.png
+│   ├── assets/images/{birthday-card-template*,kronos-logo-official-dark}.png
 │   ├── components/kronos/
 │   │   ├── AthleteStatusDialog.vue
 │   │   ├── BirthdayCardDialog.vue
@@ -31,7 +33,7 @@ app/
 │   ├── services/{athletes,birthday-greetings,closures,payments,sales,workforce}.service.ts
 │   ├── stores/{athletes,birthday-greetings,closures,commerce,inventory-recoveries,workforce}.ts
 │   ├── types/{access,domain,workforce}.ts
-│   └── utils/{athlete-lifecycle,birthday-card,birthday-greetings,inventory-reconciliation,membership-periods,store-debt-statement,store-payment-adjustments,workforce-payroll}.ts
+│   └── utils/{athlete-lifecycle,birthday-card,birthday-card-copy,birthday-greetings,inventory-reconciliation,membership-periods,store-debt-statement,store-payment-adjustments,workforce-payroll}.ts
 └── tests/{athlete-lifecycle,birthday-outreach,inventory-reconciliation,membership-advance-payments,store-debt-statement,store-payment-corrections,workforce-payroll}.test.ts
 specs/SPEC-{store-payment-corrections,store-debt-statement,membership-advance-payments,athlete-lifecycle-statuses,inventory-reconciliation,workforce-payroll,birthday-outreach-card,reporting-contracts}.md
 tasks/{plan,todo}.md
@@ -76,11 +78,14 @@ flowchart TD
 
 ## Evidencia
 
-- Pruebas funcionales: `node --require ./scripts/node-userinfo-preload.cjs --import tsx --test ...` → 33/33.
+- Pruebas funcionales: `node --require ./scripts/node-userinfo-preload.cjs --import tsx --test ...` → 34/34.
 - Reglas: `npm run test:rules` → 44/44 en Realtime Database Emulator.
+- Lint: archivos cambiados ejecutados con ESLint `--quiet` → sin errores.
 - Tipos: `npm run typecheck` → correcto.
-- Build: `npm run build` → correcto, 1170 módulos.
+- Build: `npm run build` → correcto, 1172 módulos.
+- Dependencias: `npm audit --omit=dev` → 0 vulnerabilidades.
 - Chrome: recorridos visibles completos; consola sin warnings nuevos después de corregir el recibo de adelanto.
+- Producción: `https://kronos-training-fd5e5.web.app/comunidad` cargó la nueva cola, módulo Empleados y tarjeta `kronos-athlete-v2` con logo/paleta oficiales; consola sin errores ni warnings. No se descargó, compartió ni marcó felicitación.
 - Responsive: 320, 768, 1024 y 1440 px; Tienda sin desbordamiento global en los cuatro, y Empleados, Comunidad y Cierres comprobados también a 320 px.
 - Regresión detectada y corregida durante QA: faltaba importar `formatDate` en `src/utils/receipts.ts`; se añadió prueba que genera el recibo de adelanto con fecha de corte.
 
@@ -89,5 +94,6 @@ flowchart TD
 - Los historiales previos a estos eventos pueden ser parciales; no se hizo backfill especulativo.
 - Nómina operativa no sustituye obligaciones fiscales ni un sistema contable.
 - La plantilla maestra pesa aproximadamente 2.9 MB en el build; puede optimizarse en una fase posterior sin cambiar el contrato visual.
-- No se ejecutaron migraciones, writes remotos, datos reales, Firebase productivo ni despliegue.
+- Se desplegaron únicamente Hosting y reglas de Realtime Database al proyecto `kronos-training-fd5e5`; no se desplegaron Functions ni se ejecutaron migraciones o escrituras manuales sobre datos reales.
+- Commit de aplicación desplegado: `d666522`; rollback operativo: redeploy del commit anterior `31cc864` y sus reglas.
 - El siguiente módulo autorizado es `specs/SPEC-reporting-contracts.md`.

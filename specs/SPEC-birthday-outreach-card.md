@@ -1,6 +1,6 @@
 # Spec: Seguimiento de cumpleaños y tarjeta de felicitación
 
-Estado: implementada y validada localmente el 2026-09-24; ajuste de marca oficial aprobado para despliegue.
+Estado: implementada, validada y desplegada el 2026-09-24 con marca oficial; sin migración ni modificación manual de datos reales.
 Módulo: `birthday-outreach-card`.
 Dependencia: `athlete-lifecycle-statuses`.
 

@@ -550,5 +550,5 @@
 
 - [x] SC, MA, AL, IR y WF están cerrados localmente con contratos auditables.
 - [x] `reporting-contracts` permanece autorizado y queda listo para implementar con los contratos finales.
-- Evidencia de cierre: 33/33 pruebas funcionales enfocadas, 44/44 reglas, typecheck y build; Chrome recorrió cobro→corrección→reverso, estado de cuenta, adelanto y recibo, Pausa→Activo, inventario, nómina→egreso y felicitación; matriz responsive 320/768/1024/1440 sin desbordamiento global.
-- Alcance: exclusivamente emuladores locales; sin datos reales, migración ni despliegue.
+- Evidencia de cierre: 34/34 pruebas funcionales enfocadas, 44/44 reglas, lint de errores, typecheck, build y auditoría de producción sin vulnerabilidades; Chrome recorrió cobro→corrección→reverso, estado de cuenta, adelanto y recibo, Pausa→Activo, inventario, nómina→egreso y felicitación; matriz responsive 320/768/1024/1440 sin desbordamiento global.
+- Despliegue: Hosting y reglas de Realtime Database publicados el 2026-09-24 en `kronos-training-fd5e5`; validación productiva de sólo lectura con registro QA y consola limpia; sin migración ni modificación manual de datos reales.

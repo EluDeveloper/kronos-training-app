@@ -1,6 +1,6 @@
 # Spec: Empleados, asistencias y liquidaciones
 
-Estado: implementada y validada localmente el 2026-09-24; sin datos reales ni despliegue.
+Estado: implementada, validada y desplegada el 2026-09-24; sin migración ni modificación manual de datos reales.
 Módulo: `workforce-payroll`.
 Dependencias: `foundation`, `operations` y egresos administrativos.
 

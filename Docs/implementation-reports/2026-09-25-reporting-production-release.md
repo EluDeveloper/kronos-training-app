@@ -1,13 +1,13 @@
 # Production Release: Reportes Fases 1–8
 
-Estado: controles previos aprobados; publicación pendiente.
+Estado: reglas y Hosting publicados en producción; smoke autenticado y sincronización de `main` pendientes.
 
 ## Alcance autorizado
 
 - Proyecto Firebase: `kronos-training-fd5e5`.
 - Publicar únicamente reglas de Realtime Database y Firebase Hosting, en ese orden.
 - Sin despliegue de Functions, migraciones ni escritura manual de datos de producción.
-- Publicar primero `develop` y después integrar el mismo commit en `main` cuando el smoke productivo sea correcto.
+- `develop` publicado con los commits `cccbef2`, `6f62bac` y `448250e`; integrar `main` tras el smoke productivo.
 
 ## Controles previos
 
@@ -37,4 +37,8 @@ Estado: controles previos aprobados; publicación pendiente.
 
 ## Resultado
 
-Pendiente de despliegue y smoke productivo.
+- `npx firebase deploy --only database --project kronos-training-fd5e5`: sintaxis válida y reglas liberadas correctamente.
+- `npx firebase deploy --only hosting --project kronos-training-fd5e5`: 107 archivos en `dist`, versión finalizada y release completo.
+- `https://kronos-training-fd5e5.web.app/reportes`: HTTP 200 sobre HTTPS; HSTS presente. El HTML público referencia `/assets/index-BvUSzIuZ.js`, idéntico al build local, y ese recurso responde HTTP 200.
+- Pendiente: smoke autenticado por Admin con sesión manual del usuario; no se ejecutaron escrituras reales. `main` no se ha movido todavía.
+- Observación preexistente: la ruta profunda `/reportes` devuelve `Cache-Control: max-age=3600`, aunque el recurso `/index.html` tiene cabecera `no-cache` en `firebase.json`. El bundle servido ahora es el nuevo; la política de caché de rewrites merece una spec separada si se desea corregirla.

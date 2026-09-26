@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { computed, ref } from 'vue'
 import { formatCurrency } from '@/utils/kronos'
 import type { MembershipReport } from '@/utils/reporting-memberships'
@@ -9,6 +10,9 @@ import ReportSeriesChart from './ReportSeriesChart.vue'
 const props = defineProps<{ report: MembershipReport; range: Pick<ReportingFilters, 'from' | 'through'> }>()
 const chart = computed(() => buildMembershipChart(props.report, props.range))
 const selectedRow = ref<MembershipReport['rows'][number] | null>(null)
+const page = ref(1)
+const pageSize = ref(15)
+const paginatedRows = computed(() => props.report.rows.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
 
 const cards = computed(() => [
   ['Esperado', props.report.summary.expected],
@@ -110,7 +114,7 @@ const methodLabel = (method: string) => ({ cash: 'Efectivo', transfer: 'Transfer
               </tr>
             </thead><tbody>
               <tr
-                v-for="row in report.rows"
+                v-for="row in paginatedRows"
                 :key="row.athleteId + row.period"
               >
                 <td>{{ row.athleteId }}</td><td>{{ row.period }}</td><td>{{ row.dueDate ?? 'No disponible' }}</td><td>
@@ -118,7 +122,7 @@ const methodLabel = (method: string) => ({ cash: 'Efectivo', transfer: 'Transfer
                     size="small"
                     variant="tonal"
                   >
-                    {{ statusLabel(row.status) }}
+                    {{ row.complimentary ? 'Gratis' : statusLabel(row.status) }}
                   </VChip>
                 </td><td class="text-end">
                   {{ amount(row.expected) }}
@@ -139,6 +143,12 @@ const methodLabel = (method: string) => ({ cash: 'Efectivo', transfer: 'Transfer
               </tr>
             </tbody>
           </VTable>
+          <TablePaginator
+            v-model:page="page"
+            v-model:page-size="pageSize"
+            :total="report.rows.length"
+            label="mensualidades"
+          />
         </div>
       </VCardText>
     </VCard>
@@ -151,7 +161,9 @@ const methodLabel = (method: string) => ({ cash: 'Efectivo', transfer: 'Transfer
     <VCard v-if="selectedRow">
       <VCardTitle>Registro auditable de mensualidad</VCardTitle><VCardText>
         <dl class="record-details">
-          <div><dt>Atleta ID</dt><dd>{{ selectedRow.athleteId }}</dd></div><div><dt>Periodo</dt><dd>{{ selectedRow.period }}</dd></div><div><dt>Vencimiento</dt><dd>{{ selectedRow.dueDate ?? 'No disponible' }}</dd></div><div><dt>Esperado</dt><dd>{{ amount(selectedRow.expected) }}</dd></div><div><dt>Cobrado</dt><dd>{{ amount(selectedRow.collected) }}</dd></div><div><dt>Saldo al corte</dt><dd>{{ amount(selectedRow.balance) }}</dd></div><div><dt>Calidad</dt><dd>{{ qualityLabel(selectedRow.quality) }}</dd></div>
+          <div><dt>Atleta ID</dt><dd>{{ selectedRow.athleteId }}</dd></div><div><dt>Periodo</dt><dd>{{ selectedRow.period }}</dd></div><div><dt>Vencimiento</dt><dd>{{ selectedRow.dueDate ?? 'No disponible' }}</dd></div><div><dt>Estado</dt><dd>{{ selectedRow.complimentary ? 'Mensualidad gratis' : statusLabel(selectedRow.status) }}</dd></div><div v-if="selectedRow.promotionName">
+            <dt>Promoción</dt><dd>{{ selectedRow.promotionName }} · ahorro {{ amount(selectedRow.discountAmount) }}</dd>
+          </div><div><dt>Esperado</dt><dd>{{ amount(selectedRow.expected) }}</dd></div><div><dt>Cobrado</dt><dd>{{ amount(selectedRow.collected) }}</dd></div><div><dt>Saldo al corte</dt><dd>{{ amount(selectedRow.balance) }}</dd></div><div><dt>Calidad</dt><dd>{{ qualityLabel(selectedRow.quality) }}</dd></div>
         </dl>
         <h3 class="text-subtitle-1 mt-5 mb-2">
           Movimientos efectivos

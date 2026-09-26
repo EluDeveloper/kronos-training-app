@@ -4,6 +4,7 @@ import MembershipPaymentDialog from '@/components/kronos/MembershipPaymentDialog
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import PaymentNotificationStatusDialog from '@/components/kronos/PaymentNotificationStatusDialog.vue'
 import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
 import { useCommerceStore } from '@/stores/commerce'
@@ -38,7 +39,7 @@ const activeReceipt = ref<ReceiptData | null>(null)
 const search = ref('')
 const periodFilter = ref('')
 const page = ref(1)
-const perPage = 15
+const perPage = ref(15)
 
 const payerName = (payment: Payment) => payment.visitorId ? visitors.items.find(item => item.id === payment.visitorId)?.name ?? 'Visitante' : athletes.items.find(item => item.id === payment.athleteId)?.profile.name ?? 'Atleta'
 
@@ -47,8 +48,7 @@ const filtered = computed(() => [...payments.items]
   .filter(payment => `${payerName(payment)} ${payment.period} ${payment.method ?? ''}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.appliedAt) - timestampValue(a.appliedAt)))
 
-const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
-const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
+const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage.value, page.value * perPage.value))
 
 watch([search, periodFilter], () => { page.value = 1 })
 
@@ -151,7 +151,7 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
         :disabled="!athletes.active.length"
         @click="openEmptyForm"
       >
-        Aplicar pago
+        Abonar mensualidad
       </VBtn>
     </template>
   </PageHeader>
@@ -233,7 +233,7 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
               <td>
                 {{ formatDate(payment.appliedAt) }}
                 <div class="text-caption text-medium-emphasis">
-                  {{ installmentsFor(payment).length }} {{ installmentsFor(payment).length === 1 ? 'abono' : 'abonos' }}
+                  {{ payment.totalAmount === 0 && payment.snapshot?.promotion ? 'Gratis · sin abono' : `${installmentsFor(payment).length} ${installmentsFor(payment).length === 1 ? 'abono' : 'abonos'}` }}
                 </div>
               </td>
               <td class="text-right text-success font-weight-bold">
@@ -265,24 +265,43 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); payments.dispose
                   @click="openForm(payment.athleteId, payment.period)"
                 />
                 <VBtn
+                  v-if="installmentsFor(payment).length <= 1"
                   icon="ri-receipt-line"
                   variant="text"
-                  title="Generar recibo"
-                  @click="showReceipt(payment)"
+                  :title="payment.totalAmount === 0 ? 'Ver constancia' : 'Ver recibo'"
+                  :aria-label="`${payment.totalAmount === 0 ? 'Ver constancia' : 'Ver recibo'} de ${payerName(payment)} para ${payment.period}`"
+                  @click="showReceipt(payment, installmentsFor(payment)[0])"
                 />
+                <VMenu v-else>
+                  <template #activator="{ props: menuProps }">
+                    <VBtn
+                      v-bind="menuProps"
+                      icon="ri-receipt-line"
+                      variant="text"
+                      title="Ver recibos de abonos"
+                      :aria-label="`Ver recibos de ${payerName(payment)} para ${payment.period}`"
+                    />
+                  </template>
+                  <VList aria-label="Recibos de abonos">
+                    <VListItem
+                      v-for="(installment, index) in installmentsFor(payment)"
+                      :key="installment.id"
+                      :title="`Abono ${index + 1}: ${formatCurrency(installment.amountApplied)}`"
+                      :subtitle="formatDate(installment.appliedAt)"
+                      @click="showReceipt(payment, installment)"
+                    />
+                  </VList>
+                </VMenu>
               </td>
             </tr>
           </tbody>
         </VTable>
-        <div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
-          <span class="text-caption text-medium-emphasis">Máximo 15 registros por página</span>
-          <VPagination
-            v-model="page"
-            :length="pageCount"
-            :total-visible="5"
-            density="comfortable"
-          />
-        </div>
+        <TablePaginator
+          v-model:page="page"
+          v-model:page-size="perPage"
+          :total="filtered.length"
+          label="pagos"
+        />
       </template>
     </VCardText>
   </VCard>

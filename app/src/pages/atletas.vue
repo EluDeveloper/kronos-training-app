@@ -4,6 +4,7 @@ import AthleteIntakeFields from '@/components/kronos/AthleteIntakeFields.vue'
 import EnrollmentSheetDialog from '@/components/kronos/EnrollmentSheetDialog.vue'
 import KioskCredentialDialog from '@/components/kronos/KioskCredentialDialog.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import WhatsAppConsentDialog from '@/components/kronos/WhatsAppConsentDialog.vue'
 import AthleteStatusDialog from '@/components/kronos/AthleteStatusDialog.vue'
 import { useNotifications } from '@/composables/useNotifications'
@@ -26,6 +27,7 @@ import {
   type AthleteFormTab,
 } from '@/utils/athlete-intake'
 import { buildEnrollmentSheet, type EnrollmentSheetData } from '@/utils/enrollment-sheet'
+import { businessDateInMexicoCity } from '@/utils/business-date'
 import { parseKioskCodePayload } from '@/utils/kiosk-code'
 import { formatCurrency, normalizeSearchTerm } from '@/utils/kronos'
 import type { NotificationConsent } from '@/utils/payment-notification'
@@ -34,6 +36,7 @@ const athleteIntake = useAthleteIntakeStore()
 const athletes = useAthletesStore()
 const plans = usePlansStore()
 const session = useSessionStore()
+const router = useRouter()
 const notificationPreferences = useNotificationPreferencesStore()
 const canManage = computed(() => session.can('athletesManage'))
 const canReadIntake = computed(() => session.can('athletesIntake') || session.can('athletesIntakeManage'))
@@ -43,7 +46,7 @@ const search = ref('')
 const statusFilter = ref<string | null>(null)
 const planFilter = ref<string | null>(null)
 const page = ref(1)
-const perPage = 15
+const perPage = ref(15)
 const dialog = ref(false)
 const enrollmentSheetDialog = ref(false)
 const kioskCodeDialog = ref(false)
@@ -64,7 +67,7 @@ const formTabsRoot = ref<HTMLElement | null>(null)
 
 const form = reactive({
   name: '', phone: '', birthDate: '', schedule: '06:00 AM', planId: '', agreedAmount: 0,
-  paymentDay: 1, registrationDate: new Date().toISOString().slice(0, 10),
+  paymentDay: 1, registrationDate: businessDateInMexicoCity(),
 })
 
 const intakeForm = reactive(createEmptyAthleteIntakeForm())
@@ -93,8 +96,7 @@ const filtered = computed(() => athletes.sorted
   .filter(athlete => !planFilter.value || athlete.membership.planId === planFilter.value)
   .filter(athlete => `${athlete.profile.name} ${athlete.profile.phone} ${athlete.membership.schedule}`.toLocaleLowerCase('es').includes(normalizeSearchTerm(search.value))))
 
-const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
-const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
+const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage.value, page.value * perPage.value))
 const planItems = computed(() => plans.active.map(plan => ({ title: `${plan.name} · ${formatCurrency(plan.price)}`, value: plan.id })))
 const planFilterItems = computed(() => plans.items.map(plan => ({ title: plan.name, value: plan.id })))
 
@@ -104,6 +106,7 @@ const occupiedKioskCodes = computed(() => athletes.items
   .filter(Boolean))
 
 const planName = (id: string) => plans.items.find(plan => plan.id === id)?.name ?? 'Plan no disponible'
+const openAdvancePayment = (athlete: Athlete) => router.push({ path: '/pagos', query: { collect: '1', athleteId: athlete.id, period: businessDateInMexicoCity().slice(0, 7) } })
 
 watch(() => form.planId, id => {
   const plan = plans.items.find(item => item.id === id)
@@ -131,7 +134,7 @@ function openForm(athlete?: Athlete) {
   form.planId = athlete?.membership.planId ?? plans.active[0]?.id ?? ''
   form.agreedAmount = athlete?.membership.agreedAmount ?? plans.active[0]?.price ?? 0
   form.paymentDay = athlete?.membership.paymentDay ?? 1
-  form.registrationDate = athlete?.membership.registrationDate ?? new Date().toISOString().slice(0, 10)
+  form.registrationDate = athlete?.membership.registrationDate ?? businessDateInMexicoCity()
   validationAttempted.value = false
   activeFormTab.value = 'personal'
   resetIntakeForm()
@@ -455,6 +458,15 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
                 />
                 <template v-if="canManage">
                   <VBtn
+                    v-if="athlete.status === 'active'"
+                    icon="ri-hand-coin-line"
+                    variant="text"
+                    color="secondary"
+                    :aria-label="`Abonar mensualidad de ${athlete.profile.name}`"
+                    title="Abonar mensualidad"
+                    @click="openAdvancePayment(athlete)"
+                  />
+                  <VBtn
                     v-if="session.isAdmin"
                     icon="ri-qr-code-line"
                     variant="text"
@@ -486,13 +498,7 @@ onBeforeUnmount(() => { athletes.dispose(); plans.dispose(); athleteIntake.dispo
             </tr>
           </tbody>
         </VTable>
-        <div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
-          <span class="text-caption text-medium-emphasis">{{ filtered.length }} atletas · máximo 15 por página</span><VPagination
-            v-model="page"
-            :length="pageCount"
-            :total-visible="5"
-          />
-        </div>
+        <TablePaginator v-model:page="page" v-model:page-size="perPage" :total="filtered.length" label="atletas" />
       </template>
     </VCardText>
   </VCard>

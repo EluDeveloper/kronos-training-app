@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { computed, ref } from 'vue'
 import { formatCurrency } from '@/utils/kronos'
 import type { InventoryReport } from '@/utils/reporting-inventory'
@@ -8,6 +9,11 @@ import ReportSeriesChart from './ReportSeriesChart.vue'
 const props = defineProps<{ report: InventoryReport }>()
 const chart = computed(() => buildInventoryChart(props.report))
 const selectedClosure = ref<InventoryReport['rows'][number] | null>(null)
+const closurePage = ref(1)
+const resolutionPage = ref(1)
+const pageSize = ref(15)
+const paginatedClosures = computed(() => props.report.rows.slice((closurePage.value - 1) * pageSize.value, closurePage.value * pageSize.value))
+const paginatedResolutions = computed(() => props.report.resolutionRows.slice((resolutionPage.value - 1) * pageSize.value, resolutionPage.value * pageSize.value))
 const selectedResolution = ref<InventoryReport['resolutionRows'][number] | null>(null)
 const detailMode = ref<'closures' | 'resolutions'>('closures')
 
@@ -145,7 +151,7 @@ async function show(mode: 'closures' | 'resolutions') {
             </thead>
             <tbody>
               <tr
-                v-for="row in report.rows"
+                v-for="row in paginatedClosures"
                 :key="`${row.closureId}-${row.productId}`"
               >
                 <td>{{ row.closureDate }}<span class="d-block text-caption">ID {{ row.closureId }}</span></td><td>{{ row.productName }}<span class="d-block text-caption">ID {{ row.productId }}</span></td><td class="text-end">
@@ -196,7 +202,7 @@ async function show(mode: 'closures' | 'resolutions') {
             </thead>
             <tbody>
               <tr
-                v-for="row in report.resolutionRows"
+                v-for="row in paginatedResolutions"
                 :key="row.resolutionId"
               >
                 <td>{{ row.resolutionDate }}<span class="d-block text-caption">ID {{ row.resolutionId }}</span></td><td>{{ row.productName }}</td><td>{{ kindLabel(row.kind) }}</td><td>{{ methodLabel(row.method) }}</td><td class="text-end">
@@ -216,6 +222,8 @@ async function show(mode: 'closures' | 'resolutions') {
               </tr>
             </tbody>
           </VTable>
+          <TablePaginator v-if="detailMode === 'closures'" v-model:page="closurePage" v-model:page-size="pageSize" :total="report.rows.length" label="cierres de inventario" />
+          <TablePaginator v-else v-model:page="resolutionPage" v-model:page-size="pageSize" :total="report.resolutionRows.length" label="resoluciones de inventario" />
         </div>
       </VCardText>
     </VCard>

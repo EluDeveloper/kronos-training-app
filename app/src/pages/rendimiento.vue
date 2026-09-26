@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import EmptyState from '@/components/kronos/EmptyState.vue'
+import CoachPerformanceSection from '@/components/kronos/CoachPerformanceSection.vue'
 import MetricCard from '@/components/kronos/MetricCard.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { useAthletesStore } from '@/stores/athletes'
 import { useNotificationsStore } from '@/stores/notifications'
 import { usePerformanceStore } from '@/stores/performance'
 import { useSessionStore } from '@/stores/session'
 import type { PerformanceRecord } from '@/types/domain'
-import { formatDate, timestampValue } from '@/utils/kronos'
+import { formatCalendarDate, timestampValue } from '@/utils/kronos'
 
 const athletesStore = useAthletesStore()
 const performanceStore = usePerformanceStore()
@@ -16,13 +18,16 @@ const session = useSessionStore()
 const canManage = computed(() => session.can('performanceManage'))
 
 const dialog = ref(false)
+const skillDialog = ref(false)
+const skillSaving = ref(false)
+const skillNameInput = ref('')
 const saving = ref(false)
 const editingRecord = ref<PerformanceRecord | null>(null)
 const search = ref('')
 const selectedAthleteId = ref<string | null>(null)
 const selectedSkillId = ref<string | null>(null)
 const page = ref(1)
-const perPage = 15
+const perPage = ref(15)
 const form = reactive({ athleteId: '', skillId: '', type: '1RM', recordedAt: new Date().toISOString().slice(0, 10), valueLbs: 0 })
 
 const activeSkills = computed(() => performanceStore.skills.filter(skill => skill.status === 'active'))
@@ -58,7 +63,7 @@ const chartOptions = computed(() => ({
   stroke: { curve: 'smooth', width: 3 },
   theme: { mode: 'dark' },
   tooltip: { y: { formatter: (value: number) => `${value} lb` } },
-  xaxis: { categories: comparisonRecords.value.map(record => formatDate(record.recordedAt)), labels: { style: { colors: '#A9AAA8' } } },
+  xaxis: { categories: comparisonRecords.value.map(record => formatCalendarDate(record.recordedAt)), labels: { style: { colors: '#A9AAA8' } } },
   yaxis: { labels: { style: { colors: '#A9AAA8' }, formatter: (value: number) => `${Math.round(value)} lb` } },
 }))
 
@@ -68,8 +73,7 @@ const filtered = computed(() => [...performanceStore.records]
   .filter(record => `${athleteName(record.athleteId)} ${skillName(record.skillId)} ${record.type}`.toLocaleLowerCase('es').includes(search.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.recordedAt) - timestampValue(a.recordedAt)))
 
-const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
-const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
+const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage.value, page.value * perPage.value))
 const personalBests = computed(() => new Set(performanceStore.records.map(record => `${record.athleteId}:${record.skillId}`)).size)
 const latest = computed(() => [...performanceStore.records].sort((a, b) => timestampValue(b.recordedAt) - timestampValue(a.recordedAt))[0])
 
@@ -150,7 +154,25 @@ async function remove(record: PerformanceRecord) {
   }
 }
 
-onMounted(() => { athletesStore.subscribe(); performanceStore.subscribe() })
+async function saveSkill() {
+  const name = skillNameInput.value.trim()
+  if (name.length < 2 || performanceStore.skills.some(skill => skill.name.toLocaleLowerCase('es') === name.toLocaleLowerCase('es'))) {
+    notifications.show('Captura un nombre de skill de al menos dos caracteres que no exista todavía.', 'warning')
+
+    return
+  }
+  skillSaving.value = true
+  try {
+    await performanceStore.createSkill(name)
+    notifications.show('Skill creado; ya puedes registrar PRs.')
+    skillDialog.value = false
+    skillNameInput.value = ''
+  }
+  catch (error) { notifications.show(error instanceof Error ? error.message : 'No fue posible crear el skill.', 'error') }
+  finally { skillSaving.value = false }
+}
+
+onMounted(() => { athletesStore.subscribe(); performanceStore.subscribe(); performanceStore.subscribeCoaches() })
 onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
 </script>
 
@@ -164,6 +186,13 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
       v-if="canManage"
       #actions
     >
+      <VBtn
+        variant="tonal"
+        prepend-icon="ri-add-circle-line"
+        @click="skillDialog = true"
+      >
+        Crear skill
+      </VBtn>
       <VBtn
         prepend-icon="ri-add-line"
         @click="openCreate"
@@ -267,7 +296,7 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
                   Última
                 </div><div class="text-h5 font-weight-bold">
                   {{ comparisonLatest?.valueLbs }} lb
-                </div><div>{{ comparisonLatest ? formatDate(comparisonLatest.recordedAt) : '' }}</div>
+                </div><div>{{ comparisonLatest ? formatCalendarDate(comparisonLatest.recordedAt) : '' }}</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -285,7 +314,7 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
                   Mejor marca
                 </div><div class="text-h5 font-weight-bold">
                   {{ comparisonBest?.valueLbs }} lb
-                </div><div>{{ comparisonBest ? formatDate(comparisonBest.recordedAt) : '' }}</div>
+                </div><div>{{ comparisonBest ? formatCalendarDate(comparisonBest.recordedAt) : '' }}</div>
               </VCardText>
             </VCard>
           </VCol>
@@ -348,7 +377,7 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
               v-for="record in paginated"
               :key="record.id"
             >
-              <td>{{ formatDate(record.recordedAt) }}</td><td>{{ athleteName(record.athleteId) }}</td><td>{{ skillName(record.skillId) }}</td><td>
+              <td>{{ formatCalendarDate(record.recordedAt) }}</td><td>{{ athleteName(record.athleteId) }}</td><td>{{ skillName(record.skillId) }}</td><td>
                 <VChip
                   size="small"
                   color="primary"
@@ -376,13 +405,12 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
             </tr>
           </tbody>
         </VTable>
-        <div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
-          <span class="text-caption text-medium-emphasis">Máximo 15 registros por página</span><VPagination
-            v-model="page"
-            :length="pageCount"
-            :total-visible="5"
-          />
-        </div>
+        <TablePaginator
+          v-model:page="page"
+          v-model:page-size="perPage"
+          :total="filtered.length"
+          label="registros de rendimiento"
+        />
       </template>
     </VCardText>
   </VCard>
@@ -482,6 +510,40 @@ onUnmounted(() => { athletesStore.dispose(); performanceStore.dispose() })
             :loading="saving"
           >
             {{ editingRecord ? 'Guardar cambios' : 'Guardar marca' }}
+          </VBtn>
+        </VCardActions>
+      </VForm>
+    </VCard>
+  </VDialog>
+  <CoachPerformanceSection />
+  <VDialog
+    v-model="skillDialog"
+    max-width="480"
+  >
+    <VCard class="kronos-card">
+      <VCardItem
+        title="Crear skill"
+        subtitle="El movimiento estará disponible para atletas y coaches."
+      />
+      <VForm @submit.prevent="saveSkill">
+        <VCardText>
+          <VTextField
+            v-model="skillNameInput"
+            label="Nombre del skill"
+            autofocus
+          />
+        </VCardText>
+        <VCardActions>
+          <VSpacer /><VBtn
+            variant="text"
+            @click="skillDialog = false"
+          >
+            Cancelar
+          </VBtn><VBtn
+            type="submit"
+            :loading="skillSaving"
+          >
+            Guardar skill
           </VBtn>
         </VCardActions>
       </VForm>

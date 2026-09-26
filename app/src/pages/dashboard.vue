@@ -4,6 +4,7 @@ import MembershipPaymentDialog from '@/components/kronos/MembershipPaymentDialog
 import MetricCard from '@/components/kronos/MetricCard.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
 import { useClosuresStore } from '@/stores/closures'
@@ -21,6 +22,7 @@ import { buildFinancialMovements, dateKey, movementsBetweenDates, movementsForPe
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, saleBalance, timestampValue } from '@/utils/kronos'
 import { effectiveSalePayments, effectiveSaleStatus } from '@/utils/store-payment-adjustments'
 import { buildCollectionTicket, buildMembershipReceipt, combinedStorePaymentsForInstallment, paymentMethodLabel, type ReceiptData } from '@/utils/receipts'
+import { paginateItems } from '@/utils/table-pagination'
 
 const athletes = useAthletesStore()
 const closures = useClosuresStore()
@@ -54,8 +56,12 @@ const previousMonth = (value: string) => {
 }
 
 const detailPeriod = ref(period)
+const storeMovementsPage = ref(1)
+const storeMovementsPageSize = ref(15)
 const comparisonPeriodA = ref(period)
 const comparisonPeriodB = ref(previousMonth(period))
+
+watch(detailPeriod, () => { storeMovementsPage.value = 1 })
 
 const allFinancialMovements = computed(() => buildFinancialMovements({
   membershipPayments: payments.items,
@@ -317,8 +323,9 @@ const expenseCategories = computed(() => {
 
 const storeMovements = computed(() => allFinancialMovements.value
   .filter(movement => movement.source === 'store' && movement.period === detailPeriod.value)
-  .sort((left, right) => right.occurredAt - left.occurredAt)
-  .slice(0, 15))
+  .sort((left, right) => right.occurredAt - left.occurredAt))
+
+const paginatedStoreMovements = computed(() => paginateItems(storeMovements.value, storeMovementsPage.value, storeMovementsPageSize.value).items)
 
 const comparisonFormat = (value: number, type: 'currency' | 'number') => type === 'currency' ? formatCurrency(value) : value.toLocaleString('es-MX')
 
@@ -1099,7 +1106,7 @@ onBeforeUnmount(() => {
       </VRow>
 
       <VCard class="kronos-card mt-5" rounded="xl">
-        <VCardItem title="Movimientos de tienda" :subtitle="`${periodLabel(detailPeriod)} · últimos 15 pagos y abonos`" />
+        <VCardItem title="Movimientos de tienda" :subtitle="`${periodLabel(detailPeriod)} · ${storeMovements.length} pagos y abonos`" />
         <EmptyState
           v-if="!storeMovements.length"
           title="Sin movimientos de tienda"
@@ -1109,7 +1116,7 @@ onBeforeUnmount(() => {
         <VTable v-else density="compact">
           <thead><tr><th>Fecha</th><th>Concepto</th><th>Método</th><th>Destino</th><th class="text-right">Importe</th></tr></thead>
           <tbody>
-            <tr v-for="movement in storeMovements" :key="movement.id">
+            <tr v-for="movement in paginatedStoreMovements" :key="movement.id">
               <td>{{ formatDate(movement.occurredAt) }}</td>
               <td>{{ movement.description }}</td>
               <td>{{ paymentMethodLabel(movement.method) }}</td>
@@ -1118,6 +1125,7 @@ onBeforeUnmount(() => {
             </tr>
           </tbody>
         </VTable>
+        <TablePaginator v-if="storeMovements.length" v-model:page="storeMovementsPage" v-model:page-size="storeMovementsPageSize" :total="storeMovements.length" label="movimientos de tienda" />
       </VCard>
     </VWindowItem>
   </VWindow>

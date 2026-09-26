@@ -4,6 +4,12 @@ export type EmployeeKind = 'coach' | 'cleaning' | 'other'
 export type CompensationUnit = 'class' | 'day' | 'fixed-period'
 export type WorkEntryStatus = 'pending' | 'approved' | 'paid'
 
+export interface CoachDirectoryEntry {
+  id: EntityId
+  name: string
+  status: 'active' | 'inactive'
+}
+
 export interface EmployeeRate {
   id: EntityId
   unit: CompensationUnit
@@ -17,6 +23,7 @@ export interface Employee extends AuditFields {
   id: EntityId
   name: string
   phone?: string | null
+  birthDate?: ISODate | null
   kind: EmployeeKind
   startDate: ISODate
   status: 'active' | 'inactive'

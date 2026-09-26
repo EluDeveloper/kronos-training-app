@@ -828,3 +828,202 @@ Estado: implementada y verificada localmente el 2026-09-25; sin despliegue ni da
 - [x] RP14.4 — Mensualidades y Atletas.
 - [x] RP14.5 — Inventario y Personal.
 - [x] RP14.6 — Regresión integral, Chrome, responsive y reporte. Chrome cubrió 320/768/1024/1440; Playwright autenticado quedó condicionado a su perfil QA aislado.
+
+---
+
+# Mejoras operativas 2026-09-25
+
+Estado general: autorizado por el usuario el 2026-09-25 para implementación local. Datos reales y despliegue no autorizados.
+
+## Fase P — Paginación transversal
+
+Spec: `specs/SPEC-application-table-pagination.md`.
+
+- [x] P1 — Auditar tablas productivas y fijar matriz de cobertura.
+  - Descripción: registrar página/componente, filtros, orden, cantidad esperada, paginación actual y exclusión justificada.
+  - Aceptación: demos, recibos y tablas de apoyo quedan separadas; cada tabla operativa tiene decisión explícita; no se cambia UI.
+  - Verificación: revisión contra `rg` de `<VTable`, `<VDataTable` y `<table`; matriz adjunta a spec/tarea.
+  - Dependencias: autorización de Fase P.
+  - Archivos probables: spec, `tasks/plan.md`, `tasks/todo.md`.
+  - Alcance: S.
+- [x] P2 — Crear contrato reutilizable de paginación con TDD.
+  - Aceptación: 15/30/50, rango/total, reset por filtros y clamp tras reducción; API accesible.
+  - Verificación: `npx tsx --test tests/table-pagination.test.ts`; typecheck.
+  - Dependencias: P1.
+  - Archivos probables: `app/src/composables/useTablePagination.ts`, componente de controles si aplica, `app/tests/table-pagination.test.ts`.
+  - Alcance: M.
+- [x] P3 — Adoptar paginación en catálogos y administración.
+  - Aceptación: Atletas, Planes, Empleados y Usuarios cumplen la matriz sin cambiar acciones/filtros.
+  - Verificación: pruebas focales, typecheck y Chrome de una acción por página.
+  - Dependencias: P2.
+  - Archivos probables: cuatro páginas y una prueba, máximo cinco archivos.
+  - Alcance: M.
+- [x] P4 — Adoptar paginación en operación y finanzas.
+  - Aceptación: Pagos, Tienda, Visitas, Egresos, Cierres, Rendimiento y Dashboard cumplen la matriz; dividir en subrebanadas de máximo cinco archivos.
+  - Verificación: suites funcionales/financieras, typecheck y Chrome por subrebanada.
+  - Dependencias: P2.
+  - Archivos probables: páginas afectadas y pruebas correspondientes, en dos o más incrementos.
+  - Alcance: M por incremento.
+- [ ] P5 — Adoptar paginación en reportes y cerrar CP1.
+  - Aceptación: tablas de detalle extensas paginadas; gráficos/alternativas accesibles no se rompen; inventario completo justificado.
+  - Verificación: suites reporting, build, Chrome y Playwright 320/768/1024/1440; reporte de impacto.
+  - Dependencias: P3 y P4.
+  - Archivos probables: componentes de reportes, prueba UI/e2e y reporte, en rebanadas ≤5.
+  - Alcance: M por incremento.
+
+## Fase R — Recibos de liquidación
+
+Spec: `specs/SPEC-payroll-settlement-receipts.md`.
+
+- [x] R1 — Definir constructor puro de recibo de liquidación.
+  - Aceptación: folio estable, líneas/total a $0.01, allowlist sin PII y degradación explícita para legado.
+  - Verificación: `npx tsx --test tests/payroll-settlement-receipts.test.ts`.
+  - Dependencias: autorización de Fase R.
+  - Archivos probables: `app/src/types/workforce.ts`, `app/src/utils/receipts.ts`, prueba focal.
+  - Alcance: M.
+- [x] R2 — Mostrar recibo inmediato e historial paginado.
+  - Aceptación: liquidación exitosa abre recibo; historial permite reabrir/descargar/imprimir sin writes.
+  - Verificación: prueba UI, typecheck y Chrome liquidación → recibo → historial.
+  - Dependencias: R1 y P2 o paginador local equivalente aprobado.
+  - Archivos probables: `empleados.vue`, `ReceiptDialog.vue`, store/service workforce y prueba UI.
+  - Alcance: M.
+- [ ] R3 — Cerrar CP2 con conciliación y reporte.
+  - Aceptación: una liquidación = un egreso; recibo reproduce importe; sin consola/warnings nuevos.
+  - Verificación: `npm run test:finance`, typecheck, build, Chrome, responsive y reporte.
+  - Dependencias: R2.
+  - Archivos probables: pruebas financieras/e2e, reporte y tareas.
+  - Alcance: S.
+
+## Fase D — Volver venta a adeudo
+
+Spec: `specs/SPEC-store-sale-debt-reopening.md`.
+
+- [x] D1 — Añadir acción contextual y vista previa de reverso desde Venta.
+  - Aceptación: sólo venta con cobro efectivo; muestra cobros seleccionables, saldo resultante, motivo y diferencia con cancelar.
+  - Verificación: prueba UI y Chrome hasta antes de confirmar.
+  - Dependencias: autorización de Fase D y confirmación del dominio Tienda.
+  - Archivos probables: `tienda.vue`, `StorePaymentCorrectionDialog.vue`, prueba UI.
+  - Alcance: M.
+- [ ] D2 — Delegar al reverso existente y cerrar CP3.
+  - Aceptación: simple/parcial/agrupado concilian; saldo consumido falla cerrado; no se muta/cancela venta.
+  - Verificación: correcciones, reglas, finanzas, typecheck, build, Chrome y reporte.
+  - Dependencias: D1.
+  - Archivos probables: utilidad/servicio existentes, dos pruebas y reporte, máximo cinco.
+  - Alcance: M.
+
+## Fase A — Acceso a abonos anticipados
+
+Spec: `specs/SPEC-membership-advance-payment-discoverability.md`.
+
+- [x] A1 — Abrir abono contextual desde Atletas y CTA de Pagos.
+  - Aceptación: atleta preseleccionado, navegación restaurable y permisos vigentes.
+  - Verificación: prueba UI y Chrome Atletas → diálogo.
+  - Dependencias: autorización de Fase A.
+  - Archivos probables: `atletas.vue`, `pagos.vue`, prueba UI/router.
+  - Alcance: M.
+- [ ] A2 — Presentar periodos comprensibles y cerrar CP4.
+  - Aceptación: sin escritura manual `YYYY-MM`; corte/saldo/adelanto visibles; recibo inmediato e historial correctos.
+  - Verificación: prueba de adelantos, finanzas, typecheck, build, Chrome y responsive.
+  - Dependencias: A1.
+  - Archivos probables: `MembershipPaymentDialog.vue`, utilidad de periodos, prueba existente, reporte.
+  - Alcance: M.
+
+## Fase B — Cumpleaños de empleados
+
+Spec: `specs/SPEC-employee-birthdays-community.md`.
+
+- [x] B1 — Añadir `birthDate` compatible con empleados legados.
+  - Aceptación: alta nueva exige fecha válida; lectura legada acepta null; servicio rechaza futura/inválida.
+  - Verificación: TDD de contrato/servicio; reglas sólo tras autorización específica.
+  - Dependencias: autorización de Fase B y decisión de esquema/reglas.
+  - Archivos probables: tipo workforce, página Empleados, servicio/store y prueba, máximo cinco.
+  - Alcance: M.
+- [x] B2 — Mostrar sección allowlisted de equipo en Comunidad.
+  - Aceptación: activos, ventana 60 días y 29-Feb; sin datos laborales; no hay lecturas para roles no autorizados.
+  - Verificación: prueba de cumpleaños, reglas negativas si aplican y Chrome Empleados → Comunidad.
+  - Dependencias: B1 y confirmación Admin-only.
+  - Archivos probables: utilidad de cumpleaños, `comunidad.vue`, store/service permitido y prueba.
+  - Alcance: M.
+- [ ] B3 — Cerrar CP5.
+  - Aceptación: alta/edición/inactivación reflejan la cola; atletas no cambian; consola y responsive limpios.
+  - Verificación: rules, typecheck, build, Chrome, Playwright y reporte.
+  - Dependencias: B2.
+  - Archivos probables: pruebas/e2e, reporte y tareas.
+  - Alcance: S.
+
+## Fase M — Promociones de planes
+
+Spec: `specs/SPEC-plan-promotions.md`.
+
+- [x] M1 — Aprobar y probar contrato persistido de promoción.
+  - Aceptación: porcentaje/monto fijo, vigencia, planes, horarios, estado y validaciones definidos; reglas Admin-only propuestas.
+  - Verificación: RED de contrato y reglas; no persistir hasta autorización de esquema/reglas.
+  - Dependencias: autorización de Fase M y decisiones abiertas de la spec.
+  - Archivos probables: `domain.ts`, servicio, reglas y dos pruebas, máximo cinco.
+  - Alcance: M.
+- [x] M2 — Implementar resolución pura de elegibilidad/precio.
+  - Aceptación: fecha/plan/horario, mayor ahorro, desempate, límites y centavos deterministas.
+  - Verificación: `npx tsx --test tests/plan-promotions.test.ts`.
+  - Dependencias: M1.
+  - Archivos probables: `plan-promotions.ts`, prueba focal y tipos.
+  - Alcance: M.
+- [x] M3 — Crear administración de promociones.
+  - Aceptación: Admin crea/edita/activa/desactiva; validación accesible; listado paginado.
+  - Verificación: reglas, prueba UI, typecheck y Chrome CRUD en QA autorizado.
+  - Dependencias: M2 y P2.
+  - Archivos probables: `planes.vue`, store/service, componente de diálogo y prueba UI.
+  - Alcance: M.
+- [x] M4 — Congelar promoción al abrir/cobrar el periodo.
+  - Aceptación: snapshot preserva base/descuento/final; parciales/adelantos usan final; editar promoción no cambia histórico.
+  - Verificación: promociones + adelantos + finanzas RED→GREEN.
+  - Dependencias: M3.
+  - Archivos probables: tipos/pagos, servicio, diálogo, utilidades y prueba, dividir si excede cinco.
+  - Alcance: M por incremento.
+- [x] M5 — Integrar recibos/reportes y cerrar CP6.
+  - Aceptación: recibo muestra ahorro; deuda/dashboard/reportes concilian; descuento no se cuenta como efectivo.
+  - Verificación: suites reporting/finanzas/reglas, typecheck, build, Chrome flujo completo, Playwright y reporte.
+  - Dependencias: M4.
+  - Archivos probables: recibos, reporting, pruebas y reporte, en rebanadas ≤5.
+  - Alcance: M por incremento.
+
+## Ampliación autorizada M — Mensualidad gratis por promoción
+
+Spec: `specs/SPEC-plan-promotions.md`, ampliación autorizada el 2026-09-26.
+
+- [x] M6 — Registrar periodo gratis sin movimiento monetario.
+  - Aceptación: descuento igual o mayor al importe acordado produce total $0; sólo Admin confirma; no se crea abono, saldo a favor ni ingreso; el periodo queda liquidado con snapshot.
+  - Verificación: prueba RED→GREEN de servicio, reglas y conciliación.
+  - Archivos probables: pagos, tipos, reglas y pruebas; dividir en rebanadas pequeñas.
+- [x] M7 — Permitir omitir promoción antes del primer abono.
+  - Aceptación: Admin puede elegir importe acordado sin descuento antes de abrir el periodo; la elección no cambia tras abrirlo.
+  - Verificación: prueba de diálogo/servicio y Chrome en QA.
+  - Archivos probables: `MembershipPaymentDialog.vue`, lógica de promociones y pruebas.
+- [x] M8 — Emitir constancia gratis y cerrar QA de promoción.
+  - Aceptación: constancia indica «Mensualidad gratis · $0 cobrado» y no se presenta como recibo de pago; finanzas no registran efectivo; flujo completo verificado.
+  - Verificación: pruebas focales, rules, typecheck, build, Chrome y reporte de impacto.
+  - Archivos probables: `receipts.ts`, `ReceiptDialog.vue`, diálogo, pruebas y reporte.
+
+## Fase C — PRs de coaches
+
+Spec: `specs/SPEC-coach-performance-prs.md`, autorizada el 2026-09-26.
+
+- [x] C1 — Definir contrato compatible y reglas seguras para PRs de coaches.
+  - Aceptación: PRs existentes de atletas permanecen intactos; nuevas marcas de coaches se vinculan a empleados `kind: coach`; escrituras limitadas al permiso actual.
+  - Verificación: pruebas RED→GREEN de servicio y reglas, incluidos negativos de autorización.
+  - Archivos probables: tipos, servicio, reglas y pruebas.
+- [x] C2 — Integrar coaches en selector, comparativo, tabla y métricas de Rendimiento.
+  - Aceptación: empleados coach activos son elegibles; los inactivos conservan histórico; Admin y permisos existentes controlan acciones.
+  - Verificación: pruebas focales, typecheck, build y Chrome de alta → PR → histórico/edición.
+  - Archivos probables: `rendimiento.vue`, store workforce, utilidades y pruebas.
+- [x] C2a — Exponer «Crear skill» con permiso existente.
+  - Aceptación: un usuario con `performanceManage` crea un skill activo desde Rendimiento; aparece en los formularios de atletas y coaches sin permisos adicionales.
+  - Verificación: reglas existentes, typecheck y Chrome desde estado sin skills hasta PR registrado.
+  - Archivos probables: `rendimiento.vue`, pruebas y reporte.
+- [x] C3 — Cerrar QA y reporte de impacto.
+  - Aceptación: errores/warnings nuevos ausentes; reglas, responsive y regresiones de atletas validados.
+  - Verificación: suites completas, Chrome y Playwright complementario.
+  - Archivos probables: reporte y tareas.
+- [x] C4 — Cargar coaches existentes al directorio de producción tras publicar reglas y antes de anunciar disponibilidad.
+  - Aceptación: copia única de ID/nombre/estado de empleados Coach, idempotente, sin leer/mostrar datos laborales en logs; verifica conteos y conserva registro de IDs creados para reversión focalizada.
+  - Verificación: ensayo en QA aislado, dry-run y verificación de conteos antes/después; autorización explícita recibida el 2026-09-26.
+  - Archivos probables: script de migración probado, reporte de lanzamiento.

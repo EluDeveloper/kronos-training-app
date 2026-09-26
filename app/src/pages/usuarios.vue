@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import EmptyState from '@/components/kronos/EmptyState.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { authErrorMessage } from '@/firebase/auth'
 import { useKioskSettingsStore } from '@/stores/kiosk-settings'
@@ -25,7 +26,7 @@ const { success, failure, confirmAction } = useNotifications()
 const search = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
 const page = ref(1)
-const perPage = 15
+const perPage = ref(15)
 const dialog = ref(false)
 const saving = ref(false)
 const showPassword = ref(false)
@@ -56,8 +57,7 @@ const filtered = computed(() => users.items.filter(user => {
   return matchesText && matchesStatus
 }))
 
-const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
-const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
+const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage.value, page.value * perPage.value))
 const editingSelf = computed(() => editingUid.value === session.uid)
 const enabledAdmins = computed(() => users.items.filter(user => user.role === 'admin' && user.enabled))
 const enabledAdminIds = computed(() => new Set(enabledAdmins.value.map(user => user.uid)))
@@ -513,13 +513,7 @@ onBeforeUnmount(() => {
             </tr>
           </tbody>
         </VTable>
-        <VPagination
-          v-if="pageCount > 1"
-          v-model="page"
-          :length="pageCount"
-          :total-visible="5"
-          class="mt-5"
-        />
+        <TablePaginator v-model:page="page" v-model:page-size="perPage" :total="filtered.length" label="usuarios" />
       </template>
     </VCardText>
   </VCard>

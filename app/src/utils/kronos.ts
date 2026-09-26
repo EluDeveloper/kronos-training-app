@@ -17,6 +17,8 @@ export const formatDate = (value?: ISOTimestamp | null) => {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('es-MX')
 }
 
+export const formatCalendarDate = (value: string) => formatDate(`${value}T12:00:00`)
+
 export const normalizeSearchTerm = (value?: string | null) => (value ?? '').toLocaleLowerCase('es')
 
 export const timestampValue = (value?: ISOTimestamp | null) => {
@@ -30,9 +32,9 @@ export const membershipPaidAmount = (payment?: Payment | null) => Math.max(0, Nu
 
 export const membershipTotalAmount = (payment?: Payment | null, fallback = 0) => {
   const paid = membershipPaidAmount(payment)
-  const explicitTotal = Number(payment?.totalAmount || 0)
+  const explicitTotal = payment?.totalAmount == null ? null : Number(payment.totalAmount)
 
-  return Math.max(paid, explicitTotal > 0 ? explicitTotal : Number(fallback || 0))
+  return Math.max(paid, explicitTotal != null && Number.isFinite(explicitTotal) ? explicitTotal : Number(fallback || 0))
 }
 
 export const membershipBalance = (payment?: Payment | null, fallback = 0) => {

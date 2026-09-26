@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Employee } from '@/types/workforce'
+import { businessDateInMexicoCity } from '@/utils/business-date'
 import { formatCurrency } from '@/utils/kronos'
 
 const props = defineProps<{ modelValue: boolean; employees: Employee[]; loading?: boolean }>()
@@ -9,7 +10,7 @@ const emit = defineEmits<{
   'submit': [value: { employeeId: string; date: string; quantity: number; note?: string; correctionReason?: string }]
 }>()
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = businessDateInMexicoCity
 const form = reactive({ employeeId: '', date: today(), quantity: 1, note: '', correctionReason: '' })
 const employee = computed(() => props.employees.find(item => item.id === form.employeeId) ?? null)
 const estimated = computed(() => Number(form.quantity || 0) * Number(employee.value?.currentRate || 0))

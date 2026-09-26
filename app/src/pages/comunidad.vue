@@ -7,8 +7,11 @@ import { useBirthdayGreetingsStore } from '@/stores/birthday-greetings'
 import { useNotificationsStore } from '@/stores/notifications'
 import { usePerformanceStore } from '@/stores/performance'
 import { useSessionStore } from '@/stores/session'
+import { useWorkforceStore } from '@/stores/workforce'
 import type { BirthdayGreeting } from '@/types/domain'
+import { businessDateInMexicoCity } from '@/utils/business-date'
 import { buildBirthdayQueue, type BirthdayQueueEntry } from '@/utils/birthday-greetings'
+import { buildEmployeeBirthdayQueue } from '@/utils/employee-birthdays'
 import { formatDate, timestampValue } from '@/utils/kronos'
 
 const athletes = useAthletesStore()
@@ -16,7 +19,8 @@ const greetings = useBirthdayGreetingsStore()
 const performance = usePerformanceStore()
 const notifications = useNotificationsStore()
 const session = useSessionStore()
-const today = new Date().toISOString().slice(0, 10)
+const workforce = useWorkforceStore()
+const today = businessDateInMexicoCity()
 const savingGreeting = ref<string | null>(null)
 const cardDialog = ref(false)
 const cardEntry = ref<BirthdayQueueEntry | null>(null)
@@ -24,6 +28,7 @@ const cardEntry = ref<BirthdayQueueEntry | null>(null)
 const athleteName = (id: string) => athletes.items.find(item => item.id === id)?.profile.name ?? 'Atleta'
 const skillName = (id: string) => performance.skills.find(item => item.id === id)?.name ?? 'Skill'
 const birthdayQueue = computed(() => buildBirthdayQueue(athletes.community, greetings.items, today))
+const employeeBirthdayQueue = computed(() => session.isAdmin ? buildEmployeeBirthdayQueue(workforce.employees, today) : [])
 
 const greetedThisYear = computed(() => greetings.items
   .filter(item => item.status === 'greeted' && item.year === Number(today.slice(0, 4)))
@@ -71,8 +76,8 @@ async function recordCardAction(value: { action: 'downloadedAt' | 'sharedAt'; ve
   catch (error) { notifications.show(error instanceof Error ? error.message : 'La tarjeta se generó, pero no se guardó su telemetría.', 'warning') }
 }
 
-onMounted(() => { athletes.subscribe(); greetings.subscribe(); performance.subscribe() })
-onUnmounted(() => { athletes.dispose(); greetings.dispose(); performance.dispose() })
+onMounted(() => { athletes.subscribe(); greetings.subscribe(); performance.subscribe(); if (session.isAdmin) workforce.subscribe() })
+onUnmounted(() => { athletes.dispose(); greetings.dispose(); performance.dispose(); workforce.dispose() })
 </script>
 
 <template>
@@ -115,5 +120,16 @@ onUnmounted(() => { athletes.dispose(); greetings.dispose(); performance.dispose
       <VCard class="kronos-card h-100" rounded="xl"><VCardItem title="PRs recientes" subtitle="Mejores marcas vigentes"><template #prepend><VAvatar color="secondary" variant="tonal" rounded="lg"><VIcon icon="ri-trophy-line" /></VAvatar></template></VCardItem><VCardText><VTimeline v-if="recentPRs.length" side="end" density="compact" truncate-line="both"><VTimelineItem v-for="record in recentPRs" :key="record.id" dot-color="secondary" size="small"><div class="d-flex flex-column flex-sm-row justify-sm-space-between ga-1"><div><strong>{{ athleteName(record.athleteId) }}</strong><div class="text-body-2 text-medium-emphasis">{{ skillName(record.skillId) }} · {{ record.type }}</div></div><div class="text-sm-right"><span class="text-h6 text-kronos-cyan">{{ record.valueLbs }} lb</span><div class="text-caption text-medium-emphasis">{{ formatDate(record.recordedAt) }}</div></div></div></VTimelineItem></VTimeline><EmptyState v-else icon="ri-trophy-line" title="Sin PRs registrados" description="Las mejores marcas aparecerán cuando se capture rendimiento." /></VCardText></VCard>
     </VCol>
   </VRow>
+  <VCard v-if="session.isAdmin" class="kronos-card mt-5" rounded="xl">
+    <VCardItem title="Cumpleaños del equipo" subtitle="Personal activo: hoy y próximos 60 días"><template #prepend><VAvatar color="info" variant="tonal" rounded="lg"><VIcon icon="ri-team-line" /></VAvatar></template></VCardItem>
+    <VCardText>
+      <VList v-if="employeeBirthdayQueue.length" bg-color="transparent">
+        <VListItem v-for="entry in employeeBirthdayQueue" :key="entry.id" :title="entry.employee.name" :subtitle="`${entry.employee.kind === 'coach' ? 'Coach' : entry.employee.kind === 'cleaning' ? 'Limpieza' : 'Otro'} · ${formatDate(`${entry.occurrence}T12:00:00`)}`">
+          <template #append><VChip size="small" :color="entry.status === 'today' ? 'warning' : 'info'">{{ entry.status === 'today' ? 'Hoy' : `${entry.days} días` }}</VChip></template>
+        </VListItem>
+      </VList>
+      <EmptyState v-else icon="ri-cake-2-line" title="Sin cumpleaños próximos" description="Completa la fecha de nacimiento de cada empleado activo." />
+    </VCardText>
+  </VCard>
   <BirthdayCardDialog v-model="cardDialog" :athlete-name="cardEntry?.athlete.profile.name ?? ''" @card-action="recordCardAction" />
 </template>

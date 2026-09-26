@@ -24,6 +24,12 @@ export interface AppliedMembershipInstallment {
   settledSales: CombinedStorePayment[]
 }
 
+export interface ComplimentaryPeriodInput {
+  athleteId: string
+  period: string
+  snapshot: MembershipPeriodSnapshot
+}
+
 const currency = (value: number) => Math.round(value * 100) / 100
 
 function updatedPayment(current: Payment | null, input: MembershipInstallmentInput, installmentId: string, appliedAt: number) {
@@ -79,6 +85,43 @@ export const paymentsService = {
         Object.entries(periods ?? {}).map(([period, payment]) => ({ ...payment, athleteId, period } as Payment)),
       ))
     }, onError)
+  },
+  async applyComplimentaryPeriod(input: ComplimentaryPeriodInput): Promise<Payment> {
+    const promotion = input.snapshot?.promotion
+    if (!input.athleteId || !/^\d{4}-\d{2}$/.test(input.period) || !promotion
+      || promotion.baseAmount <= 0 || promotion.discountAmount !== promotion.baseAmount
+      || promotion.finalAmount !== 0 || input.snapshot.agreedAmount !== 0
+      || input.snapshot.dueDate !== membershipDueDate(input.period, input.snapshot.paymentDay))
+      throw new Error('La mensualidad gratis requiere una promoción que cubra el importe completo.')
+
+    validateAdvancePeriod(input.period)
+
+    const database = requireDatabase()
+    const paymentRef = ref(database, businessPath(`payments/${input.athleteId}/${input.period}`))
+    const appliedAt = Date.now()
+
+    const result = await runTransaction(paymentRef, current => {
+      if (current)
+        return
+
+      return {
+        athleteId: input.athleteId,
+        period: input.period,
+        status: 'paid',
+        amount: 0,
+        totalAmount: 0,
+        balance: 0,
+        appliedAt,
+        createdAt: appliedAt,
+        updatedAt: appliedAt,
+        snapshot: input.snapshot,
+      } satisfies Payment
+    }, { applyLocally: false })
+
+    if (!result.committed || !result.snapshot.exists())
+      throw new Error('El periodo ya fue abierto; no se puede aplicar la promoción gratis.')
+
+    return result.snapshot.val() as Payment
   },
   async applyInstallment(input: MembershipInstallmentInput, storeSales: Sale[] = []): Promise<AppliedMembershipInstallment> {
     const amount = currency(Number(input.amount))

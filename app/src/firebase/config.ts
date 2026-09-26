@@ -1,5 +1,6 @@
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { getApps, initializeApp, type FirebaseApp, type FirebaseOptions } from 'firebase/app'
+import { configureAppCheckDebugToken, type AppCheckDebugTarget } from './app-check-debug'
 import { createEmulatorFirebaseOptions, isFirebaseEmulatorMode } from './emulator-config'
 
 const env = import.meta.env
@@ -38,6 +39,13 @@ export const firebaseApp: FirebaseApp | null = isFirebaseConfigured
   : null
 
 if (firebaseApp && !useFirebaseEmulators && env.VITE_FIREBASE_APPCHECK_SITE_KEY && typeof window !== 'undefined') {
+  configureAppCheckDebugToken({
+    isDevelopment: import.meta.env.DEV,
+    useEmulators: useFirebaseEmulators,
+    configuredValue: env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN,
+    target: globalThis as AppCheckDebugTarget,
+  })
+
   initializeAppCheck(firebaseApp, {
     provider: new ReCaptchaEnterpriseProvider(env.VITE_FIREBASE_APPCHECK_SITE_KEY),
     isTokenAutoRefreshEnabled: true,

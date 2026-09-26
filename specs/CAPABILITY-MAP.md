@@ -77,3 +77,39 @@ Implementar una sola rebanada vertical de `athletes-payments`: alta o edición d
 ## Authorization Gate
 
 El usuario respondió las preguntas abiertas y autorizó este capability map el 2026-08-26. Cada fase conserva su propio gate de spec antes de implementar o cambiar comportamiento.
+
+## Iniciativa propuesta: operación administrativa y experiencia 2026-09-25
+
+Estado: aprobado por el usuario el 2026-09-25 para implementación local. Cambios de datos reales y despliegue conservan autorización separada.
+
+| ID estable | Responsabilidad | Dependencias |
+|---|---|---|
+| `application-table-pagination` | Paginación explícita y accesible en todas las tablas operativas, sin scroll infinito | `experience-quality` |
+| `payroll-settlement-receipts` | Recibo inmediato e histórico para liquidaciones de empleados | `workforce-payroll` |
+| `store-sale-debt-reopening` | Acción visible para volver una venta liquidada a adeudo mediante el reverso auditable existente | `store-payment-corrections` |
+| `membership-advance-payment-discoverability` | Acceso claro al abono anticipado desde el contexto del atleta y Pagos | `membership-advance-payments` |
+| `employee-birthdays-community` | Fecha de nacimiento del empleado y cumpleaños de personal en Comunidad | `workforce-payroll`, `birthday-outreach-card` |
+| `plan-promotions` | Promociones con vigencia, planes y horarios elegibles, conservadas como snapshot al cobrar | `athletes-payments` |
+
+Orden propuesto:
+
+```text
+application-table-pagination ───────────────────────────────┐
+workforce-payroll → payroll-settlement-receipts ────────────┤
+                  └→ employee-birthdays-community ──────────┤
+store-payment-corrections → store-sale-debt-reopening ──────┼──→ QA integral
+membership-advance-payments → membership-advance-payment-discoverability ─┤
+athletes-payments → plan-promotions ─────────────────────────┘
+```
+
+Las seis capacidades fueron autorizadas. Decisiones confirmadas: la venta pertenece a Tienda y se reabre mediante reverso; cumpleaños de empleados inicia Admin-only; promociones aceptan porcentaje y monto fijo; tablas usan 15/30/50 y la paginación de servidor queda fuera. Los cambios de datos reales y despliegue conservan gates separados.
+
+## Ampliación propuesta: PRs de coaches
+
+Estado: autorizado para implementación local el 2026-09-26, incluido directorio mínimo para evitar exposición de nómina. Migración de coaches existentes en producción pendiente de autorización separada.
+
+| ID estable | Responsabilidad | Dependencias |
+|---|---|---|
+| `coach-performance-prs` | Registrar y consultar PRs de empleados coach en Rendimiento sin convertirlos en atletas | `workforce-payroll`, `athletes-payments`, `foundation` |
+
+Se implementa después de `plan-promotions`, según `specs/SPEC-coach-performance-prs.md`, con datos QA aislados y sin migración de producción.

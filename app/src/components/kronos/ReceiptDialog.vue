@@ -19,7 +19,8 @@ const working = ref(false)
 const isCollection = computed(() => props.receipt?.kind === 'collection')
 const isCorrection = computed(() => props.receipt?.kind === 'sale-correction')
 const isStoreStatement = computed(() => props.receipt?.kind === 'store-statement')
-const documentLabel = computed(() => isCollection.value ? 'Aviso de pago' : isCorrection.value ? 'Comprobante de corrección' : isStoreStatement.value ? 'Estado de cuenta' : 'Recibo')
+const isFreeMembership = computed(() => props.receipt?.kind === 'membership-free')
+const documentLabel = computed(() => isCollection.value ? 'Aviso de pago' : isCorrection.value ? 'Comprobante de corrección' : isStoreStatement.value ? 'Estado de cuenta' : isFreeMembership.value ? 'Constancia de mensualidad gratis' : 'Recibo')
 
 async function run(action: 'download' | 'print' | 'share') {
   if (!props.receipt)
@@ -65,7 +66,7 @@ async function run(action: 'download' | 'print' | 'share') {
         <KronosLogo class="receipt-logo" />
         <div class="text-right">
           <div class="text-overline text-kronos-orange">
-            {{ isCollection ? 'AVISO DE PAGO' : isCorrection ? 'CORRECCIÓN' : isStoreStatement ? 'ESTADO DE CUENTA' : 'RECIBO' }}
+            {{ isCollection ? 'AVISO DE PAGO' : isCorrection ? 'CORRECCIÓN' : isStoreStatement ? 'ESTADO DE CUENTA' : isFreeMembership ? 'CONSTANCIA' : 'RECIBO' }}
           </div>
           <div class="font-weight-bold">
             {{ receipt.folio }}
@@ -100,11 +101,14 @@ async function run(action: 'download' | 'print' | 'share') {
           class="mb-5"
         >
           <strong>{{ receipt.concept }}</strong>
-          <template v-if="!isCollection && !isStoreStatement">
+          <template v-if="!isCollection && !isStoreStatement && !isFreeMembership">
             <br>Método: {{ paymentMethodLabel(receipt.method) }}
           </template>
           <template v-else-if="isStoreStatement">
             <br>Documento exclusivo de adeudos de tienda.
+          </template>
+          <template v-else-if="isFreeMembership">
+            <br>Mensualidad gratis · $0 cobrado. Esta constancia no es un recibo de pago.
           </template>
           <template v-else>
             <br>Este aviso no es un comprobante de pago.
@@ -149,8 +153,14 @@ async function run(action: 'download' | 'print' | 'share') {
           <div class="d-flex justify-space-between">
             <span>Total</span><strong>{{ formatCurrency(receipt.total) }}</strong>
           </div>
+          <div
+            v-if="receipt.previousPaid"
+            class="d-flex justify-space-between"
+          >
+            <span>Abonos anteriores</span><strong>{{ formatCurrency(receipt.previousPaid) }}</strong>
+          </div>
           <div class="d-flex justify-space-between">
-            <span>{{ isCorrection ? 'Importe corregido' : isStoreStatement ? 'Abonado' : receipt.kind === 'sale-payment' || receipt.balance > 0 ? 'Abono recibido' : 'Pagado' }}</span><strong>{{ formatCurrency(receipt.amountPaid) }}</strong>
+            <span>{{ isFreeMembership ? 'Cobrado' : isCorrection ? 'Importe corregido' : isStoreStatement ? 'Abonado' : receipt.kind === 'sale-payment' || receipt.balance > 0 || receipt.previousPaid ? 'Abono recibido' : 'Pagado' }}</span><strong>{{ formatCurrency(receipt.amountPaid) }}</strong>
           </div>
           <div class="d-flex justify-space-between">
             <span>Saldo</span><strong>{{ formatCurrency(receipt.balance) }}</strong>
@@ -166,7 +176,7 @@ async function run(action: 'download' | 'print' | 'share') {
             :color="receipt.balance > 0 ? 'error' : 'success'"
             variant="flat"
           >
-            {{ isCorrection ? 'Corrección aplicada' : receipt.balance > 0 ? 'Saldo pendiente' : 'Pago completo' }}
+            {{ isFreeMembership ? 'Mensualidad gratis' : isCorrection ? 'Corrección aplicada' : receipt.balance > 0 ? 'Saldo pendiente' : 'Pago completo' }}
           </VChip>
         </div>
         <div

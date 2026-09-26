@@ -666,3 +666,148 @@ Resultado: RP12.1–RP13 completadas. Reporting/finanzas 61/61, revalidación fo
 ## Fase 8 — Analítica visual (resultado 2026-09-25)
 
 RP14.1–RP14.6 se completaron en rebanadas: proyecciones puras y pruebas, componente accesible, integración por dominios y regresión en Chrome. Los gráficos son aditivos y no modifican fuentes, filtros, exportación ni permisos. El reporte de impacto está en `Docs/implementation-reports/2026-09-25-reporting-phase-8-visual-analytics.md`.
+
+---
+
+# Implementation Plan: mejoras operativas 2026-09-25
+
+Estado: autorizado por el usuario el 2026-09-25 para implementación local de las seis fases. Datos reales y despliegue conservan autorización separada.
+
+## Objetivo y alcance
+
+Entregar seis rebanadas independientes: paginación transversal, recibos de liquidación, reapertura de adeudo de tienda, acceso visible a adelantos, cumpleaños de empleados y promociones de planes. Se reutilizan los contratos ya implementados de correcciones de cobro, adelantos, recibos y cumpleaños; no se duplican motores de dominio.
+
+## Decisiones de arquitectura propuestas
+
+- Paginación cliente uniforme sobre el conjunto ya filtrado/ordenado; una futura reducción de lecturas Firebase será otra spec.
+- Recibos de nómina derivados de liquidación y líneas existentes, con folio estable y sin nueva transacción financiera.
+- `Marcar nuevamente como adeudo` es una entrada contextual al reverso append-only existente, no una mutación de venta ni cancelación.
+- Adelantos comparten el mismo diálogo/servicio actual; sólo se mejora entrada, etiquetas y recorrido.
+- `Employee.birthDate` es obligatorio para altas nuevas y nullable al leer legado; Comunidad no gana permisos implícitos.
+- Promociones son entidades independientes y el resultado aplicado queda congelado en el periodo/pago. No se acumulan; gana el mayor ahorro.
+
+## Grafo y orden
+
+```text
+P1 auditoría de tablas → P2 utilidad de paginación → P3-P5 adopción por dominios → CP1
+
+R1 constructor de recibo → R2 UI e historial → CP2
+
+D1 acción contextual sobre reverso existente → D2 QA/conciliación → CP3
+
+A1 navegación contextual → A2 claridad del periodo/recibo → CP4
+
+B1 contrato birthDate → B2 Comunidad con permiso vigente → CP5
+
+M1 contrato/promociones → M2 resolución pura → M3 administración
+   → M4 integración con mensualidad/recibo/reportes → CP6
+```
+
+Paginación puede implementarse independientemente, pero cada página funcional se valida junto con su flujo. Las fases R, D y A pueden avanzar en paralelo después de sus autorizaciones porque reutilizan contratos distintos. B requiere decidir permisos antes de Comunidad. M es secuencial y de mayor riesgo por datos/reglas/finanzas.
+
+## Fases y checkpoints
+
+### Fase P — Paginación transversal
+
+Spec: `specs/SPEC-application-table-pagination.md`.
+
+1. Inventariar tablas productivas y escribir pruebas de comportamiento común.
+2. Crear composable/componente mínimo reutilizable.
+3. Adoptar por grupos: administración, finanzas/operación y reportes.
+4. Cerrar con Chrome en flujos representativos y Playwright en cuatro viewports.
+
+Checkpoint CP1: todas las tablas inventariadas están justificadas como paginadas o excluidas; ninguna usa scroll infinito y los filtros mantienen páginas válidas.
+
+### Fase R — Recibos de liquidación
+
+Spec: `specs/SPEC-payroll-settlement-receipts.md`.
+
+1. Definir constructor puro y casos legados.
+2. Mostrar recibo inmediato y un historial paginado de liquidaciones.
+3. Conciliar con egreso/reportes y validar el recorrido completo.
+
+Checkpoint CP2: una liquidación produce un egreso y un recibo reproducible, nunca una escritura adicional al reimprimir.
+
+### Fase D — Reabrir adeudo de venta
+
+Spec: `specs/SPEC-store-sale-debt-reopening.md`.
+
+1. Añadir acción contextual en venta y vista previa de saldo.
+2. Delegar al ajuste `reversal` existente y probar casos simple, parcial, agrupado y saldo a favor consumido.
+
+Checkpoint CP3: la venta no se cancela, los cobros originales permanecen y todos los consumidores muestran la deuda efectiva.
+
+### Fase A — Descubribilidad de adelantos
+
+Spec: `specs/SPEC-membership-advance-payment-discoverability.md`.
+
+1. Abrir el cobro desde Atletas con atleta preseleccionado y añadir CTA claro en Pagos.
+2. Reemplazar entrada técnica de periodo por opciones comprensibles y verificar recibo/historial.
+
+Checkpoint CP4: un usuario encuentra y completa el abono futuro sin escribir `YYYY-MM`, y el contrato financiero anterior no cambia.
+
+### Fase B — Cumpleaños de empleados
+
+Spec: `specs/SPEC-employee-birthdays-community.md`.
+
+1. Añadir contrato/validación compatible con legados; cualquier regla o esquema se autoriza explícitamente antes.
+2. Compartir cálculo anual y presentar sección de equipo sólo a roles ya autorizados.
+
+Checkpoint CP5: alta y edición validan fecha; Comunidad no expone datos laborales ni amplía lecturas.
+
+### Fase M — Promociones de planes
+
+Spec: `specs/SPEC-plan-promotions.md`.
+
+1. Aprobar tipos de descuento, regla de conflicto y contrato persistido.
+2. Implementar resolución pura con TDD.
+3. Crear administración de promociones y reglas Admin-only.
+4. Integrar cotización/snapshot con abonos, recibos, deuda y reportes.
+
+Checkpoint CP6: elegibilidad y vigencia son deterministas; históricos permanecen inmutables y todas las cifras concilian a $0.01.
+
+## Verificación común
+
+- RED → GREEN con el comando focal de cada spec.
+- `npm run test:finance` cuando haya dinero; `npm run test:rules` cuando cambien reglas.
+- `npm run typecheck`, lint focalizado y `npm run build` en cada checkpoint.
+- Chrome obligatorio para el flujo completo afectado, con consola, red, DOM, accesibilidad y evidencia visual.
+- Antes de cualquier ruta protegida: login manual por el usuario, sin inspeccionar credenciales, cookies ni tokens.
+- Playwright complementario en 320/768/1024/1440 sólo con entorno QA aislado autorizado.
+- Reporte conforme a `Docs/implementation-reports/README.md`, incluyendo árbol, flujo completo, diagrama, riesgos y rollback.
+
+## Riesgos y mitigaciones
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Paginador sólo cosmético mientras se cargan colecciones completas | Medio | Declarar límite; medir y crear spec cursor-based si el volumen lo exige |
+| Duplicar recibos o egresos | Alto | Recibo derivado y pruebas de idempotencia |
+| Confundir reverso con cancelación | Alto | Acción y confirmación explícitas; delegar al contrato append-only |
+| Romper adelantos ya desplegados | Alto | Cambiar navegación/UI, no el cálculo; regresión financiera |
+| Exponer datos de empleados en Comunidad | Alto | Mínimo privilegio y proyección allowlisted si se amplían roles |
+| Recalcular descuentos históricos | Alto | Snapshot inmutable y pruebas tras editar/desactivar promoción |
+| Dos promociones aplicables | Medio | Mayor ahorro, sin acumulación, desempate determinista |
+
+## Rollback
+
+- Cada fase se revierte de forma independiente.
+- P/R/D/A pueden retirarse sin migración si no cambian persistencia.
+- B mantiene lectura nullable; si se revierte UI no se elimina ningún dato capturado.
+- M requiere revertir UI/servicio/reglas como unidad; snapshots históricos permanecen legibles aunque la administración se deshabilite.
+- Nunca borrar datos reales para revertir; migraciones y despliegues requieren plan separado.
+
+## Decisiones confirmadas para implementar
+
+1. “Venta liquidada por accidente” se refiere a Tienda y se reabre revirtiendo el/los cobros seleccionados.
+2. Cumpleaños de empleados será visible sólo para Admin inicialmente; otros roles exigirán proyección y reglas nuevas.
+3. Promociones porcentuales y de monto fijo, sin acumulación y con selección automática del mayor ahorro.
+4. Tamaños comunes 15/30/50; paginación de servidor fuera de esta iniciativa.
+# Ampliación 2026-09-26: promociones gratuitas y PRs de coaches
+
+Las specs autorizadas son `SPEC-plan-promotions.md` (ampliación) y `SPEC-coach-performance-prs.md`. Se ejecutan M6–M8 y luego C1–C3 de `tasks/todo.md`, en rebanadas de contrato/reglas → servicio → UI → QA.
+
+Dependencias: el periodo gratis necesita snapshot de promoción y transacción exclusiva Admin; la constancia y los reportes dependen del nuevo estado persistido. Los PRs de coaches necesitan primero una identidad de empleado distinta de atleta en persistencia/reglas, luego servicio y finalmente selector/comparativos.
+
+Riesgos: un $0 registrado como abono falsea caja; un coach tratado como atleta contamina membresías; reglas demasiado amplias permiten escrituras ajenas. Mitigación: ningún installment para periodo gratis, comprobante de tipo constancia, pruebas financieras y de reglas negativas; ruta de datos separada y permisos existentes para coaches.
+
+Checkpoint antes de publicar: pruebas completas, typecheck, build, lint focalizado, Chrome en QA aislado desde entrada a resultado de ambos flujos, responsive 320/768/1024/1440, revisión del diff y reporte de impacto. El despliegue y la carga inicial de ID/nombre/estado de coaches fueron autorizados por separado y se ejecutaron con dry-run, verificación de conteo y reversión focalizada.

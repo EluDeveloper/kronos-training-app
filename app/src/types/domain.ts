@@ -10,6 +10,7 @@ export type SaleStatus = 'paid' | 'credit' | 'cancelled'
 export type ExpenseStatus = 'paid' | 'pending' | 'scheduled'
 export type KioskPaymentNowMode = 'disabled' | 'all-admins' | 'selected-admins'
 export type PlanAccessType = 'unlimited' | 'visit-pack' | 'pay-per-visit'
+export type PromotionDiscountType = 'percentage' | 'fixed-amount'
 export type MaritalStatus = 'single' | 'married' | 'domestic-partnership' | 'divorced' | 'widowed' | 'separated' | 'prefer-not-to-say'
 export type ExerciseSymptom = 'dizziness' | 'fainting' | 'nausea' | 'shortness-of-breath' | 'none'
 
@@ -106,6 +107,28 @@ export interface MembershipPlan extends AuditFields {
   pricePerVisit?: number | null
 }
 
+export interface PlanPromotion extends AuditFields {
+  id: EntityId
+  name: string
+  discountType: PromotionDiscountType
+  discountValue: number
+  validFrom: ISODate
+  validThrough: ISODate
+  planIds: Record<EntityId, true>
+  schedules: 'all' | string[]
+  status: ActiveStatus
+}
+
+export interface AppliedPromotionSnapshot {
+  promotionId: EntityId
+  name: string
+  discountType: PromotionDiscountType
+  discountValue: number
+  baseAmount: number
+  discountAmount: number
+  finalAmount: number
+}
+
 export interface Payment extends AuditFields {
   athleteId: EntityId
   visitorId?: EntityId | null
@@ -143,6 +166,7 @@ export interface MembershipPeriodSnapshot {
   agreedAmount: number
   paymentDay: number
   dueDate: ISODate
+  promotion?: AppliedPromotionSnapshot | null
 }
 
 export interface MembershipPaymentInstallment {
@@ -201,6 +225,10 @@ export interface PerformanceRecord {
   valueKg: number
   type: string
   recordedAt: ISODate
+}
+
+export interface CoachPerformanceRecord extends Omit<PerformanceRecord, 'athleteId'> {
+  employeeId: EntityId
 }
 
 export interface Product extends AuditFields {

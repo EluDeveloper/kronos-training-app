@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PaymentMethod } from '@/types/domain'
 import type { WorkEntry } from '@/types/workforce'
+import { businessDateInMexicoCity } from '@/utils/business-date'
 import { formatCurrency, formatDate } from '@/utils/kronos'
 
 const props = defineProps<{ modelValue: boolean; entries: WorkEntry[]; loading?: boolean }>()
@@ -10,13 +11,13 @@ const emit = defineEmits<{
   'submit': [value: { entryIds: string[]; paidAt: string; method: Exclude<PaymentMethod, 'store-credit'>; reference?: string }]
 }>()
 
-const form = reactive({ entryIds: [] as string[], paidAt: new Date().toISOString().slice(0, 10), method: 'transfer' as Exclude<PaymentMethod, 'store-credit'>, reference: '' })
+const form = reactive({ entryIds: [] as string[], paidAt: businessDateInMexicoCity(), method: 'transfer' as Exclude<PaymentMethod, 'store-credit'>, reference: '' })
 const employeeIds = computed(() => new Set(form.entryIds.map(id => props.entries.find(item => item.id === id)?.employeeId).filter(Boolean)))
 const selected = computed(() => props.entries.filter(item => form.entryIds.includes(item.id)))
 const total = computed(() => selected.value.reduce((sum, item) => sum + item.amount, 0))
 
 const options = computed(() => props.entries.filter(item => item.status !== 'paid').map(item => ({
-  title: `${item.employeeName} · ${formatDate(item.date)} · ${formatCurrency(item.amount)}`,
+  title: `${item.employeeName} · ${formatDate(`${item.date}T12:00:00`)} · ${formatCurrency(item.amount)}`,
   value: item.id,
 })))
 
@@ -24,7 +25,7 @@ const valid = computed(() => form.entryIds.length > 0 && employeeIds.value.size 
 
 watch(() => props.modelValue, open => {
   if (open)
-    Object.assign(form, { entryIds: [], paidAt: new Date().toISOString().slice(0, 10), method: 'transfer', reference: '' })
+    Object.assign(form, { entryIds: [], paidAt: businessDateInMexicoCity(), method: 'transfer', reference: '' })
 })
 </script>
 

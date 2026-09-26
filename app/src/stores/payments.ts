@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { Unsubscribe } from 'firebase/database'
-import { paymentsService, type MembershipInstallmentInput } from '@/services/payments.service'
+import { paymentsService, type ComplimentaryPeriodInput, type MembershipInstallmentInput } from '@/services/payments.service'
 import type { Payment, Sale } from '@/types/domain'
 
 export const usePaymentsStore = defineStore('payments', () => {
@@ -25,7 +25,8 @@ export const usePaymentsStore = defineStore('payments', () => {
   }
 
   const applyInstallment = (input: MembershipInstallmentInput, storeSales: Sale[] = []) => paymentsService.applyInstallment(input, storeSales)
+  const applyComplimentaryPeriod = (input: ComplimentaryPeriodInput) => paymentsService.applyComplimentaryPeriod(input)
   const dispose = () => { stop?.(); stop = null }
 
-  return { items, paid, loading, error, subscribe, applyInstallment, dispose }
+  return { items, paid, loading, error, subscribe, applyInstallment, applyComplimentaryPeriod, dispose }
 })

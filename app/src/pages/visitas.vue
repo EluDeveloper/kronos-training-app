@@ -5,6 +5,7 @@ import MetricCard from '@/components/kronos/MetricCard.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import ReceiptDialog from '@/components/kronos/ReceiptDialog.vue'
 import VisitorPaymentDialog from '@/components/kronos/VisitorPaymentDialog.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
 import { useCommerceStore } from '@/stores/commerce'
@@ -36,7 +37,7 @@ const selectedSubjectKey = ref('')
 const visitDialog = ref(false)
 const saving = ref(false)
 const page = ref(1)
-const perPage = 15
+const perPage = ref(15)
 const receiptDialog = ref(false)
 const activeReceipt = ref<ReceiptData | null>(null)
 const memberPaymentDialog = ref(false)
@@ -139,8 +140,7 @@ const filteredHistory = computed(() => visits.items
   .filter(visit => !selectedSubjectKey.value || (selectedVisitorId.value ? visit.visitorId === selectedVisitorId.value : visit.athleteId === selectedAthleteId.value))
   .sort((a, b) => timestampValue(b.visitedAt) - timestampValue(a.visitedAt)))
 
-const pageCount = computed(() => Math.max(1, Math.ceil(filteredHistory.value.length / perPage)))
-const paginatedHistory = computed(() => filteredHistory.value.slice((page.value - 1) * perPage, page.value * perPage))
+const paginatedHistory = computed(() => filteredHistory.value.slice((page.value - 1) * perPage.value, page.value * perPage.value))
 
 watch([() => athletes.active.length, () => visitors.items.length], () => {
   if (selectedSubjectKey.value)
@@ -605,13 +605,7 @@ onBeforeUnmount(() => { athletes.dispose(); visitors.dispose(); plans.dispose();
               </td>
             </tr>
           </tbody>
-        </VTable><VPagination
-          v-if="pageCount > 1"
-          v-model="page"
-          :length="pageCount"
-          :total-visible="5"
-          class="mt-5"
-        />
+        </VTable><TablePaginator v-model:page="page" v-model:page-size="perPage" :total="filteredHistory.length" label="visitas" />
       </template>
     </VCardText>
   </VCard>

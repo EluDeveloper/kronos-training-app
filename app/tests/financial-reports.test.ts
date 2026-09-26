@@ -74,6 +74,22 @@ test('separa ingreso reconocido de movimientos reales de caja y banco', () => {
   assert.equal(summary.otherExpenses, 10)
 })
 
+test('una mensualidad gratis no registra movimiento ni ingreso financiero', () => {
+  const free: Payment = {
+    athleteId: 'athlete-free', period: '2026-08', status: 'paid', amount: 0, totalAmount: 0, balance: 0,
+    appliedAt: timestamp, createdAt: timestamp, updatedAt: timestamp,
+    snapshot: { planId: 'plan', agreedAmount: 0, paymentDay: 5, dueDate: '2026-08-05', promotion: {
+      promotionId: 'promo', name: 'Mes gratis', discountType: 'fixed-amount', discountValue: 500,
+      baseAmount: 500, discountAmount: 500, finalAmount: 0,
+    } },
+  }
+
+  const movements = buildFinancialMovements({ membershipPayments: [free], visitPayments: [], sales: [], expenses: [] })
+
+  assert.equal(movements.length, 0)
+  assert.equal(summarizeMovements(movements).income, 0)
+})
+
 test('un cierre posterior sólo toma movimientos después de la fecha previa', () => {
   const movements = buildFinancialMovements({ membershipPayments: [membershipPayment], visitPayments: [visitPayment], sales: [sale], expenses })
 

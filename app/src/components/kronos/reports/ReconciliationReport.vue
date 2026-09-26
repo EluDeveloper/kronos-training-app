@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { formatCurrency } from '@/utils/kronos'
 import type { FinanceReport } from '@/utils/reporting-finance'
 import { buildReconciliationChart } from '@/utils/reporting-charts'
@@ -6,6 +7,9 @@ import ReportSeriesChart from './ReportSeriesChart.vue'
 
 const props = defineProps<{ report: FinanceReport }>()
 const chart = computed(() => buildReconciliationChart(props.report))
+const page = ref(1)
+const pageSize = ref(15)
+const paginatedClosures = computed(() => props.report.closures.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
 </script>
 
 <template>
@@ -113,7 +117,7 @@ const chart = computed(() => buildReconciliationChart(props.report))
               </tr>
             </thead><tbody>
               <tr
-                v-for="closure in report.closures"
+                v-for="closure in paginatedClosures"
                 :key="closure.id"
               >
                 <td>
@@ -138,6 +142,7 @@ const chart = computed(() => buildReconciliationChart(props.report))
               </tr>
             </tbody>
           </VTable>
+          <TablePaginator v-model:page="page" v-model:page-size="pageSize" :total="report.closures.length" label="cierres" />
         </div>
       </VCardText>
     </VCard>

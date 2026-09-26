@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { computed, ref } from 'vue'
 import { buildAthleteTimeline, type AthleteReport } from '@/utils/reporting-athletes'
 import { buildAthleteChart } from '@/utils/reporting-charts'
@@ -8,6 +9,9 @@ import ReportSeriesChart from './ReportSeriesChart.vue'
 const props = defineProps<{ report: AthleteReport; range: Pick<ReportingFilters, 'from' | 'through'> }>()
 const chart = computed(() => buildAthleteChart(props.report, props.range))
 const selectedEvent = ref<AthleteReport['rows'][number] | null>(null)
+const eventPage = ref(1)
+const eventPageSize = ref(15)
+const paginatedEvents = computed(() => props.report.rows.slice((eventPage.value - 1) * eventPageSize.value, eventPage.value * eventPageSize.value))
 const granularity = ref<'day' | 'month' | 'year'>('day')
 const timeline = computed(() => buildAthleteTimeline(props.report.rows, granularity.value))
 
@@ -174,7 +178,7 @@ const eventLabel = (type: string) => ({ created: 'Alta', paused: 'Pausa', inacti
             </thead>
             <tbody>
               <tr
-                v-for="event in report.rows"
+                v-for="event in paginatedEvents"
                 :key="event.athleteId + event.effectiveDate + event.type"
               >
                 <td>{{ event.athleteId }}</td><td>{{ eventLabel(event.type) }}</td><td>{{ event.effectiveDate }}</td><td>{{ event.fromStatus ?? '—' }} → {{ event.toStatus }}</td><td class="text-end">
@@ -190,6 +194,7 @@ const eventLabel = (type: string) => ({ created: 'Alta', paused: 'Pausa', inacti
               </tr>
             </tbody>
           </VTable>
+          <TablePaginator v-model:page="eventPage" v-model:page-size="eventPageSize" :total="report.rows.length" label="eventos de atletas" />
         </div>
       </VCardText>
     </VCard>

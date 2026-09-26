@@ -58,6 +58,27 @@ test('calcula obligaciones y adelantos desde snapshots e installments efectivos'
   assert.equal(report.summary.receivable, 300)
 })
 
+test('una mensualidad gratis aparece liquidada con ahorro y sin cobro', () => {
+  const payment: Payment = {
+    athleteId: 'a1', period: '2026-10', status: 'paid', amount: 0, totalAmount: 0, balance: 0,
+    snapshot: { planId: 'plan', agreedAmount: 0, paymentDay: 5, dueDate: '2026-10-05', promotion: {
+      promotionId: 'promo', name: 'Mes gratis', discountType: 'fixed-amount', discountValue: 700,
+      baseAmount: 500, discountAmount: 500, finalAmount: 0,
+    } },
+    createdAt: 1, updatedAt: 1,
+  }
+
+  const report = buildMembershipReport([payment], { from: '2026-10-01', through: '2026-10-31', productIds: [] }, { asOf: '2026-10-31' })
+
+  assert.equal(report.rows[0]?.status, 'paid')
+  assert.equal(report.rows[0]?.complimentary, true)
+  assert.equal(report.rows[0]?.discountAmount, 500)
+  assert.equal(report.summary.expected, 0)
+  assert.equal(report.summary.collected, 0)
+  assert.equal(report.summary.receivable, 0)
+  assert.equal(report.rows[0]?.movements.length, 0)
+})
+
 test('muestra adelantos en el periodo de membresía aunque se hayan cobrado antes', () => {
   const payment: Payment = {
     athleteId: 'a1', period: '2026-10', status: 'paid', amount: 200,

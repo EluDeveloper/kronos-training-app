@@ -4,6 +4,7 @@ import { formatCurrency } from '@/utils/kronos'
 import { metricDefinitions } from '@/utils/reporting-metrics'
 import { buildStoreDetailRecords, type StoreDetailRecord } from '@/utils/reporting-executive'
 import type { StoreMetricKey, StoreReport } from '@/utils/reporting-store'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 
 const props = defineProps<{
   report: StoreReport
@@ -14,6 +15,9 @@ const props = defineProps<{
 const selectedRecord = ref<StoreDetailRecord | null>(null)
 const definition = computed(() => metricDefinitions.find(item => item.key === props.metric))
 const records = computed(() => buildStoreDetailRecords(props.report, props.metric))
+const page = ref(1)
+const pageSize = ref(15)
+const paginatedRecords = computed(() => records.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
 const isMovement = computed(() => props.metric === 'collected' || props.metric === 'recovered')
 const dateLabel = computed(() => isMovement.value ? 'Fecha de movimiento' : props.metric === 'receivable' ? 'Fecha de venta · saldo al corte' : props.metric === 'cancellations' ? 'Fecha de cancelación' : 'Fecha de venta')
 
@@ -107,7 +111,7 @@ function qualityLabel(quality: StoreDetailRecord['quality']) {
           </thead>
           <tbody>
             <tr
-              v-for="record in records"
+              v-for="record in paginatedRecords"
               :key="record.key"
             >
               <td class="text-no-wrap">
@@ -148,6 +152,7 @@ function qualityLabel(quality: StoreDetailRecord['quality']) {
             </tr>
           </tbody>
         </VTable>
+        <TablePaginator v-model:page="page" v-model:page-size="pageSize" :total="records.length" label="detalles" />
       </div>
     </VCardText>
   </VCard>

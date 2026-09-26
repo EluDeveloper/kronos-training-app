@@ -8,6 +8,7 @@ import {
   validateAdvancePeriod,
 } from '../src/utils/membership-periods'
 import { buildMembershipReceipt } from '../src/utils/receipts'
+import { membershipTotalAmount } from '../src/utils/kronos'
 import type { Athlete, MembershipPaymentInstallment, Payment } from '../src/types/domain'
 
 test('normaliza el día de corte al último día válido del mes', () => {
@@ -71,4 +72,79 @@ test('el recibo de un adelanto incluye el corte futuro sin fallar', () => {
 
   assert.match(receipt.concept, /Adelanto de mensualidad 2026-10/)
   assert.match(receipt.concept, /corte 25\/10\/2026/)
+})
+
+test('el recibo conserva la promoción aplicada y el ahorro del snapshot', () => {
+  const athlete = {
+    id: 'athlete-1',
+    profile: { name: 'Atleta QA', phone: '5550000000' },
+    membership: { planId: 'plan-1', agreedAmount: 500, paymentDay: 25 },
+  } as Athlete
+
+  const installment = {
+    id: 'installment-promo', amountApplied: 400, balanceAfter: 0, method: 'cash', appliedAt: 1,
+  } as MembershipPaymentInstallment
+
+  const payment = {
+    id: 'payment-promo', athleteId: athlete.id, period: '2026-10', amount: 400, method: 'cash',
+    snapshot: {
+      planId: 'plan-1', agreedAmount: 400, paymentDay: 25, dueDate: '2026-10-25',
+      promotion: {
+        promotionId: 'promo-1', name: 'Regreso a clases', discountType: 'percentage',
+        discountValue: 20, baseAmount: 500, discountAmount: 100, finalAmount: 400,
+      },
+    },
+    installments: { [installment.id]: installment }, appliedAt: 1, updatedAt: 1,
+  } as Payment
+
+  const receipt = buildMembershipReceipt(payment, athlete, 'Plan QA Mensual', installment)
+
+  assert.match(receipt.concept, /Regreso a clases/)
+  assert.match(receipt.concept, /ahorro \$100/i)
+})
+
+test('el recibo de la última parcialidad distingue el abono actual del pagado previamente', () => {
+  const athlete = {
+    id: 'athlete-1', profile: { name: 'Atleta QA' },
+    membership: { planId: 'plan-1', agreedAmount: 400, paymentDay: 1 },
+  } as Athlete
+
+  const first = { id: 'first', amountApplied: 100, balanceAfter: 300, method: 'cash', appliedAt: 1 } as MembershipPaymentInstallment
+  const second = { id: 'second', amountApplied: 300, balanceAfter: 0, method: 'cash', appliedAt: 2 } as MembershipPaymentInstallment
+
+  const payment = {
+    id: 'payment-1', athleteId: athlete.id, period: '2026-10', status: 'paid',
+    amount: 400, totalAmount: 400, balance: 0,
+    installments: { first, second }, appliedAt: 2, updatedAt: 2,
+  } as Payment
+
+  const receipt = buildMembershipReceipt(payment, athlete, 'Plan QA Mensual', second)
+
+  assert.equal(receipt.total, 400)
+  assert.equal(receipt.amountPaid, 300)
+  assert.equal(receipt.previousPaid, 100)
+  assert.equal(receipt.balance, 0)
+})
+
+test('un periodo gratuito conserva total cero y emite constancia sin cobro', () => {
+  const athlete = { id: 'athlete-1', profile: { name: 'Atleta QA' }, membership: { planId: 'plan-1', agreedAmount: 500, paymentDay: 1 } } as Athlete
+
+  const payment = {
+    athleteId: athlete.id, period: '2026-10', status: 'paid', amount: 0, totalAmount: 0, balance: 0,
+    appliedAt: 1, updatedAt: 1,
+    snapshot: { planId: 'plan-1', agreedAmount: 0, paymentDay: 1, dueDate: '2026-10-01', promotion: {
+      promotionId: 'promo-1', name: 'Mes gratis', discountType: 'fixed-amount', discountValue: 800,
+      baseAmount: 500, discountAmount: 500, finalAmount: 0,
+    } },
+  } as Payment
+
+  assert.equal(membershipTotalAmount(payment, athlete.membership.agreedAmount), 0)
+
+  const receipt = buildMembershipReceipt(payment, athlete, 'Mensual')
+
+  assert.equal(receipt.kind, 'membership-free')
+  assert.match(receipt.concept, /Mensualidad gratis/)
+  assert.equal(receipt.amountPaid, 0)
+  assert.equal(receipt.balance, 0)
+  assert.equal(receipt.method, undefined)
 })

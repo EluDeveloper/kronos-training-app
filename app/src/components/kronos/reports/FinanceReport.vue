@@ -4,12 +4,18 @@ import { formatCurrency } from '@/utils/kronos'
 import type { FinanceReport } from '@/utils/reporting-finance'
 import { buildFinanceChart, type FinanceChartAccount } from '@/utils/reporting-charts'
 import type { ReportingFilters } from '@/types/reporting'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import ReportSeriesChart from './ReportSeriesChart.vue'
 
 const props = defineProps<{ report: FinanceReport; range: Pick<ReportingFilters, 'from' | 'through'> }>()
 const detailMode = ref<'movements' | 'expenses'>('movements')
 const chartAccount = ref<FinanceChartAccount>('total')
 const chart = computed(() => buildFinanceChart(props.report, props.range, chartAccount.value))
+const movementPage = ref(1)
+const expensePage = ref(1)
+const pageSize = ref(15)
+const paginatedMovements = computed(() => props.report.movements.slice((movementPage.value - 1) * pageSize.value, movementPage.value * pageSize.value))
+const paginatedExpenses = computed(() => props.report.expenses.slice((expensePage.value - 1) * pageSize.value, expensePage.value * pageSize.value))
 
 const conceptCards = computed(() => [
   { label: 'Venta reconocida', value: props.report.summary.recognizedStoreRevenue, hint: 'Devengo de Tienda; no es cobro ni flujo.' },
@@ -206,7 +212,7 @@ async function show(mode: 'movements' | 'expenses') {
               </tr>
             </thead><tbody>
               <tr
-                v-for="movement in report.movements"
+                v-for="movement in paginatedMovements"
                 :key="movement.id"
               >
                 <td>{{ movement.date }}<span class="d-block text-caption">{{ movement.id }}</span></td><td>{{ sourceLabel(movement.source) }}<span class="d-block text-caption">{{ movement.description }}</span></td><td>{{ accountLabel(movement.account) }} · {{ methodLabel(movement.method) }}</td><td>{{ movement.direction === 'income' ? 'Entrada' : 'Salida' }}</td><td class="text-end">
@@ -249,7 +255,7 @@ async function show(mode: 'movements' | 'expenses') {
               </tr>
             </thead><tbody>
               <tr
-                v-for="expense in report.expenses"
+                v-for="expense in paginatedExpenses"
                 :key="expense.id"
               >
                 <td>{{ expense.date }}<span class="d-block text-caption">{{ expense.id }}</span></td><td>
@@ -272,6 +278,8 @@ async function show(mode: 'movements' | 'expenses') {
               </tr>
             </tbody>
           </VTable>
+          <TablePaginator v-if="detailMode === 'movements'" v-model:page="movementPage" v-model:page-size="pageSize" :total="report.movements.length" label="movimientos financieros" />
+          <TablePaginator v-else v-model:page="expensePage" v-model:page-size="pageSize" :total="report.expenses.length" label="egresos" />
         </div>
       </VCardText>
     </VCard>

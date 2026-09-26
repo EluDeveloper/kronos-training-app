@@ -7,6 +7,7 @@ import BarcodeScanner from '@/components/kronos/BarcodeScanner.vue'
 import ProductBarcodeLabelDialog from '@/components/kronos/ProductBarcodeLabelDialog.vue'
 import StorePaymentCorrectionDialog, { type StorePaymentCorrectionTarget } from '@/components/kronos/StorePaymentCorrectionDialog.vue'
 import StoreDebtStatementDialog from '@/components/kronos/StoreDebtStatementDialog.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { useCommerceStore } from '@/stores/commerce'
 import { useAthletesStore } from '@/stores/athletes'
 import { useVisitorsStore } from '@/stores/visitors'
@@ -60,7 +61,9 @@ const creditPage = ref(1)
 const salesSearch = ref('')
 const salesStatusFilter = ref<string | null>(null)
 const salesPage = ref(1)
-const perPage = 15
+const creditAccountsPage = ref(1)
+const paymentHistoryPage = ref(1)
+const perPage = ref(15)
 const cart = ref<Record<string, SaleItem>>({})
 const saleForm = reactive({ customerKey: '', customerName: '', method: 'cash' as PaymentMethod, initialPayment: 0, received: 0, creditApplied: 0, saveExcessAsCredit: false })
 const productForm = reactive({ name: '', category: '', barcode: '', alternativeBarcodes: [] as string[], size: '', stock: 0, alertLevel: 2, unitCost: 0, salePrice: 0, status: 'active' as const })
@@ -78,8 +81,8 @@ const customerItems = computed(() => [
 ])
 
 const cartItems = computed(() => Object.values(cart.value))
-const cartPageCount = computed(() => Math.max(1, Math.ceil(cartItems.value.length / perPage)))
-const paginatedCartItems = computed(() => cartItems.value.slice((cartPage.value - 1) * perPage, cartPage.value * perPage))
+const cartPageCount = computed(() => Math.max(1, Math.ceil(cartItems.value.length / perPage.value)))
+const paginatedCartItems = computed(() => cartItems.value.slice((cartPage.value - 1) * perPage.value, cartPage.value * perPage.value))
 const cartTotal = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0))
 const inventoryValue = computed(() => commerce.products.reduce((sum, item) => sum + item.stock * item.unitCost, 0))
 const outstanding = computed(() => commerce.openCredit.reduce((sum, sale) => sum + saleBalance(sale), 0))
@@ -141,10 +144,11 @@ const storePaymentHistory = computed(() => {
       ...entry,
       amount: entry.payment.groupPaymentId ? groupedTotals.get(entry.payment.groupPaymentId) ?? entry.payment.amountApplied : entry.payment.amountApplied,
     }))
-    .slice(0, 50)
 })
 
 const creditEntryLabel = (entry: StoreCreditEntry) => ({ deposit: 'Depósito', application: 'Aplicado', refund: 'Reintegro', reversal: 'Reverso' })[entry.type]
+const paginatedCreditAccounts = computed(() => creditAccounts.value.slice((creditAccountsPage.value - 1) * perPage.value, creditAccountsPage.value * perPage.value))
+const paginatedStorePaymentHistory = computed(() => storePaymentHistory.value.slice((paymentHistoryPage.value - 1) * perPage.value, paymentHistoryPage.value * perPage.value))
 
 const filteredInventory = computed(() => commerce.products
   .filter(product => {
@@ -156,8 +160,7 @@ const filteredInventory = computed(() => commerce.products
   })
   .filter(product => `${product.name} ${product.category} ${productBarcodes(product).join(' ')} ${product.size ?? ''}`.toLocaleLowerCase('es').includes(inventorySearch.value.toLocaleLowerCase('es'))))
 
-const inventoryPageCount = computed(() => Math.max(1, Math.ceil(filteredInventory.value.length / perPage)))
-const paginatedInventory = computed(() => filteredInventory.value.slice((inventoryPage.value - 1) * perPage, inventoryPage.value * perPage))
+const paginatedInventory = computed(() => filteredInventory.value.slice((inventoryPage.value - 1) * perPage.value, inventoryPage.value * perPage.value))
 
 const filteredCredit = computed(() => commerce.openCredit
   .filter(sale => `${customerName(sale)} ${Object.values(sale.items ?? {}).map(item => item.name).join(' ')}`.toLocaleLowerCase('es').includes(creditSearch.value.toLocaleLowerCase('es')))
@@ -187,16 +190,14 @@ const groupedDebtAccounts = computed(() => {
     .sort((a, b) => a.athleteName.localeCompare(b.athleteName, 'es'))
 })
 
-const creditPageCount = computed(() => Math.max(1, Math.ceil(filteredCredit.value.length / perPage)))
-const paginatedCredit = computed(() => filteredCredit.value.slice((creditPage.value - 1) * perPage, creditPage.value * perPage))
+const paginatedCredit = computed(() => filteredCredit.value.slice((creditPage.value - 1) * perPage.value, creditPage.value * perPage.value))
 
 const filteredSales = computed(() => [...commerce.sales]
   .filter(sale => !salesStatusFilter.value || effectiveSaleStatus(sale) === salesStatusFilter.value)
   .filter(sale => `${customerName(sale)} ${Object.values(sale.items ?? {}).map(item => item.name).join(' ')}`.toLocaleLowerCase('es').includes(salesSearch.value.toLocaleLowerCase('es')))
   .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt)))
 
-const salesPageCount = computed(() => Math.max(1, Math.ceil(filteredSales.value.length / perPage)))
-const paginatedSales = computed(() => filteredSales.value.slice((salesPage.value - 1) * perPage, salesPage.value * perPage))
+const paginatedSales = computed(() => filteredSales.value.slice((salesPage.value - 1) * perPage.value, salesPage.value * perPage.value))
 const customerName = (sale: Sale) => visitors.items.find(item => item.id === sale.visitorId)?.name ?? athletes.items.find(item => item.id === sale.athleteId)?.profile.name ?? sale.customerName
 const customerForSale = (sale: Sale) => visitors.items.find(item => item.id === sale.visitorId) ?? athletes.items.find(item => item.id === sale.athleteId)
 const salePayments = (sale: Sale) => Object.values(sale.payments ?? {}).sort((a, b) => timestampValue(b.appliedAt) - timestampValue(a.appliedAt))
@@ -233,6 +234,12 @@ function openPaymentCorrection(sale: Sale, payment: SalePayment, includeGroup = 
       .map(item => ({ sale: groupSale, payment: item.original })))
     : [{ sale, payment }]
   correctionDialog.value = true
+}
+
+function reopenSaleDebt(sale: Sale) {
+  const payment = resolveSalePaymentStates(sale).filter(item => !item.reversed).sort((a, b) => timestampValue(b.original.appliedAt) - timestampValue(a.original.appliedAt))[0]?.original
+  if (!payment) return notifications.show('La venta no tiene un cobro efectivo que pueda revertirse.', 'info')
+  openPaymentCorrection(sale, payment, true)
 }
 
 async function applyPaymentCorrection(payload: { kind: 'reversal' | 'method-change'; toMethod?: PaymentMethod; reason: string }) {
@@ -870,13 +877,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                       </td>
                     </tr>
                   </tbody>
-                </VTable><VPagination
-                  v-if="cartPageCount > 1"
-                  v-model="cartPage"
-                  :length="cartPageCount"
-                  :total-visible="5"
-                  class="mt-4"
-                />
+                </VTable><TablePaginator v-if="cartItems.length" v-model:page="cartPage" v-model:page-size="perPage" :total="cartItems.length" label="productos en carrito" />
               </template>
               <EmptyState
                 v-else
@@ -1122,13 +1123,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                   </td>
                 </tr>
               </tbody>
-            </VTable><div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
-              <span class="text-caption text-medium-emphasis">{{ filteredInventory.length }} productos · máximo 15 por página</span><VPagination
-                v-model="inventoryPage"
-                :length="inventoryPageCount"
-                :total-visible="5"
-              />
-            </div>
+            </VTable><TablePaginator v-model:page="inventoryPage" v-model:page-size="perPage" :total="filteredInventory.length" label="productos" />
           </template>
         </VCardText>
       </VCard>
@@ -1245,13 +1240,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                   </td>
                 </tr>
               </tbody>
-            </VTable><div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
-              <span class="text-caption text-medium-emphasis">{{ filteredCredit.length }} deudas · máximo 15 por página</span><VPagination
-                v-model="creditPage"
-                :length="creditPageCount"
-                :total-visible="5"
-              />
-            </div>
+            </VTable><TablePaginator v-model:page="creditPage" v-model:page-size="perPage" :total="filteredCredit.length" label="adeudos" />
           </template>
         </VCardText>
       </VCard>
@@ -1281,7 +1270,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
             </thead>
             <tbody>
               <tr
-                v-for="account in creditAccounts"
+                v-for="account in paginatedCreditAccounts"
                 :key="account.athleteId"
               >
                 <td class="font-weight-bold">
@@ -1316,7 +1305,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                 </td>
               </tr>
             </tbody>
-          </VTable>
+          </VTable><TablePaginator v-if="creditAccounts.length" v-model:page="creditAccountsPage" v-model:page-size="perPage" :total="creditAccounts.length" label="cuentas" />
         </VCardText>
       </VCard>
 
@@ -1345,7 +1334,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
             </thead>
             <tbody>
               <tr
-                v-for="entry in storePaymentHistory"
+                v-for="entry in paginatedStorePaymentHistory"
                 :key="`${entry.sale.id}-${entry.payment.id}`"
               >
                 <td>{{ customerName(entry.sale) }}</td>
@@ -1389,7 +1378,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                 </td>
               </tr>
             </tbody>
-          </VTable>
+          </VTable><TablePaginator v-if="storePaymentHistory.length" v-model:page="paymentHistoryPage" v-model:page-size="perPage" :total="storePaymentHistory.length" label="abonos" />
         </VCardText>
       </VCard>
     </VWindowItem>
@@ -1477,6 +1466,14 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                         />
                       </VList>
                     </VMenu><VBtn
+                      v-if="canCorrectPayments && effectiveSaleStatus(sale) === 'paid'"
+                      icon="ri-arrow-go-back-line"
+                      color="warning"
+                      variant="text"
+                      :aria-label="`Marcar nuevamente como adeudo la venta de ${customerName(sale)}`"
+                      title="Marcar nuevamente como adeudo"
+                      @click="reopenSaleDebt(sale)"
+                    /><VBtn
                       v-if="canCancelSales && sale.status !== 'cancelled'"
                       icon="ri-close-circle-line"
                       color="error"
@@ -1487,13 +1484,7 @@ onUnmounted(() => { commerce.dispose(); athletes.dispose(); visitors.dispose() }
                   </td>
                 </tr>
               </tbody>
-            </VTable><div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
-              <span class="text-caption text-medium-emphasis">{{ filteredSales.length }} ventas · máximo 15 por página</span><VPagination
-                v-model="salesPage"
-                :length="salesPageCount"
-                :total-visible="5"
-              />
-            </div>
+            </VTable><TablePaginator v-model:page="salesPage" v-model:page-size="perPage" :total="filteredSales.length" label="ventas" />
           </template>
         </VCardText>
       </VCard>

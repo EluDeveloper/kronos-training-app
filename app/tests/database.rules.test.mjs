@@ -569,7 +569,21 @@ test('las mensualidades permiten abonos acumulados sin alterar el historial', as
     amount: 200,
     totalAmount: 500,
     balance: 300,
-    snapshot: { planId: 'plan-basic', agreedAmount: 500, paymentDay: 31, dueDate: '2026-08-31' },
+    snapshot: {
+      planId: 'plan-basic',
+      agreedAmount: 500,
+      paymentDay: 31,
+      dueDate: '2026-08-31',
+      promotion: {
+        promotionId: 'promo-1',
+        name: 'Temporada',
+        discountType: 'fixed-amount',
+        discountValue: 100,
+        baseAmount: 600,
+        discountAmount: 100,
+        finalAmount: 500,
+      },
+    },
     method: 'cash',
     appliedAt: timestamp,
     installments: {
@@ -606,6 +620,51 @@ test('las mensualidades permiten abonos acumulados sin alterar el historial', as
 
   changedSnapshot.snapshot.agreedAmount = 450
   await assertFails(db.ref('v1/payments/athlete-1/2026-08').set(changedSnapshot))
+
+  const changedPromotion = structuredClone(settled)
+
+  changedPromotion.snapshot.promotion.name = 'Promoción alterada'
+  await assertFails(db.ref('v1/payments/athlete-1/2026-08').set(changedPromotion))
+})
+
+test('sólo Admin puede liquidar una mensualidad gratis con promoción sin registrar abonos', async () => {
+  const free = {
+    athleteId: 'athlete-1', period: '2026-10', status: 'paid', amount: 0, totalAmount: 0, balance: 0,
+    appliedAt: now(), createdAt: now(), updatedAt: now(),
+    snapshot: { planId: 'plan-1', agreedAmount: 0, paymentDay: 5, dueDate: '2026-10-05', promotion: {
+      promotionId: 'promo-free', name: 'Mes gratis', discountType: 'fixed-amount', discountValue: 600,
+      baseAmount: 500, discountAmount: 500, finalAmount: 0,
+    } },
+  }
+  const admin = env.authenticatedContext('admin').database()
+  const cashier = env.authenticatedContext('cashier').database()
+
+  await assertFails(cashier.ref('v1/payments/athlete-1/2026-10').set(free))
+  await assertFails(admin.ref('v1/payments/athlete-1/2026-10').set({ ...free, snapshot: { ...free.snapshot, promotion: null } }))
+  await assertFails(admin.ref('v1/payments/athlete-1/2026-10').set({ ...free, installments: { fake: { id: 'fake', amountApplied: 0, method: 'cash', appliedAt: now(), balanceAfter: 0 } } }))
+  await assertSucceeds(admin.ref('v1/payments/athlete-1/2026-10').set(free))
+})
+
+test('un coach con permiso de rendimiento registra PR de empleado coach sin leer nómina', async () => {
+  const admin = env.authenticatedContext('admin').database()
+  await env.withSecurityRulesDisabled(async context => {
+    await context.database().ref('v1/employees/employee-coach').set({ id: 'employee-coach', name: 'Coach QA', kind: 'coach', status: 'active', currentRate: 500 })
+    await context.database().ref('v1/employees/employee-cleaning').set({ id: 'employee-cleaning', name: 'Limpieza QA', kind: 'cleaning', status: 'active', currentRate: 500 })
+  })
+  await assertSucceeds(admin.ref('v1/users/coach-perf').set(appUser('coach-perf', 'coach', { performance: true, performanceManage: true })))
+  await assertSucceeds(admin.ref('v1/coachDirectory/employee-coach').set({ id: 'employee-coach', name: 'Coach QA', status: 'active' }))
+  const coach = env.authenticatedContext('coach-perf').database()
+  const noPermission = env.authenticatedContext('coach').database()
+  const record = { type: '1RM', valueLbs: 200, valueKg: 90.72, recordedAt: '2026-09-26' }
+
+  await assertSucceeds(coach.ref('v1/coachDirectory').once('value'))
+  await assertFails(coach.ref('v1/coachDirectory/employee-coach').update({ name: 'Nombre alterado' }))
+  await assertFails(admin.ref('v1/coachDirectory/employee-coach').update({ currentRate: 500 }))
+  await assertFails(coach.ref('v1/employees/employee-coach').once('value'))
+  await assertFails(noPermission.ref('v1/coachDirectory').once('value'))
+  await assertFails(noPermission.ref('v1/coachPerformance/employee-coach/skill/pr1').set(record))
+  await assertFails(coach.ref('v1/coachPerformance/employee-cleaning/skill/pr1').set(record))
+  await assertSucceeds(coach.ref('v1/coachPerformance/employee-coach/skill/pr1').set(record))
 })
 
 test('el permiso reports se valida como booleano pero no concede lecturas de negocio', async () => {
@@ -649,7 +708,7 @@ test('nómina es Admin-only y liquida trabajo con un único egreso inmutable', a
   const reception = env.authenticatedContext('reception').database()
   const timestamp = now()
   const employee = {
-    id: 'employee-1', name: 'Coach de prueba', phone: null, kind: 'coach', startDate: '2026-09-01', status: 'active', notes: null,
+    id: 'employee-1', name: 'Coach de prueba', phone: null, birthDate: '1990-05-10', kind: 'coach', startDate: '2026-09-01', status: 'active', notes: null,
     linkedUserId: null, compensationUnit: 'class', currentRate: 150,
     rateHistory: { [`rate-${timestamp}`]: { id: `rate-${timestamp}`, unit: 'class', amount: 150, effectiveFrom: '2026-09-01', createdBy: 'admin', createdAt: timestamp } },
     createdAt: timestamp, updatedAt: timestamp,
@@ -693,6 +752,19 @@ test('nómina es Admin-only y liquida trabajo con un único egreso inmutable', a
   await assertFails(admin.ref(`v1/expenses/${expenseId}`).remove())
   await assertFails(admin.ref(`v1/payrollSettlements/${settlementId}`).remove())
   await assertFails(reception.ref('v1/employees').once('value'))
+})
+
+test('promociones de planes son legibles con Planes y administrables sólo por Admin', async () => {
+  const admin = env.authenticatedContext('admin').database()
+  const reception = env.authenticatedContext('reception').database()
+  await env.withSecurityRulesDisabled(context => context.database().ref('v1/users/reception/permissions/plans').set(true))
+  const timestamp = now()
+  const promotion = { id: 'promotion-1', name: 'Septiembre', discountType: 'percentage', discountValue: 20, validFrom: '2026-09-01', validThrough: '2026-09-30', planIds: { 'plan-1': true }, schedules: 'all', status: 'active', createdAt: timestamp, updatedAt: timestamp }
+
+  await assertFails(reception.ref(`v1/planPromotions/${promotion.id}`).set(promotion))
+  await assertSucceeds(admin.ref(`v1/planPromotions/${promotion.id}`).set(promotion))
+  await assertSucceeds(reception.ref('v1/planPromotions').once('value'))
+  await assertFails(admin.ref('v1/planPromotions/invalid').set({ ...promotion, id: 'invalid', discountValue: 100 }))
 })
 
 test('cumpleaños permite lectura de Comunidad y sólo Admin registra eventos anuales', async () => {

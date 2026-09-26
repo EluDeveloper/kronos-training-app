@@ -3,6 +3,7 @@ import EmptyState from '@/components/kronos/EmptyState.vue'
 import InventoryResolutionDialog from '@/components/kronos/InventoryResolutionDialog.vue'
 import MetricCard from '@/components/kronos/MetricCard.vue'
 import PageHeader from '@/components/kronos/PageHeader.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { useClosuresStore } from '@/stores/closures'
 import { useCommerceStore } from '@/stores/commerce'
 import { useExpensesStore } from '@/stores/expenses'
@@ -14,6 +15,7 @@ import { useVisitPaymentsStore } from '@/stores/visit-payments'
 import type { InventoryClosure, InventoryClosureItem, InventoryResolution, InventoryResolutionKind, PaymentMethod } from '@/types/domain'
 import { buildFinancialMovements, dateKey, movementsBetweenDates, summarizeMovements } from '@/utils/financial-reports'
 import { formatCurrency, formatDate } from '@/utils/kronos'
+import { paginateItems } from '@/utils/table-pagination'
 
 const closures = useClosuresStore()
 const commerce = useCommerceStore()
@@ -37,6 +39,11 @@ const resolutionDialog = ref(false)
 const resolutionClosure = ref<InventoryClosure | null>(null)
 const inventoryResolutions = ref<InventoryResolution[]>([])
 const resolvingInventory = ref(false)
+const inventoryPage = ref(1)
+const inventoryPageSize = ref(15)
+const cashHistoryPage = ref(1)
+const inventoryHistoryPage = ref(1)
+const historyPageSize = ref(15)
 
 const addDays = (value: string, days: number) => {
   const date = new Date(`${value}T12:00:00`)
@@ -85,8 +92,8 @@ const bankVariance = computed(() => Number(cashForm.countedBank || 0) - expected
 const totalVariance = computed(() => cashVariance.value + bankVariance.value)
 const cashDateIsFuture = computed(() => selectedCashDate.value > today)
 
-const cashHistory = computed(() => closures.cash.slice(0, 15))
-const inventoryHistory = computed(() => closures.inventory.slice(0, 15))
+const cashHistory = computed(() => paginateItems(closures.cash, cashHistoryPage.value, historyPageSize.value).items)
+const inventoryHistory = computed(() => paginateItems(closures.inventory, inventoryHistoryPage.value, historyPageSize.value).items)
 
 function loadCashForm() {
   const existing = existingCashClosure.value
@@ -179,6 +186,8 @@ const inventoryRows = computed(() => {
     unitCost: Number(product.unitCost),
   }))
 })
+
+const paginatedInventoryRows = computed(() => paginateItems(inventoryRows.value, inventoryPage.value, inventoryPageSize.value).items)
 
 const countedValue = (productId: string) => inventoryCounts[productId]
 
@@ -553,7 +562,7 @@ onBeforeUnmount(() => {
           >
             <VCardItem
               title="Historial de cierres"
-              subtitle="Últimos 15 registros"
+              :subtitle="`${closures.cash.length} registros`"
             />
             <EmptyState
               v-if="!cashHistory.length"
@@ -658,7 +667,7 @@ onBeforeUnmount(() => {
               </thead>
               <tbody>
                 <tr
-                  v-for="row in inventoryRows"
+                  v-for="row in paginatedInventoryRows"
                   :key="row.productId"
                 >
                   <td class="font-weight-medium">{{ row.name }}</td>
@@ -685,6 +694,13 @@ onBeforeUnmount(() => {
                 </tr>
               </tbody>
             </VTable>
+            <TablePaginator v-if="closures.cash.length" v-model:page="cashHistoryPage" v-model:page-size="historyPageSize" :total="closures.cash.length" label="cierres diarios" />
+            <TablePaginator
+              v-model:page="inventoryPage"
+              v-model:page-size="inventoryPageSize"
+              :total="inventoryRows.length"
+              label="productos del conteo"
+            />
           </div>
 
           <VTextarea
@@ -737,7 +753,7 @@ onBeforeUnmount(() => {
         class="kronos-card"
         rounded="xl"
       >
-        <VCardItem title="Historial semanal" subtitle="Últimos 15 cierres" />
+        <VCardItem title="Historial semanal" :subtitle="`${closures.inventory.length} cierres`" />
         <EmptyState
           v-if="!inventoryHistory.length"
           title="Sin cierres de inventario"
@@ -785,6 +801,7 @@ onBeforeUnmount(() => {
             </tr>
           </tbody>
         </VTable>
+        <TablePaginator v-if="closures.inventory.length" v-model:page="inventoryHistoryPage" v-model:page-size="historyPageSize" :total="closures.inventory.length" label="cierres semanales" />
       </VCard>
     </VWindowItem>
   </VWindow>

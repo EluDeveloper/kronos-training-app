@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { computed, ref } from 'vue'
 import { formatCurrency } from '@/utils/kronos'
 import type { WorkforceReport } from '@/utils/reporting-workforce'
@@ -9,6 +10,9 @@ import ReportSeriesChart from './ReportSeriesChart.vue'
 const props = defineProps<{ report: WorkforceReport; through: string; range: Pick<ReportingFilters, 'from' | 'through'> }>()
 const chart = computed(() => buildWorkforceChart(props.report, props.range))
 const selectedRow = ref<WorkforceReport['rows'][number] | null>(null)
+const workPage = ref(1)
+const settlementPage = ref(1)
+const pageSize = ref(15)
 const detailMode = ref<'accrued' | 'paid' | 'pending'>('accrued')
 
 const cards = computed(() => [
@@ -18,6 +22,8 @@ const cards = computed(() => [
 ])
 
 const rows = computed(() => props.report.rows.filter(row => detailMode.value === 'accrued' ? row.accruedInPeriod : detailMode.value === 'paid' ? row.paidInPeriod : row.pendingAtCutoff))
+const paginatedRows = computed(() => rows.value.slice((workPage.value - 1) * pageSize.value, workPage.value * pageSize.value))
+const paginatedSettlements = computed(() => props.report.settlementRows.slice((settlementPage.value - 1) * pageSize.value, settlementPage.value * pageSize.value))
 const qualityLabel = (quality: string) => ({ exact: 'Exacto', 'partial-history': 'Histórico parcial', unavailable: 'No disponible' }[quality] ?? quality)
 const statusLabel = (status: string) => ({ pending: 'Pendiente', approved: 'Aprobado', paid: 'Pagado' }[status] ?? status)
 const methodLabel = (method?: string) => method ? ({ cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta', other: 'Otro' }[method] ?? method) : 'No aplica'
@@ -147,7 +153,7 @@ async function show(mode: typeof detailMode.value) {
             </thead>
             <tbody>
               <tr
-                v-for="row in rows"
+                v-for="row in paginatedRows"
                 :key="row.entryId"
               >
                 <td>{{ row.employeeName }}<span class="d-block text-caption">ID {{ row.employeeId }}</span></td><td>{{ row.workDate }}<span class="d-block text-caption">ID {{ row.entryId }}</span></td><td>
@@ -177,6 +183,7 @@ async function show(mode: typeof detailMode.value) {
               </tr>
             </tbody>
           </VTable>
+          <TablePaginator v-model:page="workPage" v-model:page-size="pageSize" :total="rows.length" label="líneas de trabajo" />
         </div>
       </VCardText>
     </VCard>
@@ -214,7 +221,7 @@ async function show(mode: typeof detailMode.value) {
               </tr>
             </thead><tbody>
               <tr
-                v-for="settlement in report.settlementRows"
+                v-for="settlement in paginatedSettlements"
                 :key="settlement.settlementId"
               >
                 <td>{{ settlement.settlementId }}</td><td>{{ settlement.employeeName }}<span class="d-block text-caption">ID {{ settlement.employeeId }}</span></td><td>{{ settlement.paidAt }} · {{ methodLabel(settlement.method) }}</td><td>
@@ -234,6 +241,7 @@ async function show(mode: typeof detailMode.value) {
               </tr>
             </tbody>
           </VTable>
+          <TablePaginator v-model:page="settlementPage" v-model:page-size="pageSize" :total="report.settlementRows.length" label="liquidaciones" />
         </div>
       </VCardText>
     </VCard>

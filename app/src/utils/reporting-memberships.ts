@@ -12,6 +12,9 @@ export interface MembershipReport {
     expected: number | null
     collected: number
     balance: number | null
+    complimentary: boolean
+    promotionName: string | null
+    discountAmount: number
     status: 'paid' | 'pending' | 'overdue' | 'advance' | 'unavailable'
     quality: ReportingDataQuality
     movements: Array<{ id: string; amount: number; method: string; effectiveDate: string }>
@@ -107,6 +110,9 @@ export function buildMembershipReport(payments: ReportingMembershipSource[], fil
       expected: totalExpected === null ? null : currency(totalExpected),
       collected: currency(rowCollected),
       balance,
+      complimentary: totalExpected === 0 && payment.status === 'paid' && payment.snapshot?.promotion?.finalAmount === 0,
+      promotionName: payment.snapshot?.promotion?.name ?? null,
+      discountAmount: currency(payment.snapshot?.promotion?.discountAmount ?? 0),
       status: state,
       quality: rowQuality,
       movements: periodPayments.map(installment => ({

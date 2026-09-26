@@ -1,10 +1,11 @@
 import { jsPDF } from 'jspdf'
 import type { Athlete, CombinedStorePayment, ISOTimestamp, MembershipPaymentInstallment, Payment, PaymentMethod, Sale, SalePayment, SalePaymentAdjustment, Visit, VisitPayment, VisitorContact } from '@/types/domain'
+import type { PayrollSettlement, WorkEntry } from '@/types/workforce'
 import { drawKronosPdfHeader, loadKronosLogoDataUrl } from '@/utils/kronos-pdf'
 import { formatCurrency, formatDate, membershipBalance, membershipPaidAmount, membershipTotalAmount, saleAppliedAmount, saleBalance, timestampValue } from '@/utils/kronos'
 import { effectiveSalePayments, resolveSalePaymentStates } from '@/utils/store-payment-adjustments'
 
-export type ReceiptKind = 'membership' | 'sale' | 'sale-payment' | 'sale-correction' | 'store-statement' | 'collection'
+export type ReceiptKind = 'membership' | 'membership-free' | 'sale' | 'sale-payment' | 'sale-correction' | 'store-statement' | 'collection' | 'payroll'
 
 export interface ReceiptLine {
   description: string
@@ -24,6 +25,7 @@ export interface ReceiptData {
   method?: PaymentMethod | null
   total: number
   amountPaid: number
+  previousPaid?: number
   balance: number
   creditBalance?: number
 }
@@ -41,6 +43,31 @@ const methodLabels: Record<PaymentMethod, string> = {
 }
 
 const folioSuffix = (value: string) => value.replace(/[^a-z0-9]/gi, '').slice(-8).toUpperCase().padStart(6, '0')
+
+export function buildPayrollSettlementReceipt(settlement: PayrollSettlement, entries: WorkEntry[]): ReceiptData {
+  const lines = entries
+    .filter(entry => settlement.entryIds[entry.id] && entry.employeeId === settlement.employeeId)
+    .sort((left, right) => left.date.localeCompare(right.date))
+    .map(entry => ({
+      description: `${formatDate(`${entry.date}T12:00:00`)} · ${entry.quantity} ${entry.unit === 'class' ? 'clase(s)' : entry.unit === 'day' ? 'día(s)' : 'periodo(s)'}`,
+      quantity: entry.quantity,
+      unitPrice: entry.rateSnapshot,
+      amount: entry.amount,
+    }))
+
+  return {
+    kind: 'payroll',
+    folio: `NOM-${folioSuffix(settlement.id)}`,
+    issuedAt: `${settlement.paidAt}T12:00:00`,
+    customerName: settlement.employeeName,
+    concept: `Liquidación de trabajo · ${formatDate(`${settlement.periodFrom}T12:00:00`)} a ${formatDate(`${settlement.periodThrough}T12:00:00`)}`,
+    lines: lines.length ? lines : [{ description: `Liquidación del periodo ${settlement.periodFrom} a ${settlement.periodThrough}`, amount: settlement.amount }],
+    method: settlement.method,
+    total: settlement.amount,
+    amountPaid: settlement.amount,
+    balance: 0,
+  }
+}
 
 export const paymentMethodLabel = (method?: PaymentMethod | null) => method ? methodLabels[method] : 'No especificado'
 
@@ -75,6 +102,20 @@ export function combinedStorePaymentsForInstallment(sales: Sale[], athleteId: st
 }
 
 export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planName?: string, installment?: MembershipPaymentInstallment, settledStorePayments: CombinedStorePayment[] = []): ReceiptData {
+  if (payment.status === 'paid' && payment.totalAmount === 0 && payment.snapshot?.promotion?.finalAmount === 0 && !installment) {
+    return {
+      kind: 'membership-free',
+      folio: `GRA-${payment.period.replace('-', '')}-${folioSuffix(athlete.id)}`,
+      issuedAt: payment.appliedAt ?? payment.updatedAt,
+      customerName: athlete.profile.name,
+      phone: athlete.profile.phone,
+      concept: `Mensualidad gratis · ${payment.period}${planName ? ` - ${planName}` : ''} · promoción ${payment.snapshot.promotion.name}`,
+      lines: [{ description: `Mensualidad ${payment.period} · ahorro ${formatCurrency(payment.snapshot.promotion.discountAmount)}`, amount: 0 }],
+      total: 0,
+      amountPaid: 0,
+      balance: 0,
+    }
+  }
   const membershipTotal = membershipTotalAmount(payment, athlete.membership.agreedAmount)
   const membershipAmountPaid = installment?.amountApplied ?? membershipPaidAmount(payment)
   const balance = installment?.balanceAfter ?? membershipBalance(payment, athlete.membership.agreedAmount)
@@ -89,6 +130,7 @@ export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planN
 
   const isAdvance = Boolean(payment.snapshot?.dueDate && installmentDateKey && installmentDateKey < payment.snapshot.dueDate)
   const dueDetail = payment.snapshot?.dueDate ? ` · corte ${formatDate(`${payment.snapshot.dueDate}T12:00:00`)}` : ''
+  const promotionDetail = payment.snapshot?.promotion ? ` · promoción ${payment.snapshot.promotion.name}, ahorro ${formatCurrency(payment.snapshot.promotion.discountAmount)}` : ''
 
   return {
     kind: 'membership',
@@ -96,7 +138,7 @@ export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planN
     issuedAt: installment?.appliedAt ?? payment.appliedAt ?? payment.updatedAt,
     customerName: athlete.profile.name,
     phone: athlete.profile.phone,
-    concept: `${payment.concept?.trim() || `${isAdvance ? 'Adelanto de mensualidad' : 'Mensualidad'} ${payment.period}${planName ? ` - ${planName}` : ''}${dueDetail}`}${isCombinedPayment ? ' + tienda' : ''}`,
+    concept: `${payment.concept?.trim() || `${isAdvance ? 'Adelanto de mensualidad' : 'Mensualidad'} ${payment.period}${planName ? ` - ${planName}` : ''}${dueDetail}${promotionDetail}`}${isCombinedPayment ? ' + tienda' : ''}`,
     lines: [
       { description, ...(payment.visitCount ? { quantity: payment.visitCount, unitPrice: membershipAmountPaid / payment.visitCount } : {}), amount: membershipAmountPaid },
       ...settledStorePayments.map(entry => ({ description: storeSaleDescription(entry.sale), amount: Number(entry.payment.amountApplied || 0) })),
@@ -104,6 +146,7 @@ export function buildMembershipReceipt(payment: Payment, athlete: Athlete, planN
     method: installment?.method ?? payment.method,
     total: membershipTotal + storeAmountPaid,
     amountPaid: membershipAmountPaid + storeAmountPaid,
+    ...(installment ? { previousPaid: Math.max(0, Math.round((membershipTotal - membershipAmountPaid - balance) * 100) / 100) } : {}),
     balance,
   }
 }
@@ -420,7 +463,7 @@ export function buildRenewalReminder(athlete: Athlete, renewalPeriod: string, pl
   }
 }
 
-const receiptFilename = (receipt: ReceiptData) => `${receipt.kind === 'collection' ? 'aviso-cobranza' : 'recibo'}-${receipt.folio.toLowerCase()}.pdf`
+const receiptFilename = (receipt: ReceiptData) => `${receipt.kind === 'collection' ? 'aviso-cobranza' : receipt.kind === 'membership-free' ? 'constancia-mensualidad-gratis' : 'recibo'}-${receipt.folio.toLowerCase()}.pdf`
 
 export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: string) {
   const officialLogo = logoDataUrl ?? await loadKronosLogoDataUrl()
@@ -432,9 +475,10 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
   const isCollection = receipt.kind === 'collection'
   const isCorrection = receipt.kind === 'sale-correction'
   const isStoreStatement = receipt.kind === 'store-statement'
+  const isFreeMembership = receipt.kind === 'membership-free'
 
   const drawHeader = () => {
-    y = drawKronosPdfHeader(pdf, isCollection ? 'AVISO DE PAGO' : isCorrection ? 'CORRECCIÓN' : isStoreStatement ? 'ESTADO DE CUENTA' : 'RECIBO', receipt.folio, officialLogo)
+    y = drawKronosPdfHeader(pdf, isCollection ? 'AVISO DE PAGO' : isCorrection ? 'CORRECCIÓN' : isStoreStatement ? 'ESTADO DE CUENTA' : isFreeMembership ? 'CONSTANCIA' : 'RECIBO', receipt.folio, officialLogo)
   }
 
   const ensureSpace = (required: number) => {
@@ -461,13 +505,15 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
   y += 5
   pdf.text(`Concepto: ${receipt.concept}`, margin, y)
   y += 5
-  if (!isCollection && !isStoreStatement) {
+  if (!isCollection && !isStoreStatement && !isFreeMembership) {
     pdf.text(`Método: ${paymentMethodLabel(receipt.method)}`, margin, y)
     y += 9
   }
   else {
     if (isStoreStatement)
       pdf.text('Documento exclusivo de adeudos de tienda', margin, y)
+    else if (isFreeMembership)
+      pdf.text('Mensualidad gratis - $0 cobrado; no es recibo de pago', margin, y)
     else
       pdf.text('Documento informativo - no es comprobante de pago', margin, y)
     y += 9
@@ -506,7 +552,7 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
     pdf.line(margin, y - 3, width - margin, y - 3)
   }
 
-  ensureSpace(isCollection ? 30 : 46)
+  ensureSpace(isCollection ? 30 : receipt.previousPaid ? 52 : 46)
   y += 3
   pdf.setFontSize(9)
   pdf.setTextColor(70, 72, 68)
@@ -515,7 +561,12 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
     pdf.text('Total', width - margin - 45, y)
     pdf.text(formatCurrency(receipt.total), width - margin, y, { align: 'right' })
     y += 6
-    pdf.text(receipt.kind === 'sale-correction' ? 'Importe corregido' : receipt.kind === 'store-statement' ? 'Abonado' : receipt.kind === 'sale-payment' || receipt.balance > 0 ? 'Abono recibido' : 'Pagado', width - margin - 45, y)
+    if (receipt.previousPaid) {
+      pdf.text('Abonos anteriores', width - margin - 45, y)
+      pdf.text(formatCurrency(receipt.previousPaid), width - margin, y, { align: 'right' })
+      y += 6
+    }
+    pdf.text(isFreeMembership ? 'Cobrado' : receipt.kind === 'sale-correction' ? 'Importe corregido' : receipt.kind === 'store-statement' ? 'Abonado' : receipt.kind === 'sale-payment' || receipt.balance > 0 || receipt.previousPaid ? 'Abono recibido' : 'Pagado', width - margin - 45, y)
     pdf.text(formatCurrency(receipt.amountPaid), width - margin, y, { align: 'right' })
     y += 6
     pdf.text('Saldo', width - margin - 45, y)
@@ -547,7 +598,7 @@ export async function createReceiptPdf(receipt: ReceiptData, logoDataUrl?: strin
     pdf.text(formatCurrency(receipt.balance), width - margin - 4, y + 1, { align: 'right' })
   }
   else {
-    pdf.text('PAGO COMPLETO', width - margin - 33, y + 1, { align: 'center' })
+    pdf.text(isFreeMembership ? 'MENSUALIDAD GRATIS' : 'PAGO COMPLETO', width - margin - 33, y + 1, { align: 'center' })
   }
 
   const pageHeight = pdf.internal.pageSize.getHeight()
@@ -594,14 +645,21 @@ const receiptMessage = (receipt: ReceiptData) => receipt.kind === 'collection'
     `Total a pagar: ${formatCurrency(receipt.total)}`,
     'Si ya realizaste el pago, puedes ignorar este mensaje.',
   ].join('\n')
-  : [
-    `Hola ${receipt.customerName}, compartimos tu recibo de Kronos Training.`,
-    `Folio: ${receipt.folio}`,
-    `Concepto: ${receipt.concept}`,
-    ...receipt.lines.map(line => `- ${line.description}: ${formatCurrency(line.amount)}`),
-    `Pago total: ${formatCurrency(receipt.amountPaid)}`,
-    receipt.balance > 0 ? `Saldo pendiente: ${formatCurrency(receipt.balance)}` : 'Saldo: pagado',
-  ].join('\n')
+  : receipt.kind === 'membership-free'
+    ? [
+      `Hola ${receipt.customerName}, compartimos tu constancia de mensualidad gratis de Kronos Training.`,
+      `Folio: ${receipt.folio}`,
+      `Concepto: ${receipt.concept}`,
+      'Mensualidad gratis · $0 cobrado. Esta constancia no es un recibo de pago.',
+    ].join('\n')
+    : [
+      `Hola ${receipt.customerName}, compartimos tu recibo de Kronos Training.`,
+      `Folio: ${receipt.folio}`,
+      `Concepto: ${receipt.concept}`,
+      ...receipt.lines.map(line => `- ${line.description}: ${formatCurrency(line.amount)}`),
+      `Pago total: ${formatCurrency(receipt.amountPaid)}`,
+      receipt.balance > 0 ? `Saldo pendiente: ${formatCurrency(receipt.balance)}` : 'Saldo: pagado',
+    ].join('\n')
 
 export async function shareReceipt(receipt: ReceiptData) {
   const phone = normalizedWhatsAppPhone(receipt.phone)

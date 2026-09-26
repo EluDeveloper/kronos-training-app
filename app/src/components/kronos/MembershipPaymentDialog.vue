@@ -2,10 +2,14 @@
 import { useNotifications } from '@/composables/useNotifications'
 import { useAthletesStore } from '@/stores/athletes'
 import { usePaymentsStore } from '@/stores/payments'
+import { useNotificationsStore } from '@/stores/notifications'
+import { usePlansStore } from '@/stores/plans'
 import { useSessionStore } from '@/stores/session'
 import { currentPeriod, type CombinedStorePayment, type MembershipPaymentInstallment, type Payment, type PaymentMethod, type Sale } from '@/types/domain'
 import { formatCurrency, formatDate, membershipBalance, membershipInstallments, membershipPaidAmount, membershipTotalAmount, saleBalance } from '@/utils/kronos'
 import { allowedMembershipPeriods, buildMembershipPeriodSnapshot, membershipCollectionState } from '@/utils/membership-periods'
+import { resolvePlanPromotion } from '@/utils/plan-promotions'
+import { businessDateInMexicoCity } from '@/utils/business-date'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -32,41 +36,70 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'saved': [payment: Payment, installment: MembershipPaymentInstallment, settledSales: CombinedStorePayment[]]
+  'saved': [payment: Payment, installment: MembershipPaymentInstallment | undefined, settledSales: CombinedStorePayment[]]
 }>()
 
 const athletes = useAthletesStore()
 const payments = usePaymentsStore()
+const plans = usePlansStore()
+const notifications = useNotificationsStore()
 const session = useSessionStore()
 const { success, failure } = useNotifications()
 const saving = ref(false)
 const includeStoreDebt = ref(true)
+const applyPromotion = ref(true)
 const form = reactive({ athleteId: '', period: currentPeriod(), amount: 0, method: 'cash' as PaymentMethod })
 
 const selectedAthlete = computed(() => athletes.active.find(item => item.id === form.athleteId))
 const currentPayment = computed(() => payments.items.find(item => item.athleteId === form.athleteId && item.period === form.period && !item.visitorId))
-const expectedAmount = computed(() => membershipTotalAmount(currentPayment.value, props.amount > 0 ? props.amount : selectedAthlete.value?.membership.agreedAmount))
+
+const promotionQuote = computed(() => {
+  const athlete = selectedAthlete.value
+  const baseAmount = props.amount > 0 ? props.amount : athlete?.membership.agreedAmount ?? 0
+
+  if (!athlete || props.amount > 0)
+    return { baseAmount, discountAmount: 0, finalAmount: baseAmount, appliedPromotion: null }
+
+  return resolvePlanPromotion({ baseAmount, planId: athlete.membership.planId, schedule: athlete.membership.schedule, businessDate: businessDateInMexicoCity(), promotions: plans.promotions })
+})
+
+const effectiveQuote = computed(() => applyPromotion.value ? promotionQuote.value : {
+  baseAmount: promotionQuote.value.baseAmount,
+  discountAmount: 0,
+  finalAmount: promotionQuote.value.baseAmount,
+  appliedPromotion: null,
+})
+
+const expectedAmount = computed(() => membershipTotalAmount(currentPayment.value, currentPayment.value?.snapshot?.agreedAmount ?? effectiveQuote.value.finalAmount))
+const isComplimentary = computed(() => !currentPayment.value && expectedAmount.value === 0 && Boolean(effectiveQuote.value.appliedPromotion))
 const paidAmount = computed(() => membershipPaidAmount(currentPayment.value))
 const pendingAmount = computed(() => membershipBalance(currentPayment.value, expectedAmount.value))
 const paymentHistory = computed(() => currentPayment.value ? [...membershipInstallments(currentPayment.value)].reverse() : [])
 const paymentProgress = computed(() => expectedAmount.value > 0 ? Math.min(100, paidAmount.value / expectedAmount.value * 100) : 0)
 const selectedStoreSales = computed(() => session.can('storeCollect') ? props.storeSales.filter(sale => sale.athleteId === form.athleteId && sale.status === 'credit' && saleBalance(sale) > 0) : [])
 const storeDebt = computed(() => selectedStoreSales.value.reduce((total, sale) => total + saleBalance(sale), 0))
-const totalToday = computed(() => Number(form.amount || 0) + (includeStoreDebt.value ? storeDebt.value : 0))
+const totalToday = computed(() => isComplimentary.value ? 0 : Number(form.amount || 0) + (includeStoreDebt.value ? storeDebt.value : 0))
 
 const periodItems = computed(() => {
   const periods = allowedMembershipPeriods()
   if (form.period && !periods.includes(form.period))
     periods.unshift(form.period)
 
-  return periods.map(period => ({ title: period, value: period }))
+  return periods.map(period => {
+    const [year, month] = period.split('-').map(Number)
+    const label = new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1))
+    const dueDate = selectedAthlete.value ? buildMembershipPeriodSnapshot(selectedAthlete.value.membership, period).dueDate : null
+    const timing = period === currentPeriod() ? 'periodo vigente' : 'periodo futuro'
+
+    return { title: `${label} · ${timing}${dueDate ? ` · corte ${formatDate(`${dueDate}T12:00:00`)}` : ''}`, value: period }
+  })
 })
 
 const periodSnapshot = computed(() => currentPayment.value?.snapshot ?? (selectedAthlete.value
-  ? buildMembershipPeriodSnapshot({ ...selectedAthlete.value.membership, agreedAmount: expectedAmount.value }, form.period)
+  ? { ...buildMembershipPeriodSnapshot({ ...selectedAthlete.value.membership, agreedAmount: expectedAmount.value }, form.period), promotion: effectiveQuote.value.appliedPromotion }
   : null))
 
-const collectionState = computed(() => periodSnapshot.value ? membershipCollectionState({
+const collectionState = computed(() => isComplimentary.value ? 'pending' : periodSnapshot.value ? membershipCollectionState({
   dueDate: periodSnapshot.value.dueDate,
   balance: pendingAmount.value,
   paidAt: currentPayment.value?.appliedAt,
@@ -101,6 +134,7 @@ function initialize() {
   form.period = /^\d{4}-\d{2}$/.test(props.period) ? props.period : currentPeriod()
   form.method = 'cash'
   includeStoreDebt.value = true
+  applyPromotion.value = true
   nextTick(suggestPendingAmount)
 }
 
@@ -114,8 +148,41 @@ watch(() => form.athleteId, (id, previousId) => {
   suggestPendingAmount()
 })
 watch(() => form.period, suggestPendingAmount)
+watch(applyPromotion, suggestPendingAmount)
 
 async function save() {
+  if (isComplimentary.value) {
+    if (!session.isAdmin || !form.athleteId || !periodSnapshot.value) {
+      failure('Sólo Admin puede confirmar una mensualidad gratis.')
+
+      return
+    }
+
+    const accepted = await notifications.requestConfirmation({
+      title: 'Confirmar mensualidad gratis',
+      message: `¿Liquidar ${form.period} sin cobro para ${selectedAthlete.value?.profile.name}?`,
+      detail: 'Se guardará la promoción y se generará una constancia. No se registrará un abono ni se liquidarán adeudos de tienda.',
+      confirmText: 'Confirmar mensualidad gratis',
+      color: 'success',
+      icon: 'ri-gift-line',
+    })
+
+    if (!accepted) return
+    saving.value = true
+    try {
+      const payment = await payments.applyComplimentaryPeriod({ athleteId: form.athleteId, period: form.period, snapshot: periodSnapshot.value })
+
+      success('Mensualidad gratis registrada. Se generó la constancia sin cobro.')
+      emit('update:modelValue', false)
+      emit('saved', payment, undefined, [])
+    }
+    catch (error) {
+      failure(error instanceof Error ? error.message : 'No fue posible registrar la mensualidad gratis.')
+    }
+    finally { saving.value = false }
+
+    return
+  }
   if (!form.athleteId || !/^\d{4}-\d{2}$/.test(form.period) || Number(form.amount) <= 0 || Number(form.amount) > pendingAmount.value) {
     failure('Selecciona atleta, periodo y monto válido.')
 
@@ -178,7 +245,7 @@ async function save() {
           />
 
           <VAlert
-            v-if="form.athleteId && expectedAmount > 0"
+            v-if="form.athleteId"
             color="info"
             variant="tonal"
           >
@@ -235,6 +302,35 @@ async function save() {
           </VRow>
 
           <VAlert
+            v-if="!currentPayment && promotionQuote.appliedPromotion"
+            color="success"
+            variant="tonal"
+          >
+            <strong>{{ promotionQuote.appliedPromotion.name }}</strong>: {{ formatCurrency(promotionQuote.baseAmount) }} − {{ formatCurrency(promotionQuote.discountAmount) }} = <strong>{{ formatCurrency(promotionQuote.finalAmount) }}</strong>. El descuento quedará congelado para este periodo.
+          </VAlert>
+          <VSwitch
+            v-if="session.isAdmin && !currentPayment && promotionQuote.appliedPromotion"
+            v-model="applyPromotion"
+            label="Aplicar promoción a este periodo"
+            color="success"
+            hide-details
+          />
+          <VAlert
+            v-if="isComplimentary"
+            color="success"
+            variant="tonal"
+          >
+            Mensualidad gratis · $0 cobrado. Sólo Admin puede confirmarla; se emitirá una constancia, no un recibo de pago.
+          </VAlert>
+          <VAlert
+            v-if="isComplimentary && storeDebt > 0"
+            color="warning"
+            variant="tonal"
+          >
+            El adeudo de tienda no se liquidará con esta mensualidad gratis; cóbralo por separado.
+          </VAlert>
+
+          <VAlert
             v-if="periodSnapshot"
             :color="collectionState === 'overdue' ? 'error' : collectionState === 'paid' ? 'success' : 'info'"
             variant="tonal"
@@ -252,19 +348,20 @@ async function save() {
                 :color="collectionState === 'overdue' ? 'error' : collectionState === 'paid' ? 'success' : 'info'"
                 variant="flat"
               >
-                {{ collectionState === 'advance' ? 'Adelantado' : collectionState === 'overdue' ? 'Vencido' : collectionState === 'paid' ? 'Liquidado' : 'Pendiente' }}
+                {{ isComplimentary ? 'Pendiente de confirmar' : collectionState === 'advance' ? 'Adelantado' : collectionState === 'overdue' ? 'Vencido' : collectionState === 'paid' ? 'Liquidado' : 'Pendiente' }}
               </VChip>
             </div>
           </VAlert>
 
           <VSelect
+            v-if="!isComplimentary"
             v-model="form.method"
             :items="paymentMethods"
             label="Método de pago"
           />
 
           <VAlert
-            v-if="storeDebt > 0"
+            v-if="storeDebt > 0 && !isComplimentary"
             color="warning"
             variant="tonal"
           >
@@ -326,10 +423,10 @@ async function save() {
           <VBtn
             type="submit"
             :loading="saving"
-            :disabled="pendingAmount <= 0"
+            :disabled="(pendingAmount <= 0 && !isComplimentary) || (isComplimentary && !session.isAdmin)"
             prepend-icon="ri-checkbox-circle-line"
           >
-            {{ pendingAmount > 0 ? 'Aplicar abono y generar recibo' : 'Mensualidad liquidada' }}
+            {{ isComplimentary ? 'Confirmar mensualidad gratis' : pendingAmount > 0 ? 'Aplicar abono y generar recibo' : 'Mensualidad liquidada' }}
           </VBtn>
         </VCardActions>
       </VForm>

@@ -2,11 +2,14 @@ import { get, push, ref, set, update, type Unsubscribe } from 'firebase/database
 import type { PaymentMethod } from '@/types/domain'
 import type { CompensationUnit, Employee, EmployeeKind, PayrollOperation, PayrollSettlement, WorkEntry } from '@/types/workforce'
 import { buildWorkEntry, selectSettlementEntries, validateDailyWorkEntry } from '@/utils/workforce-payroll'
+import { validateEmployeeBirthDate } from '@/utils/employee-birthdays'
+import { coachDirectoryEntry } from '@/utils/coach-directory'
 import { businessPath, requireDatabase, subscribeCollection, type ErrorHandler } from './realtime.service'
 
 export interface EmployeeInput {
   name: string
   phone?: string | null
+  birthDate: string
   kind: EmployeeKind
   startDate: string
   status: 'active' | 'inactive'
@@ -24,6 +27,8 @@ export const workforceService = {
   subscribeSettlements: (onChange: (items: PayrollSettlement[]) => void, onError: ErrorHandler): Unsubscribe => subscribeCollection<PayrollSettlement>('payrollSettlements', onChange, onError),
 
   async saveEmployee(input: EmployeeInput, actorUid: string, employeeId?: string) {
+    validateEmployeeBirthDate(input.birthDate)
+
     const database = requireDatabase()
     const id = employeeId ?? push(ref(database, businessPath('employees'))).key
     if (!id)
@@ -54,6 +59,7 @@ export const workforceService = {
         createdAt: previous?.createdAt ?? now,
         updatedAt: now,
       },
+      [`coachDirectory/${id}`]: coachDirectoryEntry({ id, name: input.name, kind: input.kind, status: input.status }),
     })
 
     return id
@@ -113,8 +119,10 @@ export const workforceService = {
     const operations = operationsSnapshot.exists() ? Object.values(operationsSnapshot.val() as Record<string, PayrollOperation>) : []
     const previous = operations.find(operation => Object.keys(operation.entryIds).sort().join('|') === key)
     const completions = completionsSnapshot.exists() ? completionsSnapshot.val() as Record<string, { completedAt: number }> : {}
-    if (previous && completions[previous.id])
-      return previous.id
+    if (previous && completions[previous.id]) {
+      const settlementSnapshot = await get(ref(database, businessPath(`payrollSettlements/${previous.id}`)))
+      if (settlementSnapshot.exists()) return settlementSnapshot.val() as PayrollSettlement
+    }
     const selection = selectSettlementEntries(entries, entryIds)
     const settlementId = previous?.id ?? push(ref(database, businessPath('payrollOperations'))).key
     if (!settlementId)
@@ -189,6 +197,6 @@ export const workforceService = {
     })
     await update(ref(database, businessPath('')), updates)
 
-    return settlementId
+    return settlement
   },
 }

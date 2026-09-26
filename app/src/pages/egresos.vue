@@ -2,11 +2,13 @@
 import PageHeader from '@/components/kronos/PageHeader.vue'
 import MetricCard from '@/components/kronos/MetricCard.vue'
 import EmptyState from '@/components/kronos/EmptyState.vue'
+import TablePaginator from '@/components/kronos/TablePaginator.vue'
 import { useExpensesStore } from '@/stores/expenses'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useSessionStore } from '@/stores/session'
 import type { Expense, ExpenseStatus, PaymentMethod } from '@/types/domain'
 import { currentPeriod } from '@/types/domain'
+import { businessDateInMexicoCity } from '@/utils/business-date'
 import { formatCurrency, formatDate, timestampValue } from '@/utils/kronos'
 
 const expenses = useExpensesStore()
@@ -20,8 +22,8 @@ const search = ref('')
 const statusFilter = ref<string | null>(null)
 const categoryFilter = ref<string | null>(null)
 const page = ref(1)
-const perPage = 15
-const form = reactive({ date: new Date().toISOString().slice(0, 10), category: '', subcategory: '', description: '', amount: 0, method: 'transfer' as PaymentMethod, status: 'paid' as ExpenseStatus, registeredBy: 'Administración', receiptUrl: '' })
+const perPage = ref(15)
+const form = reactive({ date: businessDateInMexicoCity(), category: '', subcategory: '', description: '', amount: 0, method: 'transfer' as PaymentMethod, status: 'paid' as ExpenseStatus, registeredBy: 'Administración', receiptUrl: '' })
 
 const thisMonth = computed(() => expenses.items.filter(item => item.date?.startsWith(currentPeriod())))
 const paidTotal = computed(() => thisMonth.value.filter(item => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount), 0))
@@ -34,14 +36,13 @@ const filtered = computed(() => [...expenses.items]
   .sort((a, b) => timestampValue(b.date) - timestampValue(a.date)))
 
 const categoryItems = computed(() => [...new Set(expenses.items.map(item => item.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')))
-const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage)))
-const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))
+const paginated = computed(() => filtered.value.slice((page.value - 1) * perPage.value, page.value * perPage.value))
 
 watch([search, statusFilter, categoryFilter], () => { page.value = 1 })
 
 function openCreate() {
   editing.value = null
-  Object.assign(form, { date: new Date().toISOString().slice(0, 10), category: '', subcategory: '', description: '', amount: 0, method: 'transfer', status: 'paid', registeredBy: 'Administración', receiptUrl: '' })
+  Object.assign(form, { date: businessDateInMexicoCity(), category: '', subcategory: '', description: '', amount: 0, method: 'transfer', status: 'paid', registeredBy: 'Administración', receiptUrl: '' })
   dialog.value = true
 }
 function openEdit(expense: Expense) {
@@ -55,7 +56,7 @@ async function save() {
 
     return
   }
-  if (form.status === 'paid' && form.date > new Date().toISOString().slice(0, 10)) {
+  if (form.status === 'paid' && form.date > businessDateInMexicoCity()) {
     notifications.show('Un egreso futuro no puede marcarse como pagado.', 'warning')
 
     return
@@ -205,7 +206,7 @@ onUnmounted(() => expenses.dispose())
               v-for="expense in paginated"
               :key="expense.id"
             >
-              <td>{{ formatDate(expense.date) }}</td><td>
+              <td>{{ formatDate(`${expense.date}T12:00:00`) }}</td><td>
                 {{ expense.category }}<div
                   v-if="expense.subcategory"
                   class="text-caption text-medium-emphasis"
@@ -239,13 +240,7 @@ onUnmounted(() => expenses.dispose())
             </tr>
           </tbody>
         </VTable>
-        <div class="d-flex flex-wrap justify-space-between align-center ga-3 mt-5">
-          <span class="text-caption text-medium-emphasis">{{ filtered.length }} movimientos · máximo 15 por página</span><VPagination
-            v-model="page"
-            :length="pageCount"
-            :total-visible="5"
-          />
-        </div>
+        <TablePaginator v-model:page="page" v-model:page-size="perPage" :total="filtered.length" label="movimientos" />
       </template>
     </VCardText>
   </VCard>
